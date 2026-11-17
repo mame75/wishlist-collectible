@@ -53,8 +53,14 @@ nav button.on{background:var(--surface2);color:var(--ink)}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform .15s,border-color .15s;text-align:left}
 .tile:hover{transform:translateY(-3px);border-color:#3a4258}
 .img{position:relative;aspect-ratio:63/88;border-radius:8px;overflow:hidden;background:var(--surface2)}
-.img img{width:100%;height:100%;object-fit:cover;display:block}
-.img .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:12px;padding:10px;text-align:center}
+.img img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.img .ph{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;color:var(--muted);font-size:12px;
+  background:radial-gradient(circle at 50% 45%,#262c3c 0 22%,transparent 23%),repeating-linear-gradient(135deg,#1b2030 0 8px,#181c29 8px 16px);border:2px solid #262c3c;border-radius:8px}
+.img .ph span{display:grid;gap:4px;background:rgba(11,13,18,.85);padding:8px 10px;border-radius:8px}
+.img .ph b{color:var(--ink);font-size:13px;line-height:1.2}
+.img .ph small{font-size:11px}
+.img .ph em{font-style:normal;font-size:10px;text-transform:none;opacity:.8}
+.badges{z-index:2}
 .badges{position:absolute;left:6px;top:6px;display:flex;gap:4px;flex-wrap:wrap}
 .bdg{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(11,13,18,.82);color:#fff;border:1px solid rgba(255,255,255,.12)}
 .bdg.grade{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -208,11 +214,20 @@ const API = {
   },
   async pkmSearch(q, lang){
     const list = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`);
-    return Array.isArray(list) ? list.map(b => ({id:b.id, name:b.name, image:b.image})) : [];
+    if (!Array.isArray(list)) return [];
+    // Cartes avec visuel d'abord (tri stable : l'ordre de la base est conservé)
+    return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => (b.image ? 1 : 0) - (a.image ? 1 : 0));
   },
   async pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
-    return c ? this.pkmNorm(c, lang) : null;
+    if (!c) return null;
+    const card = this.pkmNorm(c, lang);
+    // Pas de visuel dans cette langue : on essaie le visuel anglais de la même carte
+    if (!card.img && lang !== 'en'){
+      const en = await this.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
+      if (en && en.image){ card.img = en.image + '/low.webp'; card.imgHi = en.image + '/high.webp'; card.imgLang = 'en'; }
+    }
+    return card;
   },
   /* --- Yu-Gi-Oh! : YGOPRODeck (prix Cardmarket en €) --- */
   ygoNorm(c, lang){
@@ -269,7 +284,7 @@ function makeItem(card, opts){
   const print = (card.prints || []).find(p => p.code === opts.printCode);
   return {
     uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
-    img: card.img, imgHi: card.imgHi,
+    img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', prints: card.prints,
     cmId: card.cmId || null, nameEn: card.nameEn || null,
@@ -282,6 +297,17 @@ function makeItem(card, opts){
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
 
+
+/* Visuel de carte, avec vignette de remplacement quand la base n'a pas d'image */
+function imgBox(c, hi, badges){
+  const src = hi ? c.imgHi : c.img;
+  const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
+  return `<div class="img">
+    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" loading="lazy" onerror="this.remove()">` : ''}
+    <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
+    <div class="badges">${badges || ''}${c.imgLang === 'en' && src ? '<span class="bdg" title="Pas de visuel dans cette langue : visuel anglais affiché">Visuel EN</span>' : ''}</div>
+  </div>`;
+}
 /* ========= Vues ========= */
 let view = 'wishlist';
 let filters = { q:'', game:'all', sort:'added', min:'', max:'' };
@@ -291,15 +317,9 @@ function tileHTML(it, i){
   const price = shownPrice(it);
   const sub = [it.set, it.num || it.printCode].filter(Boolean).join(' · ') || GAMES[it.game].label;
   return `<button class="tile" data-i="${i}">
-    <div class="img">
-      ${it.img ? `<img src="${esc(it.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
-      <div class="ph" ${it.img ? 'style="z-index:-1"' : ''}>${esc(it.name)}</div>
-      <div class="badges">
-        <span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
+    ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
-        ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}
-      </div>
-    </div>
+        ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div><div class="tname">${esc(it.name)}</div><div class="tsub">${esc(sub)}</div></div>
     <div class="tprice"><b>${price == null ? '—' : eur(price)}</b><span>${it.graded ? 'Gradée' : 'Raw · moy.'}</span></div>
   </button>`;
@@ -458,7 +478,7 @@ function renderResults(msg){
   box.innerHTML = `<div class="hint" style="margin-top:12px">${count} résultat${count>1?'s':''}${s.game==='ygo' && count>=60 ? ' (60 premiers — précise ta recherche)' : ''}</div>
     <div class="results" id="rgrid">${s.cards.map((c, i) => `
       <button class="tile" data-r="${i}">
-        <div class="img">${c.img ? `<img src="${esc(c.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<div class="ph" ${c.img?'style="z-index:-1"':''}>${esc(c.name)}</div></div>
+        ${imgBox(c, false)}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
       </button>`).join('')}
@@ -512,7 +532,7 @@ function renderConfigure(card){
   $('#addTitle').textContent = 'Préciser la carte';
   const o = { variant:'normal', graded:false, grader:'PSA', grade:'10', priceGraded:null, note:'', printCode:'' };
   $('#addBody').innerHTML = `<div class="detail">
-    <div class="img">${card.imgHi ? `<img src="${esc(card.imgHi)}" alt="${esc(card.name)}" onerror="this.remove()">` : ''}<div class="ph" ${card.imgHi?'style="z-index:-1"':''}>${esc(card.name)}</div></div>
+    ${imgBox(card, true)}
     <div>
       <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
       <dl class="kv">
@@ -549,7 +569,7 @@ function openDetail(i){
   $('#detTitle').textContent = it.name;
   const o = { ...it };
   $('#detBody').innerHTML = `<div class="detail">
-    <div class="img">${it.imgHi ? `<img src="${esc(it.imgHi)}" alt="${esc(it.name)}" onerror="this.remove()">` : ''}<div class="ph" ${it.imgHi?'style="z-index:-1"':''}>${esc(it.name)}</div></div>
+    ${imgBox(it, true)}
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
       <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `Prix moyen Cardmarket${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
@@ -597,7 +617,7 @@ async function refreshOne(it){
   if (!c) return;
   it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
   it.hasReverse = c.prices.reverse != null;
-  it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi;
+  it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang;
   if (c.prints) it.prints = c.prints;
   if (c.cmId) it.cmId = c.cmId;
   if (c.nameEn) it.nameEn = c.nameEn;
