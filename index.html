@@ -164,6 +164,8 @@ const GAMES = {
 const GRADERS = ['PSA','CGC','BGS','PCA','Collect Aura','SGC'];
 const GRADES = ['10','9.5','9','8.5','8','7.5','7','6','5','4','3','2','1'];
 const STORE_KEY = 'wlc.v1';
+// Visuels ajoutés à la main pour les cartes Pokémon sans image dans TCGdex (fichiers dans images/pokemon/)
+const CUSTOM_IMG = { '2024sv-1': 'images/pokemon/2024sv-1.jpg' };
 const PAGE = 24;
 
 /* ========= Utilitaires ========= */
@@ -204,7 +206,8 @@ const API = {
     const official = c.set && c.set.cardCount && c.set.cardCount.official;
     return {
       game:'pkm', id:c.id, lang, name:c.name,
-      img: c.image ? c.image + '/low.webp' : null, imgHi: c.image ? c.image + '/high.webp' : null,
+      img: c.image ? c.image + '/low.webp' : (CUSTOM_IMG[c.id] || null),
+      imgHi: c.image ? c.image + '/high.webp' : (CUSTOM_IMG[c.id] || null),
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: c.rarity || '',
       prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
@@ -216,7 +219,8 @@ const API = {
     const list = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`);
     if (!Array.isArray(list)) return [];
     // Cartes avec visuel d'abord (tri stable : l'ordre de la base est conservé)
-    return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => (b.image ? 1 : 0) - (a.image ? 1 : 0));
+    const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
+    return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
   async pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
