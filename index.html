@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wishlist Collectible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* V1 alpha — fonctionnel d'abord. Style inspiré de Collectr : fond sombre, cartes en grille, prix mis en avant. */
+:root{
+  --bg:#0b0d12;--surface:#141821;--surface2:#1b2030;--line:#262c3c;
+  --ink:#eef1f6;--muted:#8d96aa;--accent:#ffcf3a;--accent-ink:#1a1400;
+  --danger:#ff6b6b;--ok:#4ade80;--radius:14px;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 max(3vw,14px)}
+
+/* En-tête */
+header{position:sticky;top:0;z-index:20;background:rgba(11,13,18,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:16px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
+.logo i{width:26px;height:34px;border-radius:5px;background:linear-gradient(140deg,var(--accent),#ff8a3a);display:block;transform:rotate(-8deg);box-shadow:6px 2px 0 -1px #3a4258}
+nav{display:flex;gap:4px;margin-left:12px}
+nav button{background:none;border:0;padding:8px 14px;border-radius:999px;color:var(--muted);font-weight:600;cursor:pointer}
+nav button.on{background:var(--surface2);color:var(--ink)}
+.sp{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:#3a4258}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none}
+.btn.danger{color:var(--danger)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,nav button:focus-visible,.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Barre d'outils */
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 0 8px}
+.field{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:0 12px;font-size:15px}
+.field.grow{flex:1 1 220px}
+.field.num{width:96px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:0;background:none;padding:0 12px;height:32px;border-radius:7px;color:var(--muted);font-weight:600;cursor:pointer}
+.seg button.on{background:var(--surface2);color:var(--ink)}
+.stats{display:flex;gap:28px;padding:10px 0 18px;color:var(--muted);font-size:14px}
+.stats b{display:block;color:var(--ink);font-size:24px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+/* Grille de cartes */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;padding-bottom:60px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform .15s,border-color .15s;text-align:left}
+.tile:hover{transform:translateY(-3px);border-color:#3a4258}
+.img{position:relative;aspect-ratio:63/88;border-radius:8px;overflow:hidden;background:var(--surface2)}
+.img img{width:100%;height:100%;object-fit:cover;display:block}
+.img .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:12px;padding:10px;text-align:center}
+.badges{position:absolute;left:6px;top:6px;display:flex;gap:4px;flex-wrap:wrap}
+.bdg{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(11,13,18,.82);color:#fff;border:1px solid rgba(255,255,255,.12)}
+.bdg.grade{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tname{font-weight:600;font-size:14px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tprice{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:auto}
+.tprice b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tprice span{font-size:11px;color:var(--muted);white-space:nowrap}
+.empty{grid-column:1/-1;border:1px dashed var(--line);border-radius:var(--radius);padding:48px 20px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--ink);margin:0 0 6px;font-size:18px}
+
+/* Bandeau partage / travaux */
+.banner{margin:18px 0 0;padding:14px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner b{font-size:17px}
+.wip{margin:60px auto;max-width:520px;text-align:center;padding:40px 24px;border:1px dashed var(--line);border-radius:18px}
+.wip .cone{width:56px;height:56px;margin:0 auto 14px;background:repeating-linear-gradient(-45deg,var(--accent) 0 10px,#1b2030 10px 20px);border-radius:12px}
+
+/* Modales */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto}
+.scrim.open{display:flex}
+.modal{width:min(980px,100%);background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:20px;position:relative}
+.modal.sm{width:min(720px,100%)}
+.mhead{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.mhead h2{margin:0;font-size:20px}
+.x{margin-left:auto;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:20px;line-height:1}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px;max-height:62vh;overflow:auto;padding:2px}
+.status{color:var(--muted);padding:18px 0;text-align:center}
+.detail{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px}
+.detail .img{max-width:260px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:4px 0 14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.big{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.form{display:grid;gap:12px;margin-top:6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+label.l{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+.hint{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:80;transition:.2s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.sharebox{width:100%;height:40px}
+@media(max-width:700px){
+  .top{height:auto;flex-wrap:wrap;padding:10px 0;gap:10px}
+  nav{margin-left:0;order:3;width:100%}
+  .detail{grid-template-columns:1fr}
+  .detail .img{max-width:220px;margin:0 auto}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .stats{gap:18px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap top">
+    <div class="logo"><i></i>Wishlist Collectible</div>
+    <nav id="nav">
+      <button data-view="wishlist" class="on">Wishlist</button>
+      <button data-view="collection">Collection</button>
+    </nav>
+    <div class="sp"></div>
+    <button class="btn ghost" id="shareBtn">Partager</button>
+    <button class="btn primary" id="addBtn">+ Ajouter une carte</button>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<!-- Modale : recherche / ajout -->
+<div class="scrim" id="addScrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="mhead"><h2 id="addTitle">Ajouter une carte</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div id="addBody"></div>
+  </div>
+</div>
+
+<!-- Modale : détail d'une carte -->
+<div class="scrim" id="detScrim">
+  <div class="modal sm" role="dialog" aria-modal="true">
+    <div class="mhead"><h2 id="detTitle">Carte</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div id="detBody"></div>
+  </div>
+</div>
+
+<!-- Modale : partage -->
+<div class="scrim" id="shareScrim">
+  <div class="modal sm" role="dialog" aria-modal="true">
+    <div class="mhead"><h2>Partager ma wishlist</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div id="shareBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+{
+/* ========= Config ========= */
+const GAMES = {
+  pkm: {label:'Pokémon', langs:[['fr','FR'],['en','EN'],['ja','JP'],['de','DE'],['it','IT'],['es','ES']]},
+  ygo: {label:'Yu-Gi-Oh!', langs:[['fr','FR'],['en','EN'],['de','DE'],['it','IT'],['pt','PT']]}
+};
+const GRADERS = ['PSA','CGC','BGS','PCA','Collect Aura','SGC'];
+const GRADES = ['10','9.5','9','8.5','8','7.5','7','6','5','4','3','2','1'];
+const STORE_KEY = 'wlc.v1';
+const PAGE = 24;
+
+/* ========= Utilitaires ========= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = n => (n == null || isNaN(n)) ? '—' : n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+const num = v => { const n = parseFloat(String(v ?? '').replace(',','.')); return isNaN(n) ? null : n; };
+const langLabel = (g,l) => (GAMES[g].langs.find(x=>x[0]===l)||[l,l.toUpperCase()])[1];
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2200); }
+async function mapLimit(items, limit, fn){
+  const out = new Array(items.length); let i = 0;
+  const workers = Array.from({length:Math.min(limit, items.length)}, async () => {
+    while (i < items.length){ const k = i++; try { out[k] = await fn(items[k], k); } catch(e){ out[k] = null; } }
+  });
+  await Promise.all(workers); return out;
+}
+const b64e = str => btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const b64d = str => decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
+
+/* ========= Stockage local ========= */
+let state = { owner:'', items:[] };
+function load(){ try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && Array.isArray(s.items)) state = s; } catch(e){} }
+function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
+
+/* ========= Sources de données ========= */
+const API = {
+  async getJSON(url){
+    const r = await fetch(url);
+    if (r.status === 400 || r.status === 404) return null;     // YGOPRODeck renvoie 400 quand rien ne correspond
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  /* --- Pokémon : TCGdex (prix Cardmarket en €) --- */
+  pkmNorm(c, lang){
+    const cm = c.pricing && c.pricing.cardmarket || {};
+    const pick = (...k) => { for (const x of k){ const v = num(cm[x]); if (v != null && v > 0) return v; } return null; };
+    const official = c.set && c.set.cardCount && c.set.cardCount.official;
+    return {
+      game:'pkm', id:c.id, lang, name:c.name,
+      img: c.image ? c.image + '/low.webp' : null, imgHi: c.image ? c.image + '/high.webp' : null,
+      set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
+      rarity: c.rarity || '',
+      prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
+      prints: null,
+      priceDate: cm.updated || null
+    };
+  },
+  async pkmSearch(q, lang){
+    const list = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`);
+    return Array.isArray(list) ? list.map(b => ({id:b.id, name:b.name, image:b.image})) : [];
+  },
+  async pkmCard(id, lang){
+    const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
+    return c ? this.pkmNorm(c, lang) : null;
+  },
+  /* --- Yu-Gi-Oh! : YGOPRODeck (prix Cardmarket en €) --- */
+  ygoNorm(c, lang){
+    const im = (c.card_images || [])[0] || {};
+    const p = (c.card_prices || [])[0] || {};
+    return {
+      game:'ygo', id:String(c.id), lang, name:c.name,
+      img: im.image_url_small || null, imgHi: im.image_url || null,
+      set:'', num:'', rarity:'',
+      prices: { normal: num(p.cardmarket_price) || null, reverse:null },
+      prints: (c.card_sets || []).map(s => ({code:s.set_code, set:s.set_name, rarity:s.set_rarity})),
+      priceDate: null
+    };
+  },
+  ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
+  async ygoSearch(q, lang){
+    const r = await this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(q)}&num=60&offset=0`, lang));
+    return r && Array.isArray(r.data) ? r.data.map(c => this.ygoNorm(c, lang)) : [];
+  },
+  async ygoCard(id, lang){
+    const r = await this.getJSON(this.ygoUrl(`id=${encodeURIComponent(id)}`, lang));
+    return r && r.data && r.data[0] ? this.ygoNorm(r.data[0], lang) : null;
+  },
+  card(game, id, lang){ return game === 'pkm' ? this.pkmCard(id, lang) : this.ygoCard(id, lang); }
+};
+
+/* ========= Liens marchands ========= */
+function cmUrl(it){
+  const path = it.game === 'pkm' ? 'Pokemon' : 'YuGiOh';
+  return `https://www.cardmarket.com/fr/${path}/Products/Search?searchString=${encodeURIComponent(it.name)}`;
+}
+function ebayUrl(it){
+  const q = [it.name, it.num || it.printCode, it.graded ? it.grader + ' ' + it.grade : ''].filter(Boolean).join(' ');
+  return `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(q)}`;
+}
+
+/* ========= Modèle d'un élément de wishlist ========= */
+function makeItem(card, opts){
+  const variant = opts.variant || 'normal';
+  const print = (card.prints || []).find(p => p.code === opts.printCode);
+  return {
+    uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
+    img: card.img, imgHi: card.imgHi,
+    set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
+    printCode: print ? print.code : '', prints: card.prints,
+    variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
+    hasReverse: card.prices.reverse != null,
+    graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
+    priceGraded: opts.priceGraded ?? null,
+    note: opts.note || '', addedAt: Date.now(), refreshedAt: Date.now()
+  };
+}
+const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
+
+/* ========= Vues ========= */
+let view = 'wishlist';
+let filters = { q:'', game:'all', sort:'added', min:'', max:'' };
+let shared = null;   // { owner, items } quand on ouvre un lien partagé
+
+function tileHTML(it, i){
+  const price = shownPrice(it);
+  const sub = [it.set, it.num || it.printCode].filter(Boolean).join(' · ') || GAMES[it.game].label;
+  return `<button class="tile" data-i="${i}">
+    <div class="img">
+      ${it.img ? `<img src="${esc(it.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+      <div class="ph" ${it.img ? 'style="z-index:-1"' : ''}>${esc(it.name)}</div>
+      <div class="badges">
+        <span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
+        ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
+        ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}
+      </div>
+    </div>
+    <div><div class="tname">${esc(it.name)}</div><div class="tsub">${esc(sub)}</div></div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b><span>${it.graded ? 'Gradée' : 'Raw · moy.'}</span></div>
+  </button>`;
+}
+
+function applyFilters(items){
+  const q = filters.q.trim().toLowerCase();
+  const min = num(filters.min), max = num(filters.max);
+  let out = items.map((it, i) => ({it, i})).filter(({it}) => {
+    if (filters.game !== 'all' && it.game !== filters.game) return false;
+    if (q && !(`${it.name} ${it.set} ${it.num} ${it.printCode}`.toLowerCase().includes(q))) return false;
+    const p = shownPrice(it);
+    if (min != null && (p == null || p < min)) return false;
+    if (max != null && (p == null || p > max)) return false;
+    return true;
+  });
+  const by = {
+    added: (a,b) => b.it.addedAt - a.it.addedAt,
+    'price-desc': (a,b) => (shownPrice(b.it) ?? -1) - (shownPrice(a.it) ?? -1),
+    'price-asc': (a,b) => (shownPrice(a.it) ?? 1e9) - (shownPrice(b.it) ?? 1e9),
+    name: (a,b) => a.it.name.localeCompare(b.it.name, 'fr')
+  }[filters.sort];
+  return out.sort(by);
+}
+
+function toolbarHTML(){
+  const seg = [['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']]
+    .map(([k,l]) => `<button data-game="${k}" class="${filters.game===k?'on':''}">${l}</button>`).join('');
+  return `<div class="bar">
+    <input class="field grow" id="fq" type="search" placeholder="Filtrer par nom, extension, numéro…" value="${esc(filters.q)}">
+    <div class="seg" id="fgame">${seg}</div>
+    <select class="field" id="fsort" aria-label="Trier">
+      <option value="added">Ajout récent</option><option value="price-desc">Prix décroissant</option>
+      <option value="price-asc">Prix croissant</option><option value="name">Nom A→Z</option>
+    </select>
+    <input class="field num" id="fmin" inputmode="decimal" placeholder="Min €" value="${esc(filters.min)}" aria-label="Prix minimum">
+    <input class="field num" id="fmax" inputmode="decimal" placeholder="Max €" value="${esc(filters.max)}" aria-label="Prix maximum">
+  </div>`;
+}
+
+function render(){
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  $('#addBtn').style.display = shared ? 'none' : '';
+  $('#shareBtn').style.display = shared ? 'none' : '';
+  const main = $('#main');
+
+  if (view === 'collection'){
+    main.innerHTML = `<div class="wip"><div class="cone"></div><h2 style="margin:0 0 6px">Collection — en travaux</h2>
+      <p style="color:var(--muted);margin:0">Bientôt : ajouter les cartes que tu possèdes et partager ta collection pour voir ce qu'il manque.</p></div>`;
+    return;
+  }
+
+  const items = shared ? shared.items : state.items;
+  const rows = applyFilters(items);
+  const total = rows.reduce((s,{it}) => s + (shownPrice(it) || 0), 0);
+  const banner = shared ? `<div class="banner"><b>Wishlist de ${esc(shared.owner || 'un ami')}</b>
+      <span style="color:var(--muted)">${shared.loading ? 'Chargement des cartes et des prix…' : 'Lecture seule · prix mis à jour à l\'ouverture'}</span>
+      <span class="sp"></span><button class="btn" id="leaveShared">Ouvrir ma wishlist</button></div>` : '';
+
+  main.innerHTML = banner + toolbarHTML() + `
+    <div class="stats">
+      <div><b>${rows.length}</b>carte${rows.length>1?'s':''}</div>
+      <div><b>${eur(total)}</b>valeur estimée</div>
+      ${shared ? '' : `<div class="sp"></div><button class="btn ghost" id="refreshBtn" style="align-self:center">Actualiser les prix</button>`}
+    </div>
+    <div class="grid" id="grid">${rows.length ? rows.map(({it,i}) => tileHTML(it, i)).join('') :
+      (items.length ? `<div class="empty"><h3>Aucune carte ne correspond</h3>Modifie les filtres.</div>` :
+      `<div class="empty"><h3>Ta wishlist est vide</h3>Clique sur « + Ajouter une carte » pour chercher une carte Pokémon ou Yu-Gi-Oh!.</div>`)}</div>`;
+
+  $('#fsort').value = filters.sort;
+  $('#fq').oninput = e => { filters.q = e.target.value; render(); $('#fq').focus(); const v=$('#fq'); v.setSelectionRange(v.value.length, v.value.length); };
+  $('#fmin').oninput = e => { filters.min = e.target.value; render(); $('#fmin').focus(); };
+  $('#fmax').oninput = e => { filters.max = e.target.value; render(); $('#fmax').focus(); };
+  $('#fsort').onchange = e => { filters.sort = e.target.value; render(); };
+  $('#fgame').onclick = e => { const b = e.target.closest('button'); if (b){ filters.game = b.dataset.game; render(); } };
+  $('#grid').onclick = e => { const t = e.target.closest('.tile'); if (t) openDetail(+t.dataset.i); };
+  if ($('#refreshBtn')) $('#refreshBtn').onclick = refreshPrices;
+  if ($('#leaveShared')) $('#leaveShared').onclick = () => { shared = null; history.replaceState(null, '', location.pathname); render(); };
+}
+
+/* ========= Modales ========= */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', e => {
+  if (e.target === s || e.target.closest('[data-close]')) s.classList.remove('open');
+}));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach(s => s.classList.remove('open')); });
+
+/* ---- Ajout : étape 1, recherche ---- */
+let search = { game:'pkm', lang:'fr', q:'', briefs:[], cards:[], shown:0, busy:false, token:0 };
+
+function langOptions(g, sel){ return GAMES[g].langs.map(([v,l]) => `<option value="${v}" ${v===sel?'selected':''}>${l}</option>`).join(''); }
+
+function renderSearch(){
+  const s = search;
+  $('#addTitle').textContent = 'Ajouter une carte';
+  $('#addBody').innerHTML = `
+    <form class="row" id="sform">
+      <div class="seg" id="sgame">
+        <button type="button" data-g="pkm" class="${s.game==='pkm'?'on':''}">Pokémon</button>
+        <button type="button" data-g="ygo" class="${s.game==='ygo'?'on':''}">Yu-Gi-Oh!</button>
+      </div>
+      <select class="field" id="slang" aria-label="Langue">${langOptions(s.game, s.lang)}</select>
+      <input class="field grow" id="sq" type="search" placeholder="${s.game==='pkm' ? 'Ex. Dracaufeu, Pikachu, Mew…' : 'Ex. Magicien Sombre, Dragon Blanc…'}" value="${esc(s.q)}" autocomplete="off">
+      <button class="btn primary" type="submit">Rechercher</button>
+    </form>
+    <div class="hint" style="margin-top:8px">Tape le nom dans la langue choisie. Prix : moyenne Cardmarket (identique pour toutes les langues).</div>
+    <div id="sres"></div>`;
+  $('#sgame').onclick = e => { const b = e.target.closest('button'); if (!b) return; s.game = b.dataset.g;
+    if (!GAMES[s.game].langs.some(x => x[0] === s.lang)) s.lang = 'fr'; s.briefs=[]; s.cards=[]; s.shown=0; renderSearch(); };
+  $('#slang').onchange = e => { s.lang = e.target.value; };
+  $('#sform').onsubmit = e => { e.preventDefault(); s.q = $('#sq').value.trim(); if (s.q) runSearch(); };
+  renderResults();
+  setTimeout(() => $('#sq') && $('#sq').focus(), 30);
+}
+
+async function runSearch(){
+  const s = search, tok = ++s.token;
+  s.busy = true; s.cards = []; s.briefs = []; s.shown = 0; renderResults('Recherche…');
+  try {
+    if (s.game === 'pkm'){
+      s.briefs = await API.pkmSearch(s.q, s.lang);
+      if (tok !== s.token) return;
+      await loadMorePkm(tok);
+    } else {
+      s.cards = await API.ygoSearch(s.q, s.lang);
+      s.shown = s.cards.length;
+    }
+  } catch(e){
+    if (tok === s.token){ s.busy = false; renderResults('Impossible de joindre la base de cartes. Vérifie ta connexion et réessaie.'); }
+    return;
+  }
+  if (tok !== s.token) return;
+  s.busy = false; renderResults();
+}
+
+async function loadMorePkm(tok){
+  const s = search;
+  const slice = s.briefs.slice(s.shown, s.shown + PAGE);
+  s.shown += slice.length;
+  const cards = await mapLimit(slice, 6, b => API.pkmCard(b.id, s.lang));
+  if (tok !== s.token) return;
+  cards.forEach((c, k) => s.cards.push(c || { game:'pkm', id:slice[k].id, lang:s.lang, name:slice[k].name,
+    img: slice[k].image ? slice[k].image + '/low.webp' : null, imgHi: slice[k].image ? slice[k].image + '/high.webp' : null,
+    set:'', num:'', rarity:'', prices:{normal:null, reverse:null}, prints:null }));
+}
+
+function renderResults(msg){
+  const box = $('#sres'); if (!box) return;
+  const s = search;
+  if (msg){ box.innerHTML = `<div class="status">${esc(msg)}</div>`; return; }
+  if (!s.q){ box.innerHTML = ''; return; }
+  if (!s.cards.length){ box.innerHTML = `<div class="status">Aucune carte trouvée pour « ${esc(s.q)} » en ${esc(langLabel(s.game, s.lang))}.</div>`; return; }
+  const more = s.game === 'pkm' && s.shown < s.briefs.length;
+  const count = s.game === 'pkm' ? s.briefs.length : s.cards.length;
+  box.innerHTML = `<div class="hint" style="margin-top:12px">${count} résultat${count>1?'s':''}${s.game==='ygo' && count>=60 ? ' (60 premiers — précise ta recherche)' : ''}</div>
+    <div class="results" id="rgrid">${s.cards.map((c, i) => `
+      <button class="tile" data-r="${i}">
+        <div class="img">${c.img ? `<img src="${esc(c.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<div class="ph" ${c.img?'style="z-index:-1"':''}>${esc(c.name)}</div></div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
+      </button>`).join('')}
+    </div>
+    ${more ? `<div style="text-align:center;margin-top:12px"><button class="btn" id="moreBtn">Voir plus (${s.briefs.length - s.shown} restants)</button></div>` : ''}`;
+  $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(s.cards[+t.dataset.r]); };
+  if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMorePkm(tok); if (tok === s.token) renderResults(); };
+}
+
+/* ---- Ajout : étape 2, précision de la carte ---- */
+function versionFields(o, card){
+  const hasRev = card.prices ? card.prices.reverse != null : o.hasReverse;
+  const prints = card.prints || [];
+  return `
+    ${card.game === 'pkm' ? `<div><label class="l">Version</label>
+      <div class="seg" id="cvar"><button type="button" data-v="normal" class="${o.variant!=='reverse'?'on':''}">Normale / Holo</button>
+      <button type="button" data-v="reverse" class="${o.variant==='reverse'?'on':''}" ${hasRev?'':'disabled title="Pas de prix reverse disponible"'}>Reverse</button></div></div>` : ''}
+    ${prints.length ? `<div><label class="l" for="cprint">Impression (extension · rareté)</label>
+      <select class="field" id="cprint" style="width:100%"><option value="">Peu importe l'impression</option>
+      ${prints.map(p => `<option value="${esc(p.code)}" ${p.code===o.printCode?'selected':''}>${esc(p.code)} — ${esc(p.set)} · ${esc(p.rarity)}</option>`).join('')}</select></div>` : ''}
+    <div><label class="l">État</label>
+      <div class="seg" id="cgr"><button type="button" data-g="0" class="${!o.graded?'on':''}">Raw</button><button type="button" data-g="1" class="${o.graded?'on':''}">Gradée</button></div></div>
+    <div class="row" id="gradeRow" style="${o.graded?'':'display:none'}">
+      <div><label class="l" for="cgrader">Société</label><select class="field" id="cgrader">${GRADERS.map(g=>`<option ${g===o.grader?'selected':''}>${g}</option>`).join('')}</select></div>
+      <div><label class="l" for="cgrade">Note</label><select class="field" id="cgrade">${GRADES.map(g=>`<option ${g===String(o.grade)?'selected':''}>${g}</option>`).join('')}</select></div>
+      <div><label class="l" for="cgprice">Prix gradé (€)</label><input class="field num" id="cgprice" inputmode="decimal" placeholder="ex. 120" value="${o.priceGraded ?? ''}"></div>
+      <div class="hint" style="flex-basis:100%">Pas de source gratuite pour les prix gradés : saisis le prix que tu as repéré (eBay, Cardmarket…).</div>
+    </div>
+    <div><label class="l" for="cnote">Note perso (optionnel)</label><input class="field" id="cnote" style="width:100%" placeholder="ex. pour compléter le set, édition 1…" value="${esc(o.note || '')}"></div>`;
+}
+
+function readVersionFields(o){
+  const v = $('#cvar .on'); if (v) o.variant = v.dataset.v;
+  if ($('#cprint')) o.printCode = $('#cprint').value;
+  o.graded = $('#cgr .on').dataset.g === '1';
+  o.grader = $('#cgrader').value; o.grade = $('#cgrade').value;
+  o.priceGraded = num($('#cgprice').value);
+  o.note = $('#cnote').value.trim();
+  return o;
+}
+
+function bindVersionFields(){
+  if ($('#cvar')) $('#cvar').onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return;
+    $('#cvar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  $('#cgr').onclick = e => { const b = e.target.closest('button'); if (!b) return;
+    $('#cgr').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    $('#gradeRow').style.display = b.dataset.g === '1' ? '' : 'none'; };
+}
+
+function renderConfigure(card){
+  $('#addTitle').textContent = 'Préciser la carte';
+  const o = { variant:'normal', graded:false, grader:'PSA', grade:'10', priceGraded:null, note:'', printCode:'' };
+  $('#addBody').innerHTML = `<div class="detail">
+    <div class="img">${card.imgHi ? `<img src="${esc(card.imgHi)}" alt="${esc(card.name)}" onerror="this.remove()">` : ''}<div class="ph" ${card.imgHi?'style="z-index:-1"':''}>${esc(card.name)}</div></div>
+    <div>
+      <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
+      <dl class="kv">
+        <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
+        <dt>Langue</dt><dd>${esc(langLabel(card.game, card.lang))}</dd>
+        ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
+        ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
+        ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
+        <dt>Prix moyen</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+      </dl>
+      <div class="form">${versionFields(o, card)}</div>
+      <div class="actions">
+        <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
+        <button class="btn ghost" id="backBtn">← Retour aux résultats</button>
+      </div>
+    </div></div>`;
+  bindVersionFields();
+  $('#backBtn').onclick = renderSearch;
+  $('#confirmAdd').onclick = () => {
+    const opts = readVersionFields(o);
+    state.items.push(makeItem(card, opts)); save();
+    closeModal('#addScrim'); filters = { ...filters, q:'' }; render();
+    toast(`${card.name} ajoutée à ta wishlist`);
+  };
+}
+
+$('#addBtn').onclick = () => { renderSearch(); openModal('#addScrim'); };
+
+/* ---- Détail / édition ---- */
+function openDetail(i){
+  const items = shared ? shared.items : state.items;
+  const it = items[i]; if (!it) return;
+  const ro = !!shared;
+  $('#detTitle').textContent = it.name;
+  const o = { ...it };
+  $('#detBody').innerHTML = `<div class="detail">
+    <div class="img">${it.imgHi ? `<img src="${esc(it.imgHi)}" alt="${esc(it.name)}" onerror="this.remove()">` : ''}<div class="ph" ${it.imgHi?'style="z-index:-1"':''}>${esc(it.name)}</div></div>
+    <div>
+      <div class="big">${eur(shownPrice(it))}</div>
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `Prix moyen Cardmarket${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      <dl class="kv" style="margin-top:12px">
+        <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
+        <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
+        ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
+        ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
+        ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.rarity)}</dd>` : ''}
+        ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
+      </dl>
+      <div class="actions" style="margin-top:0">
+        <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
+        <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
+      </div>
+      ${ro ? '' : `<hr style="border:0;border-top:1px solid var(--line);margin:18px 0 12px">
+      <div class="form">${versionFields(o, it)}</div>
+      <div class="actions">
+        <button class="btn primary" id="saveDet">Enregistrer</button>
+        <button class="btn danger" id="delDet">Retirer de la wishlist</button>
+      </div>`}
+    </div></div>`;
+  if (!ro){
+    bindVersionFields();
+    $('#saveDet').onclick = () => {
+      readVersionFields(o);
+      const print = (it.prints || []).find(p => p.code === o.printCode);
+      Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note, printCode:o.printCode });
+      if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
+      save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
+      if (it.game === 'pkm') refreshOne(it).then(() => { save(); render(); });
+    };
+    let armed = false;
+    $('#delDet').onclick = () => {
+      if (!armed){ armed = true; $('#delDet').textContent = 'Confirmer la suppression'; return; }
+      state.items.splice(i, 1); save(); closeModal('#detScrim'); render(); toast('Carte retirée');
+    };
+  }
+  openModal('#detScrim');
+}
+
+/* ========= Actualisation des prix ========= */
+async function refreshOne(it){
+  const c = await API.card(it.game, it.id, it.lang);
+  if (!c) return;
+  it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
+  it.hasReverse = c.prices.reverse != null;
+  it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi;
+  if (c.prints) it.prints = c.prints;
+  it.refreshedAt = Date.now();
+}
+async function refreshPrices(){
+  const b = $('#refreshBtn'); if (b){ b.disabled = true; b.textContent = 'Actualisation…'; }
+  await mapLimit(state.items, 4, refreshOne);
+  save(); render(); toast('Prix actualisés');
+}
+
+/* ========= Partage par lien ========= */
+// Le lien contient seulement les références des cartes ; les prix sont rechargés à l'ouverture.
+function buildShareLink(){
+  const payload = { o: state.owner || '', c: state.items.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printCode || '',
+    it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '']) };
+  return location.href.split('#')[0] + '#share=' + b64e(JSON.stringify(payload));
+}
+function renderShare(){
+  const isFile = location.protocol === 'file:';
+  $('#shareBody').innerHTML = `
+    <label class="l" for="owner">Ton prénom (affiché à tes amis)</label>
+    <input class="field" id="owner" style="width:100%;margin-bottom:14px" value="${esc(state.owner)}" placeholder="ex. Ivan">
+    <label class="l" for="link">Lien de ta wishlist (${state.items.length} carte${state.items.length>1?'s':''})</label>
+    <div class="row"><input class="field grow sharebox" id="link" readonly value="${esc(buildShareLink())}"><button class="btn primary" id="copyLink">Copier</button></div>
+    <p class="hint" style="margin-top:12px">${isFile
+      ? '⚠ Le site tourne en local sur ton ordinateur (fichier ouvert directement) : ce lien ne marchera pas chez tes amis tant que le site n\'est pas en ligne. Prochaine étape : le publier (GitHub Pages ou Netlify, gratuit).'
+      : 'Tes amis voient la wishlist en lecture seule, avec les prix à jour.'} Le lien est une photo de ta liste : si tu ajoutes des cartes, recopie-le.</p>`;
+  $('#owner').oninput = e => { state.owner = e.target.value.trim(); save(); $('#link').value = buildShareLink(); };
+  $('#copyLink').onclick = async () => {
+    try { await navigator.clipboard.writeText($('#link').value); toast('Lien copié'); }
+    catch(e){ $('#link').select(); toast('Sélectionné — fais Ctrl+C'); }
+  };
+}
+$('#shareBtn').onclick = () => { renderShare(); openModal('#shareScrim'); };
+
+async function openShared(hash){
+  let payload;
+  try { payload = JSON.parse(b64d(hash)); } catch(e){ toast('Lien de partage invalide'); return; }
+  const refs = (payload.c || []);
+  shared = { owner: payload.o, items: [], loading: true };
+  render();
+  const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note]) => {
+    if (!GAMES[game]) return null;
+    const c = await API.card(game, id, lang);
+    if (!c) return null;
+    return makeItem(c, { variant: rev ? 'reverse' : 'normal', printCode,
+      graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note });
+  });
+  shared.items = items.filter(Boolean).map((it, k) => ({ ...it, addedAt: refs.length - k }));
+  shared.loading = false;
+  render();
+}
+
+/* ========= Navigation & démarrage ========= */
+$('#nav').onclick = e => { const b = e.target.closest('button'); if (b){ view = b.dataset.view; render(); } };
+load();
+const m = location.hash.match(/^#share=(.+)$/);
+if (m) openShared(m[1]); else render();
+}
+</script>
+</body>
+</html>
