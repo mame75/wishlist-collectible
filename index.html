@@ -703,7 +703,7 @@ function imgBox(c, hi, badges){
   const src = hi ? c.imgHi : c.img;
   const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
   return `<div class="img">
-    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" loading="lazy" onerror="this.remove()">` : ''}
+    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} onerror="this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
   </div>`;
