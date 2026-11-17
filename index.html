@@ -6,108 +6,172 @@
 <title>Wishlist Collectible</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-/* V1 alpha — fonctionnel d'abord. Style inspiré de Collectr : fond sombre, cartes en grille, prix mis en avant. */
+/* Première passe design — esprit Collectr : fond quasi noir, tuiles sombres arrondies, filtres à gauche,
+   contrôles en pilule. Identité propre : accent jaune, typo Manrope. */
 :root{
-  --bg:#0b0d12;--surface:#141821;--surface2:#1b2030;--line:#262c3c;
-  --ink:#eef1f6;--muted:#8d96aa;--accent:#ffcf3a;--accent-ink:#1a1400;
-  --danger:#ff6b6b;--ok:#4ade80;--radius:14px;
+  --bg:#07080a;--surface:#111318;--surface2:#181b22;--inset:#0b0c10;--line:#22252d;--line2:#2e323c;
+  --ink:#f3f4f6;--muted:#8e94a3;--faint:#5d6270;
+  --accent:#ffcf3a;--accent-ink:#1a1400;--accent-soft:rgba(255,207,58,.12);
+  --pkm:#ffcf3a;--ygo:#9b8cff;
+  --danger:#ff6b6b;--radius:16px;
+  color-scheme:dark;
 }
 *{box-sizing:border-box;min-width:0}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-body{overflow-x:clip}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Manrope,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{overflow-x:clip;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--accent)}
-.wrap{max-width:1280px;margin:0 auto;padding:0 max(3vw,14px)}
+.wrap{max-width:1360px;margin:0 auto;padding:0 max(3vw,14px)}
+.sp{flex:1}
 
 /* En-tête */
-header{position:sticky;top:0;z-index:20;background:rgba(11,13,18,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.top{display:flex;align-items:center;gap:16px;height:64px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.01em;white-space:nowrap}
-.logo i{width:26px;height:34px;border-radius:5px;background:linear-gradient(140deg,var(--accent),#ff8a3a);display:block;transform:rotate(-8deg);box-shadow:6px 2px 0 -1px #3a4258}
-nav{display:flex;gap:4px;margin-left:12px}
-nav button{background:none;border:0;padding:8px 14px;border-radius:999px;color:var(--muted);font-weight:600;cursor:pointer}
-nav button.on{background:var(--surface2);color:var(--ink)}
-.sp{flex:1}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--ink)}
-.btn:hover{border-color:#3a4258}
+header{position:sticky;top:0;z-index:20;background:rgba(7,8,10,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:14px;height:68px}
+.logo{display:flex;align-items:center;gap:11px;font-weight:800;font-size:17px;letter-spacing:-.02em;white-space:nowrap}
+.logo svg{flex:none}
+.logo small{display:block;font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.02em;margin-top:-3px}
+nav{display:flex;gap:2px;margin-left:18px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+nav button{background:none;border:0;padding:0 16px;height:34px;border-radius:999px;color:var(--muted);font-weight:700;cursor:pointer;font-size:14px}
+nav button.on{background:var(--surface2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+nav button em{font-style:normal;font-size:10px;color:var(--faint);margin-left:5px;vertical-align:1px}
+
+/* Boutons et champs */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 18px;border-radius:999px;border:1px solid var(--line2);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;text-decoration:none;color:var(--ink);transition:background .15s,border-color .15s,transform .15s}
+.btn:hover{border-color:#40444f;background:var(--surface2)}
+.btn:active{transform:scale(.98)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{background:#ffd95e}
 .btn.ghost{background:none}
 .btn.danger{color:var(--danger)}
-.btn:focus-visible,input:focus-visible,select:focus-visible,nav button:focus-visible,.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-/* Barre d'outils */
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 0 8px}
-.field{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:0 12px;font-size:15px}
+.btn.sm{min-height:34px;padding:0 13px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn:focus-visible,input:focus-visible,select:focus-visible,nav button:focus-visible,.tile:focus-visible,.chip:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.field{height:42px;border-radius:12px;border:1px solid var(--line2);background:rgba(255,255,255,.03);padding:0 14px;font-size:15px}
+.field:hover{border-color:#40444f}
 .field.grow{flex:1 1 220px}
-.field.num{width:96px}
-.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
-.seg button{border:0;background:none;padding:0 12px;height:32px;border-radius:7px;color:var(--muted);font-weight:600;cursor:pointer}
-.seg button.on{background:var(--surface2);color:var(--ink)}
-.stats{display:flex;gap:28px;padding:10px 0 18px;color:var(--muted);font-size:14px}
-.stats b{display:block;color:var(--ink);font-size:24px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.field.num{width:100%}
+select.field{padding-right:30px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 18px,calc(100% - 12px) 18px;background-size:5px 5px;background-repeat:no-repeat}
+select.field option{background:var(--surface)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line2);border-radius:999px;padding:3px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:0 14px;height:34px;border-radius:999px;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.seg button[disabled]{opacity:.35;cursor:default}
+.search{position:relative;flex:1 1 260px}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
+.search .field{width:100%;padding-left:40px}
+
+/* Bandeau de synthèse */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:end;padding:30px 0 24px;border-bottom:1px solid var(--line)}
+.hero .lbl{font-size:13px;font-weight:700;color:var(--muted)}
+.hero .val{font-size:clamp(36px,5vw,52px);font-weight:800;letter-spacing:-.035em;line-height:1.05;font-variant-numeric:tabular-nums;margin:4px 0 8px}
+.hero .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.hero .meta b{color:var(--ink)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.split{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--surface2);margin-top:14px;max-width:420px}
+.split i{display:block;height:100%}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.hero.shared .lbl{color:var(--accent)}
+
+/* Mise en page : filtres + grille */
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;padding:24px 0 80px}
+.side{position:sticky;top:92px;align-self:start;display:grid;gap:22px}
+.fgroup h4{margin:0 0 9px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.01em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line2);background:none;border-radius:999px;height:34px;padding:0 13px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip:hover{border-color:#40444f;color:var(--ink)}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chip span{font-size:11px;color:var(--faint);font-weight:700}
+.chip.on span{color:var(--accent)}
+.prices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.reset{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px;justify-self:start}
+.filtersToggle{display:none}
+.gridhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.gridhead .count{font-size:13px;color:var(--muted);font-weight:700;white-space:nowrap}
 
 /* Grille de cartes */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:16px;padding-bottom:60px}
-.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform .15s,border-color .15s;text-align:left}
-.tile:hover{transform:translateY(-3px);border-color:#3a4258}
-.img{position:relative;aspect-ratio:63/88;border-radius:8px;overflow:hidden;background:var(--surface2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:18px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:transform .18s,border-color .18s,box-shadow .18s;text-align:left;color:var(--ink)}
+.tile:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 40px -18px rgba(0,0,0,.9),0 0 0 1px rgba(255,207,58,.08)}
+.img{position:relative;aspect-ratio:63/88;border-radius:10px;overflow:hidden;background:var(--inset)}
+.tile .img{box-shadow:0 10px 24px -14px rgba(0,0,0,.9)}
 .img img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
 .img .ph{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;color:var(--muted);font-size:12px;
-  background:radial-gradient(circle at 50% 45%,#262c3c 0 22%,transparent 23%),repeating-linear-gradient(135deg,#1b2030 0 8px,#181c29 8px 16px);border:2px solid #262c3c;border-radius:8px}
-.img .ph span{display:grid;gap:4px;background:rgba(11,13,18,.85);padding:8px 10px;border-radius:8px}
+  background:radial-gradient(circle at 50% 42%,#20232b 0 20%,transparent 21%),repeating-linear-gradient(135deg,#15171d 0 8px,#121419 8px 16px);border:1px solid var(--line2);border-radius:10px}
+.img .ph span{display:grid;gap:4px;background:rgba(7,8,10,.86);padding:9px 11px;border-radius:10px}
 .img .ph b{color:var(--ink);font-size:13px;line-height:1.2}
 .img .ph small{font-size:11px}
-.img .ph em{font-style:normal;font-size:10px;text-transform:none;opacity:.8}
-.badges{z-index:2}
-.badges{position:absolute;left:6px;top:6px;display:flex;gap:4px;flex-wrap:wrap}
-.bdg{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(11,13,18,.82);color:#fff;border:1px solid rgba(255,255,255,.12)}
-.bdg.grade{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.tname{font-weight:600;font-size:14px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tsub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tprice{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:auto}
-.tprice b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
-.tprice span{font-size:11px;color:var(--muted);white-space:nowrap}
-.empty{grid-column:1/-1;border:1px dashed var(--line);border-radius:var(--radius);padding:48px 20px;text-align:center;color:var(--muted)}
-.empty h3{color:var(--ink);margin:0 0 6px;font-size:18px}
+.img .ph em{font-style:normal;font-size:10px;opacity:.8}
+.badges{position:absolute;z-index:2;left:7px;top:7px;right:7px;display:flex;gap:4px;flex-wrap:wrap}
+.bdg{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(7,8,10,.82);color:#fff;border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(4px)}
+.bdg.grade{margin-left:auto;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tinfo{display:grid;gap:2px;padding:0 2px}
+.tname{font-weight:800;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.tsub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub.faint{color:var(--faint)}
+.tprice{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:auto;padding:8px 2px 0;border-top:1px solid var(--line)}
+.tprice b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:-.02em}
+.tprice span{font-size:11px;color:var(--faint);font-weight:700;white-space:nowrap}
+.empty{grid-column:1/-1;border:1px dashed var(--line2);border-radius:var(--radius);padding:56px 20px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--ink);margin:0 0 6px;font-size:19px}
+.empty .btn{margin-top:16px}
 
-/* Bandeau partage / travaux */
-.banner{margin:18px 0 0;padding:14px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.banner b{font-size:17px}
-.wip{margin:60px auto;max-width:520px;text-align:center;padding:40px 24px;border:1px dashed var(--line);border-radius:18px}
-.wip .cone{width:56px;height:56px;margin:0 auto 14px;background:repeating-linear-gradient(-45deg,var(--accent) 0 10px,#1b2030 10px 20px);border-radius:12px}
+/* Collection (travaux) */
+.wip{margin:70px auto;max-width:520px;text-align:center;padding:44px 24px;border:1px dashed var(--line2);border-radius:20px}
+.wip .cone{width:56px;height:56px;margin:0 auto 16px;background:repeating-linear-gradient(-45deg,var(--accent) 0 10px,var(--surface2) 10px 20px);border-radius:14px}
 
 /* Modales */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(6px);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto}
 .scrim.open{display:flex}
-.modal{width:min(980px,100%);background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:20px;position:relative}
-.modal.sm{width:min(720px,100%)}
-.mhead{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.mhead h2{margin:0;font-size:20px}
-.x{margin-left:auto;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:20px;line-height:1}
-.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:14px;max-height:62vh;overflow:auto;padding:2px}
-.status{color:var(--muted);padding:18px 0;text-align:center}
-.detail{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:22px}
-.detail .img{max-width:260px}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:4px 0 14px}
-.kv dt{color:var(--muted)}.kv dd{margin:0}
-.big{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.form{display:grid;gap:12px;margin-top:6px}
+.modal{width:min(1000px,100%);background:#0d0f13;border:1px solid var(--line2);border-radius:22px;padding:22px;position:relative;box-shadow:0 30px 80px -20px rgba(0,0,0,.8)}
+.modal.sm{width:min(760px,100%)}
+.mhead{display:flex;align-items:center;gap:10px;margin:-2px 0 18px}
+.mhead h2{margin:0;font-size:21px;letter-spacing:-.02em}
+.x{margin-left:auto;width:40px;height:40px;border-radius:999px;border:1px solid var(--line2);background:var(--surface);cursor:pointer;font-size:20px;line-height:1;color:var(--muted)}
+.x:hover{color:var(--ink)}
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px;max-height:60vh;overflow:auto;padding:2px 4px 2px 2px}
+.results .tile{padding:8px 8px 10px;gap:8px}
+.results .tname{font-size:13.5px}
+.results .tprice b{font-size:15px}
+.status{color:var(--muted);padding:22px 0;text-align:center}
+.detail{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);gap:26px}
+.detail .img{max-width:280px;box-shadow:0 20px 50px -20px rgba(0,0,0,.95)}
+.detail h3{margin:0 0 2px;font-size:24px;letter-spacing:-.02em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px;margin:10px 0 16px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600}
+.big{font-size:36px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.form{display:grid;gap:14px;margin-top:6px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-label.l{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
-.hint{font-size:12px;color:var(--muted)}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:80;transition:.2s;pointer-events:none}
+label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.divider{border:0;border-top:1px solid var(--line);margin:20px 0 14px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(30px);opacity:0;background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:800;font-size:14px;z-index:80;transition:.2s;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}
-.sharebox{width:100%;height:40px}
-@media(max-width:700px){
+.sharebox{width:100%}
+
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;gap:16px;padding-top:16px}
+  .side{position:static;display:none;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+  .side.open{display:grid}
+  .filtersToggle{display:inline-flex}
+}
+@media(max-width:640px){
   .top{height:auto;flex-wrap:wrap;padding:10px 0;gap:10px}
-  nav{margin-left:0;order:3;width:100%}
+  nav{margin-left:0;order:3}
+  #shareBtn{order:2}
+  .logo small{display:none}
+  .hero{grid-template-columns:1fr;padding:22px 0 18px}
+  .hero .acts{justify-content:flex-start}
   .detail{grid-template-columns:1fr}
-  .detail .img{max-width:220px;margin:0 auto}
-  .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-  .stats{gap:18px}
+  .detail .img{max-width:230px;margin:0 auto}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .tile{padding:7px 7px 10px;gap:8px}
+  .tname{font-size:13.5px}
+  .tprice b{font-size:16px}
+  .modal{padding:16px;border-radius:18px}
+  .results{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -115,10 +179,13 @@ label.l{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
 <body>
 <header>
   <div class="wrap top">
-    <div class="logo"><i></i>Wishlist Collectible</div>
+    <div class="logo">
+      <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><rect x="9" y="2" width="19" height="27" rx="4" fill="#2e323c" transform="rotate(10 18 15)"/><rect x="2" y="4" width="19" height="27" rx="4" fill="#ffcf3a" transform="rotate(-6 11 17)"/><path d="M11.5 12.5l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#1a1400" transform="rotate(-6 11 17)"/></svg>
+      <div>Wishlist Collectible<small>Pokémon · Yu-Gi-Oh!</small></div>
+    </div>
     <nav id="nav">
       <button data-view="wishlist" class="on">Wishlist</button>
-      <button data-view="collection">Collection</button>
+      <button data-view="collection">Collection<em>bientôt</em></button>
     </nav>
     <div class="sp"></div>
     <button class="btn ghost" id="shareBtn">Partager</button>
@@ -501,27 +568,36 @@ function imgBox(c, hi, badges){
 }
 /* ========= Vues ========= */
 let view = 'wishlist';
-let filters = { q:'', game:'all', sort:'added', min:'', max:'' };
+let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'' };
+let sideOpen = false;
 let shared = null;   // { owner, items } quand on ouvre un lien partagé
+const ICON_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
 
 function tileHTML(it, i){
   const price = shownPrice(it);
-  const sub = [it.set, it.num || it.printCode].filter(Boolean).join(' · ') || GAMES[it.game].label;
+  const rarity = [it.rarity, it.num || it.printCode].filter(Boolean).join(' · ');
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
-    <div><div class="tname">${esc(it.name)}</div><div class="tsub">${esc(sub)}</div></div>
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b><span>${it.graded ? 'Gradée' : 'Raw · moy.'}</span></div>
+    <div class="tinfo">
+      <div class="tname">${esc(it.name)}</div>
+      <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
+      ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
+    </div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b><span>${it.graded ? 'Gradée' : 'Moy. 30 j'}</span></div>
   </button>`;
 }
 
-function applyFilters(items){
+const itemMarket = it => marketOf(it.game, it.lang);
+function applyFilters(items, skip){
   const q = filters.q.trim().toLowerCase();
   const min = num(filters.min), max = num(filters.max);
   let out = items.map((it, i) => ({it, i})).filter(({it}) => {
-    if (filters.game !== 'all' && it.game !== filters.game) return false;
-    if (q && !(`${it.name} ${it.set} ${it.num} ${it.printCode}`.toLowerCase().includes(q))) return false;
+    if (skip !== 'game' && filters.game !== 'all' && it.game !== filters.game) return false;
+    if (skip !== 'market' && filters.market !== 'all' && itemMarket(it) !== filters.market) return false;
+    if (skip !== 'cond' && filters.cond !== 'all' && (filters.cond === 'graded') !== !!it.graded) return false;
+    if (q && !(`${it.name} ${it.nameJa || ''} ${it.set} ${it.num} ${it.printCode}`.toLowerCase().includes(q))) return false;
     const p = shownPrice(it);
     if (min != null && (p == null || p < min)) return false;
     if (max != null && (p == null || p > max)) return false;
@@ -536,22 +612,56 @@ function applyFilters(items){
   return out.sort(by);
 }
 
-function toolbarHTML(){
-  const seg = [['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']]
-    .map(([k,l]) => `<button data-game="${k}" class="${filters.game===k?'on':''}">${l}</button>`).join('');
-  return `<div class="bar">
-    <input class="field grow" id="fq" type="search" placeholder="Filtrer par nom, extension, numéro…" value="${esc(filters.q)}">
-    <div class="seg" id="fgame">${seg}</div>
-    <select class="field" id="fsort" aria-label="Trier">
-      <option value="added">Ajout récent</option><option value="price-desc">Prix décroissant</option>
-      <option value="price-asc">Prix croissant</option><option value="name">Nom A→Z</option>
-    </select>
-    <input class="field num" id="fmin" inputmode="decimal" placeholder="Min €" value="${esc(filters.min)}" aria-label="Prix minimum">
-    <input class="field num" id="fmax" inputmode="decimal" placeholder="Max €" value="${esc(filters.max)}" aria-label="Prix maximum">
-  </div>`;
+// Groupe de filtres en pastilles, avec le nombre de cartes de chaque option
+function chipGroup(title, key, options, items){
+  const base = applyFilters(items, key).map(x => x.it);
+  const count = v => v === 'all' ? base.length : base.filter(it =>
+    key === 'game' ? it.game === v : key === 'market' ? itemMarket(it) === v : (v === 'graded') === !!it.graded).length;
+  return `<div class="fgroup"><h4>${title}</h4><div class="chips" data-key="${key}">
+    ${options.map(([v, l]) => `<button class="chip ${filters[key]===v?'on':''}" data-v="${v}">${l}<span>${count(v)}</span></button>`).join('')}
+  </div></div>`;
+}
+
+function sideHTML(items){
+  const active = filters.game !== 'all' || filters.market !== 'all' || filters.cond !== 'all' || filters.min || filters.max;
+  return `<aside class="side ${sideOpen ? 'open' : ''}" id="side">
+    ${chipGroup('Jeu', 'game', [['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']], items)}
+    ${chipGroup('Marché', 'market', [['all','Tous'],['intl','TCG'],['asia','OCG']], items)}
+    ${chipGroup('État', 'cond', [['all','Tous'],['raw','Raw'],['graded','Gradées']], items)}
+    <div class="fgroup"><h4>Prix (€)</h4><div class="prices">
+      <input class="field num" id="fmin" inputmode="decimal" placeholder="Min" value="${esc(filters.min)}" aria-label="Prix minimum">
+      <input class="field num" id="fmax" inputmode="decimal" placeholder="Max" value="${esc(filters.max)}" aria-label="Prix maximum">
+    </div></div>
+    ${active ? '<button class="reset" id="resetF">Réinitialiser les filtres</button>' : ''}
+  </aside>`;
+}
+
+function heroHTML(items){
+  const total = items.reduce((s, it) => s + (shownPrice(it) || 0), 0);
+  const byGame = g => items.filter(it => it.game === g);
+  const val = g => byGame(g).reduce((s, it) => s + (shownPrice(it) || 0), 0);
+  const pk = val('pkm'), yg = val('ygo');
+  const split = total > 0 ? `<div class="split" title="Répartition de la valeur"><i style="width:${pk/total*100}%;background:var(--pkm)"></i><i style="width:${yg/total*100}%;background:var(--ygo)"></i></div>` : '';
+  const meta = `<div class="meta">
+      <span><b>${items.length}</b> carte${items.length>1?'s':''}</span>
+      ${byGame('pkm').length ? `<span><i class="dot" style="background:var(--pkm)"></i>Pokémon <b>${eur(pk)}</b></span>` : ''}
+      ${byGame('ygo').length ? `<span><i class="dot" style="background:var(--ygo)"></i>Yu-Gi-Oh! <b>${eur(yg)}</b></span>` : ''}
+    </div>`;
+  if (shared) return `<section class="hero shared">
+      <div><div class="lbl">Wishlist de ${esc(shared.owner || 'un ami')}</div>
+        <div class="val">${shared.loading ? '…' : eur(total)}</div>${meta}${split}
+        <div class="hint" style="margin-top:10px">${shared.loading ? 'Chargement des cartes et des prix…' : 'Lecture seule · prix Cardmarket mis à jour à l\'ouverture'}</div></div>
+      <div class="acts"><button class="btn" id="leaveShared">Ouvrir ma wishlist</button></div>
+    </section>`;
+  return `<section class="hero">
+      <div><div class="lbl">Valeur de ma wishlist</div><div class="val">${eur(total)}</div>${meta}${split}</div>
+      <div class="acts">${items.length ? '<button class="btn" id="refreshBtn">Actualiser les prix</button>' : ''}</div>
+    </section>`;
 }
 
 function render(){
+  // Garde le focus et le curseur dans le champ en cours de saisie
+  const ae = document.activeElement, focusId = ae && ae.id, caret = ae && ae.selectionStart;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
   $('#addBtn').style.display = shared ? 'none' : '';
   $('#shareBtn').style.display = shared ? 'none' : '';
@@ -565,30 +675,46 @@ function render(){
 
   const items = shared ? shared.items : state.items;
   const rows = applyFilters(items);
-  const total = rows.reduce((s,{it}) => s + (shownPrice(it) || 0), 0);
-  const banner = shared ? `<div class="banner"><b>Wishlist de ${esc(shared.owner || 'un ami')}</b>
-      <span style="color:var(--muted)">${shared.loading ? 'Chargement des cartes et des prix…' : 'Lecture seule · prix mis à jour à l\'ouverture'}</span>
-      <span class="sp"></span><button class="btn" id="leaveShared">Ouvrir ma wishlist</button></div>` : '';
-
-  main.innerHTML = banner + toolbarHTML() + `
-    <div class="stats">
-      <div><b>${rows.length}</b>carte${rows.length>1?'s':''}</div>
-      <div><b>${eur(total)}</b>valeur estimée</div>
-      ${shared ? '' : `<div class="sp"></div><button class="btn ghost" id="refreshBtn" style="align-self:center">Actualiser les prix</button>`}
-    </div>
-    <div class="grid" id="grid">${rows.length ? rows.map(({it,i}) => tileHTML(it, i)).join('') :
-      (items.length ? `<div class="empty"><h3>Aucune carte ne correspond</h3>Modifie les filtres.</div>` :
-      `<div class="empty"><h3>Ta wishlist est vide</h3>Clique sur « + Ajouter une carte » pour chercher une carte Pokémon ou Yu-Gi-Oh!.</div>`)}</div>`;
+  const emptyAll = !items.length;
+  main.innerHTML = heroHTML(items) + `
+    <div class="layout">
+      ${sideHTML(items)}
+      <section>
+        <div class="gridhead">
+          <div class="search">${ICON_SEARCH}<input class="field" id="fq" type="search" placeholder="Rechercher dans la wishlist…" value="${esc(filters.q)}"></div>
+          <button class="btn filtersToggle" id="filtersToggle">Filtres</button>
+          <select class="field" id="fsort" aria-label="Trier">
+            <option value="added">Ajout récent</option><option value="price-desc">Prix décroissant</option>
+            <option value="price-asc">Prix croissant</option><option value="name">Nom A→Z</option>
+          </select>
+          <span class="count">${rows.length} / ${items.length}</span>
+        </div>
+        <div class="grid" id="grid">${rows.length ? rows.map(({it,i}) => tileHTML(it, i)).join('') :
+          (emptyAll ? (shared ? `<div class="empty"><h3>${shared.loading ? 'Chargement…' : 'Cette wishlist est vide'}</h3></div>`
+            : `<div class="empty"><h3>Ta wishlist est vide</h3>Cherche une carte Pokémon ou Yu-Gi-Oh!, ou colle un lien Cardmarket.<br><button class="btn primary" id="emptyAdd">+ Ajouter une carte</button></div>`)
+          : `<div class="empty"><h3>Aucune carte ne correspond</h3>Modifie la recherche ou les filtres.</div>`)}</div>
+      </section>
+    </div>`;
 
   $('#fsort').value = filters.sort;
-  $('#fq').oninput = e => { filters.q = e.target.value; render(); $('#fq').focus(); const v=$('#fq'); v.setSelectionRange(v.value.length, v.value.length); };
-  $('#fmin').oninput = e => { filters.min = e.target.value; render(); $('#fmin').focus(); };
-  $('#fmax').oninput = e => { filters.max = e.target.value; render(); $('#fmax').focus(); };
+  $('#fq').oninput = e => { filters.q = e.target.value; render(); };
+  $('#fmin').oninput = e => { filters.min = e.target.value; render(); };
+  $('#fmax').oninput = e => { filters.max = e.target.value; render(); };
   $('#fsort').onchange = e => { filters.sort = e.target.value; render(); };
-  $('#fgame').onclick = e => { const b = e.target.closest('button'); if (b){ filters.game = b.dataset.game; render(); } };
+  $('#side').onclick = e => {
+    const c = e.target.closest('.chip');
+    if (c){ filters[c.parentElement.dataset.key] = c.dataset.v; render(); return; }
+    if (e.target.id === 'resetF'){ Object.assign(filters, { game:'all', market:'all', cond:'all', min:'', max:'' }); render(); }
+  };
+  $('#filtersToggle').onclick = () => { sideOpen = !sideOpen; render(); };
   $('#grid').onclick = e => { const t = e.target.closest('.tile'); if (t) openDetail(+t.dataset.i); };
+  if ($('#emptyAdd')) $('#emptyAdd').onclick = () => $('#addBtn').click();
   if ($('#refreshBtn')) $('#refreshBtn').onclick = refreshPrices;
   if ($('#leaveShared')) $('#leaveShared').onclick = () => { shared = null; history.replaceState(null, '', location.pathname); render(); };
+  if (focusId && $('#' + focusId) && /^(fq|fmin|fmax)$/.test(focusId)){
+    const el = $('#' + focusId); el.focus();
+    try { if (caret != null) el.setSelectionRange(caret, caret); } catch(e){}
+  }
 }
 
 /* ========= Modales ========= */
@@ -905,7 +1031,7 @@ function openDetail(i){
         <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
       </div>
-      ${ro ? '' : `<hr style="border:0;border-top:1px solid var(--line);margin:18px 0 12px">
+      ${ro ? '' : `<hr class="divider">
       <div class="form">${versionFields(o, it)}</div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
