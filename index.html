@@ -619,7 +619,7 @@ const YP_RARITY = { C:'Common', R:'Rare', SR:'Super Rare', UR:'Ultra Rare', ScR:
   EScR:'Extra Secret Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
 async function ocgPrints(nameEn){
   if (!nameEn) return [];
-  return cached(`yp:${nameEn}`, async () => {
+  return cached(`yp2:${nameEn}`, async () => {
     const page = 'Card_Gallery:' + nameEn.replace(/ /g, '_');
     const r = await fetch(`https://yugipedia.com/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext|images&redirects=1&format=json&origin=*`);
     if (!r.ok) return null;
@@ -627,10 +627,11 @@ async function ocgPrints(nameEn){
     const text = j.parse.wikitext['*'] || '', files = (j.parse.images || []).map(f => f.replace(/_/g, ' '));
     const out = [], seen = new Set();
     text.split('{{Card gallery|region=').slice(1).forEach(block => {
-      if (!/^JP\b/.test(block)) return;
+      // Seulement les vraies cartes OCG : pas Rush Duel ni les cartes d'anime, de manga ou de jeux vidéo (sections « type=… »)
+      if (!/^JP\|\s*\n/.test(block)) return;
       block.split('\n}}')[0].split('\n').slice(1).forEach(line => {
         const parts = line.split('//')[0].split(';').map(s => s.trim());
-        if (parts.length < 3 || !/-JP/i.test(parts[0])) return;
+        if (parts.length < 3 || !/-JP/i.test(parts[0]) || /^RD\//i.test(parts[0])) return;
         const [code, set, abbr] = parts, rarity = YP_RARITY[abbr] || abbr, key = `${code}|${rarity}`;
         if (seen.has(key)) return; seen.add(key);
         const prefix = code.split('-')[0];
