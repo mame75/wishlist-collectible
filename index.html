@@ -305,7 +305,7 @@ function imgBox(c, hi, badges){
   return `<div class="img">
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" loading="lazy" onerror="this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
-    <div class="badges">${badges || ''}${c.imgLang === 'en' && src ? '<span class="bdg" title="Pas de visuel dans cette langue : visuel anglais affiché">Visuel EN</span>' : ''}</div>
+    <div class="badges">${badges || ''}</div>
   </div>`;
 }
 /* ========= Vues ========= */
