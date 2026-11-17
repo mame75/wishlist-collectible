@@ -317,7 +317,6 @@ function cmUrl(it){
   const q = it.printCode || it.nameEn || it.name;
   return `${base}YuGiOh/Products/Search?searchString=${encodeURIComponent(q)}`;
 }
-const cmExact = it => it.game === 'pkm' ? !!it.cmId : !!it.printCode;
 function ebayUrl(it){
   const q = [it.name, it.num || it.printCode, it.graded ? it.grader + ' ' + it.grade : ''].filter(Boolean).join(' ');
   return `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(q)}`;
@@ -591,10 +590,13 @@ function renderConfigure(card){
       <div class="form">${versionFields(o, card)}</div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
+        <a class="btn" id="cfgCm" href="${esc(cmUrl(card))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <button class="btn ghost" id="backBtn">← Retour aux résultats</button>
       </div>
     </div></div>`;
   bindVersionFields();
+  // Le lien Cardmarket suit l'impression choisie (Yu-Gi-Oh!)
+  if ($('#cprint')) $('#cprint').onchange = e => { $('#cfgCm').href = cmUrl({ ...card, printCode: e.target.value }); };
   $('#backBtn').onclick = renderSearch;
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
@@ -627,7 +629,7 @@ function openDetail(i){
         ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
       </dl>
       <div class="actions" style="margin-top:0">
-        <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">${cmExact(it) ? 'Voir la fiche Cardmarket' : 'Chercher sur Cardmarket'}</a>
+        <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
       </div>
       ${ro ? '' : `<hr style="border:0;border-top:1px solid var(--line);margin:18px 0 12px">
