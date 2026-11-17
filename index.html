@@ -707,8 +707,11 @@ async function editionArt(c, p, lang){
   if (p.img) return { img: p.img, imgHi: p.img };
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
-  return u ? { img: u, imgHi: u } : await printArt(p.code);
+  if (u) return { img: u, imgHi: u };
+  const gen = await printArt(p.code);
+  return gen ? { ...gen, generic: true } : null;
 }
+const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
 
 async function ocgPrints(nameEn){
   if (!nameEn) return [];
@@ -1303,6 +1306,7 @@ function renderConfigure(card, pre){
     <div>
       <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
       ${card.nameJa ? `<div class="hint">Nom japonais : ${esc(card.nameJa)} · traduction automatique</div>` : ''}
+      <div class="hint" id="artNote"></div>
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
         <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Japon)' : 'TCG (international)'}</dd>
@@ -1329,6 +1333,7 @@ function renderConfigure(card, pre){
   const applyArt = async (key, p) => {
     p = p || findPrint(withExtra(card), key);
     const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
+    if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
     if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; }
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
@@ -1388,6 +1393,7 @@ function openDetail(i){
     ${imgBox(it, true)}
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
+      <div class="hint" id="artNote"></div>
       <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen Cardmarket'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
       ${!it.graded && it.trend != null ? `<div style="margin-top:4px">${trendHTML(it.trend)} <span class="hint">moyenne 7 jours vs 30 jours</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
@@ -1423,6 +1429,7 @@ function openDetail(i){
       if (p && p.ocg) $('#dlang').value = 'ja';
       else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
       art = await editionArt(it, p, $('#dlang').value);
+      if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
     }, it.game === 'ygo' ? (it.nameEn || it.name) : null, () => $('#dlang').value);
     bindLinkField(it, () => $('#dlang').value, picker, () => {});
