@@ -241,7 +241,7 @@ async function speciesNames(dex){
     return { fr: n('fr'), ja: n('ja') || n('ja-Hrkt') };
   });
 }
-const JA_PREFIX = { 'かがやく':[ '', ' radieux' ], 'メガ':[ 'Méga-', '' ], 'ダーク':[ '', ' obscur' ], 'ガラル':[ '', ' de Galar' ],
+const JA_PREFIX = { 'かがやく':[ '', ' radieux' ], 'メガ':[ 'Méga-', '' ], 'ダーク':[ '', ' obscur' ], 'わるい':[ '', ' obscur' ], '暗い':[ '', ' obscur' ], '輝く':[ '', ' brillant' ], 'ガラル':[ '', ' de Galar' ],
   'アローラ':[ '', " d'Alola" ], 'ヒスイ':[ '', ' de Hisui' ], 'パルデア':[ '', ' de Paldea' ], 'ロケット団の':[ '', ' de la Team Rocket' ] };
 function frSuffix(s){
   s = s.trim();
@@ -301,7 +301,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc2:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc3:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
