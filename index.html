@@ -570,6 +570,24 @@ async function matchPkm(L, lang){
 const YGO_RARITIES = ['Quarter-Century-Secret-Rare','Platinum-Secret-Rare','Prismatic-Secret-Rare','Starlight-Rare','Collectors-Rare','Ultimate-Rare',
   'Ghost-Rare','Secret-Rare','Ultra-Rare','Super-Rare','Gold-Rare','Premium-Gold-Rare','Parallel-Rare','Mosaic-Rare','Starfoil-Rare','Shatterfoil-Rare',
   'Short-Print','Super-Short-Print','Common','Rare'];
+// Extension + rareté d'après l'adresse Cardmarket (ex. …/Beyond-the-Brave/The-Great-Gallant-Bandit-V2-Ultra-Rare)
+function ygoSlugParts(slug){
+  const m = slug.match(/^(.*?)-V\d+-(.+)$/);
+  if (m) return { name: m[1], rarity: m[2] };
+  const r = YGO_RARITIES.find(r => slug.toLowerCase().endsWith('-' + r.toLowerCase()));
+  return r ? { name: slug.slice(0, -(r.length + 1)), rarity: r } : { name: slug, rarity: null };
+}
+// Le lien collé fait foi : on retrouve l'édition qu'il désigne (TCG, sinon japonaise via Yugipedia, sinon telle que décrite)
+async function printFromLink(c, url){
+  const L = parseCmLink(url);
+  if (!L || L.game !== 'ygo') return null;
+  const { rarity } = ygoSlugParts(L.slug);
+  const exp = norm(L.expansion), rr = rarity ? norm(unslug(rarity)) : null;
+  const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rr && norm(p.rarity) === rr) || cand[0]; };
+  return pick(c.prints || []) || pick(await ocgPrints(c.nameEn || c.name))
+    || { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
+}
+
 async function matchYgo(L, lang){
   let name = L.slug, rarity = null;
   const m = L.slug.match(/^(.*?)-V\d+-(.+)$/);
@@ -1127,11 +1145,27 @@ function bindPrintPicker(prints, onPick, nameEn){
   const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); };
   sum();
   if (!ygoDates) getYgoDates().then(() => { if ($('#ppsumT')) sum(); });
-  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => {
+  const select = (p, fromLink) => {
     if (!$('#cprint')) return;
+    const key = printKey(p);
     if (p && !list.some(x => printKey(x) === key)) list = [p, ...list];
-    $('#cprint').value = key; sum(); onPick(key, p || null);
-  }, nameEn);
+    $('#cprint').value = key; sum(); onPick(key, p || null, fromLink || null);
+  };
+  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => select(p), nameEn);
+  return { select };
+}
+// Champ « Lien Cardmarket exact » : dès qu'un lien valide est collé, il désigne l'édition (image et version suivent)
+function bindLinkField(c, getLang, picker, onOther){
+  const f = $('#ccm'); if (!f) return;
+  let last = f.value.trim();
+  f.oninput = async () => {
+    const v = f.value.trim(); if (v === last) return; last = v;
+    if (!v){ onOther(null); return; }
+    const chk = checkCmLink(v, getLang()); if (!chk.ok) return;
+    const p = c.game === 'ygo' && picker ? await printFromLink(c, chk.url) : null;
+    if (f.value.trim() !== v) return;
+    if (p) picker.select(p, chk.url); else onOther(chk.url);
+  };
 }
 
 let edToken = 0;
@@ -1250,16 +1284,21 @@ function renderConfigure(card, pre){
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
   };
-  bindPrintPicker(withExtra(card), (key, p) => {
+  const picker = bindPrintPicker(withExtra(card), (key, p, fromLink) => {
     if (p && (p.ocg || p.link)) card.extraPrint = p;
-    pre.cmLink = null;
+    pre.cmLink = fromLink || null;
+    if (!fromLink && $('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
     const want = p && p.ocg ? 'ja' : (p && card.lang === 'ja' && !p.link ? 'fr' : card.lang);
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
-    $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '' }); applyArt(key, p);
-    $('#cmHint').textContent = cmHint(card, key, null);
-    if ($('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
+    $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '', cmLink: pre.cmLink }); applyArt(key, p);
+    $('#cmHint').textContent = cmHint(card, key, pre.cmLink);
   }, card.game === 'ygo' ? (card.nameEn || card.name) : null);
+  bindLinkField(card, () => $('#clang').value, picker, url => {
+    pre.cmLink = url;
+    $('#cfgCm').href = cmUrl({ ...card, printCode: keyCode($('#cprint') ? $('#cprint').value : ''), cmLink: url });
+    $('#cmHint').textContent = cmHint(card, $('#cprint') ? $('#cprint').value : '', url);
+  });
   if (card.game === 'ygo' && o.printKey) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
   $('#clang').onchange = async e => {
@@ -1329,13 +1368,15 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields();
-    bindPrintPicker(withExtra(it), async (key, p) => {
+    const picker = bindPrintPicker(withExtra(it), async (key, p, fromLink) => {
       picked = p;
+      if (!fromLink && $('#ccm')) $('#ccm').value = '';
       if (p && p.ocg) $('#dlang').value = 'ja';
       else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
       art = p && p.img ? { img: p.img, imgHi: p.img } : (it.game === 'ygo' && p && !p.ocg && p.code ? await printArt(p.code) : null);
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
     }, it.game === 'ygo' ? (it.nameEn || it.name) : null);
+    bindLinkField(it, () => $('#dlang').value, picker, () => {});
     $('#saveDet').onclick = async () => {
       readVersionFields(o);
       const lang = $('#dlang').value;
