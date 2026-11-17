@@ -312,6 +312,7 @@ const CM_LANG = { en:1, fr:2, de:3, es:4, it:5, ja:7, pt:8 };
 // Pokémon : fiche exacte via l'identifiant Cardmarket fourni par TCGdex.
 // Yu-Gi-Oh! : recherche par code d'impression (ex. CT13-EN003) qui mène à la bonne carte, sinon par nom anglais.
 function cmUrl(it){
+  if (it.cmLink) return it.cmLink;   // lien collé par l'utilisateur : c'est la fiche exacte
   const base = 'https://www.cardmarket.com/fr/';
   if (it.game === 'pkm'){
     if (it.cmId){
@@ -328,6 +329,96 @@ function ebayUrl(it){
   return `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(q)}`;
 }
 
+
+/* ========= Import depuis un lien Cardmarket =========
+   On ne peut pas lire la page Cardmarket (pas d'accès ouvert) : on déduit la carte du lien lui-même
+   (jeu, extension, nom, numéro ou rareté, langue) puis on la retrouve dans TCGdex / YGOPRODeck. */
+const CM_LANG_REV = Object.fromEntries(Object.entries(CM_LANG).map(([k, v]) => [String(v), k]));
+const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+const words = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(Boolean);
+function overlap(a, b){ const A = new Set(a), B = new Set(b); if (!A.size || !B.size) return 0;
+  let i = 0; A.forEach(x => { if (B.has(x)) i++; }); return i / new Set([...A, ...B]).size; }
+
+function parseCmLink(raw){
+  let u; try { u = new URL(raw.trim()); } catch(e){ return null; }
+  if (!/cardmarket\.com$/i.test(u.hostname)) return null;
+  const seg = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const i = seg.findIndex(x => /^(Pokemon|YuGiOh)$/i.test(x));
+  if (i < 0 || !/^Products$/i.test(seg[i+1] || '') || !/^Singles$/i.test(seg[i+2] || '') || !seg[i+3] || !seg[i+4]) return null;
+  return { game: /^pokemon$/i.test(seg[i]) ? 'pkm' : 'ygo', expansion: seg[i+3], slug: seg[i+4],
+           lang: CM_LANG_REV[u.searchParams.get('language')] || null, url: u.href };
+}
+
+let enSets = null;
+async function getEnSets(){
+  if (enSets) return enSets;
+  const list = await cached('sets:en', () => API.getJSON('https://api.tcgdex.net/v2/en/sets'));
+  enSets = Object.fromEntries((list || []).map(s => [s.id, s.name]));
+  return enSets;
+}
+
+// Renvoie { card } si la carte est trouvée avec certitude, sinon { candidates: [cartes] }
+async function matchPkm(L, lang){
+  const segs = L.slug.split('-').filter(x => !/^V\d+$/i.test(x));
+  const code = segs[segs.length - 1] || '';
+  const cnum = (code.match(/(\d+)$/) || [])[1];
+  const nameTok = words(segs.slice(0, -1).join(' '));
+  const expTok = words(L.expansion).filter(w => w !== 'ex');
+  const [briefs, sets] = await Promise.all([API.pkmSearch(segs[0], 'en'), getEnSets()]);
+  const scored = briefs.map(b => {
+    const k = b.id.lastIndexOf('-'), setId = b.id.slice(0, k), local = b.id.slice(k + 1);
+    const ld = (local.match(/(\d+)$/) || [])[1];
+    const numOk = !!cnum && !!ld && +ld === +cnum;
+    const setScore = overlap(expTok, words(sets[setId] || setId).filter(w => w !== 'ex'));
+    const nameScore = overlap(nameTok, words(b.name));
+    return { b, numOk, setScore, score: (numOk ? 2 : 0) + setScore * 1.5 + nameScore };
+  }).sort((a, b) => b.score - a.score);
+  if (!scored.length) return { candidates: [] };
+  const top = scored[0], second = scored[1];
+  const load = async id => (await API.pkmCard(id, lang)) || (await API.pkmCard(id, 'en').then(c => c && { ...c, lang }));
+  if (top.numOk && top.setScore >= 0.5 && !(second && second.numOk && second.setScore >= top.setScore)){
+    const card = await load(top.b.id);
+    if (card) return { card };
+  }
+  const cands = (await mapLimit(scored.slice(0, 12), 4, x => load(x.b.id))).filter(Boolean);
+  return { candidates: cands };
+}
+
+const YGO_RARITIES = ['Quarter-Century-Secret-Rare','Platinum-Secret-Rare','Prismatic-Secret-Rare','Starlight-Rare','Collectors-Rare','Ultimate-Rare',
+  'Ghost-Rare','Secret-Rare','Ultra-Rare','Super-Rare','Gold-Rare','Premium-Gold-Rare','Parallel-Rare','Mosaic-Rare','Starfoil-Rare','Shatterfoil-Rare',
+  'Short-Print','Super-Short-Print','Common','Rare'];
+async function matchYgo(L, lang){
+  let name = L.slug, rarity = null;
+  const m = L.slug.match(/^(.*?)-V\d+-(.+)$/);
+  if (m){ name = m[1]; rarity = m[2]; }
+  else { const r = YGO_RARITIES.find(r => L.slug.toLowerCase().endsWith('-' + r.toLowerCase()));
+         if (r){ name = L.slug.slice(0, -(r.length + 1)); rarity = r; } }
+  const target = norm(name);
+  const fetchList = async params => cached(`yl:${params}`, () =>
+    API.getJSON(API.ygoUrl(params, 'en')).then(r => r && Array.isArray(r.data) ? r.data : []));
+  // 1) toutes les cartes de l'extension, 2) sinon recherche par le mot le plus distinctif du nom
+  let list = await fetchList(`cardset=${encodeURIComponent(L.expansion.replace(/-/g, ' '))}`).catch(() => []);
+  let hit = list.find(c => norm(c.name) === target);
+  if (!hit){
+    const w = name.split('-').sort((a, b) => b.length - a.length)[0];
+    list = await fetchList(`fname=${encodeURIComponent(w)}&num=60&offset=0`).catch(() => []);
+    hit = list.find(c => norm(c.name) === target);
+  }
+  const toCard = async c => {
+    const loc = lang !== 'en' ? await API.ygoCard(String(c.id), lang).catch(() => null) : null;
+    return loc || API.ygoNorm(c, lang);
+  };
+  if (!hit){
+    const nameTok = words(name);
+    const cands = list.map(c => ({ c, s: overlap(nameTok, words(c.name)) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 12);
+    return { candidates: await Promise.all(cands.map(x => toCard(x.c))) };
+  }
+  const exp = norm(L.expansion);
+  const sets = hit.card_sets || [];
+  const print = sets.find(s => norm(s.set_name) === exp && (!rarity || norm(s.set_rarity) === norm(rarity))) || sets.find(s => norm(s.set_name) === exp);
+  return { card: await toCard(hit), printCode: print ? print.set_code : '' };
+}
+
 /* ========= Modèle d'un élément de wishlist ========= */
 function makeItem(card, opts){
   const variant = opts.variant || 'normal';
@@ -342,7 +433,7 @@ function makeItem(card, opts){
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
-    note: opts.note || '', addedAt: Date.now(), refreshedAt: Date.now()
+    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now()
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
@@ -476,6 +567,10 @@ function renderSearch(){
       <input class="field grow" id="sq" type="search" placeholder="${s.game==='pkm' ? 'Ex. Dracaufeu, Pikachu, Mew…' : 'Ex. Magicien Sombre, Dragon Blanc…'}" value="${esc(s.q)}" autocomplete="off">
       <button class="btn primary" type="submit">Rechercher</button>
     </form>
+    <form class="row" id="lform" style="margin-top:10px">
+      <input class="field grow" id="lurl" type="url" placeholder="… ou colle un lien Cardmarket (fiche d'une carte)" autocomplete="off">
+      <button class="btn" type="submit">Importer</button>
+    </form>
     <div class="hint" style="margin-top:8px">${s.game==='ygo' && s.lang!=='en'
       ? 'Tape le nom en français ou en anglais : les cartes récentes ne sont parfois disponibles qu\'avec leur nom anglais.'
       : 'Tape le nom dans la langue choisie.'} Prix : moyenne Cardmarket (identique pour toutes les langues).</div>
@@ -483,9 +578,28 @@ function renderSearch(){
   $('#sgame').onclick = e => { const b = e.target.closest('button'); if (!b) return; s.game = b.dataset.g;
     if (!GAMES[s.game].langs.some(x => x[0] === s.lang)) s.lang = 'fr'; s.briefs=[]; s.cards=[]; s.shown=0; renderSearch(); };
   $('#slang').onchange = e => { s.lang = e.target.value; };
-  $('#sform').onsubmit = e => { e.preventDefault(); s.q = $('#sq').value.trim(); if (s.q) runSearch(); };
+  $('#sform').onsubmit = e => { e.preventDefault(); s.q = $('#sq').value.trim(); if (s.q){ s.link = null; runSearch(); } };
+  $('#lform').onsubmit = e => { e.preventDefault(); importLink($('#lurl').value); };
   renderResults();
   setTimeout(() => $('#sq') && $('#sq').focus(), 30);
+}
+
+async function importLink(raw){
+  const s = search, L = parseCmLink(raw || '');
+  if (!L){ renderResults('Ce lien ne ressemble pas à une fiche de carte Cardmarket (Pokémon ou Yu-Gi-Oh!). Ouvre la fiche de la carte et copie son adresse.'); return; }
+  const tok = ++s.token;
+  s.game = L.game; s.lang = L.lang || (GAMES[L.game].langs.some(x => x[0] === s.lang) ? s.lang : 'fr');
+  s.link = { url: L.url }; s.q = ''; s.cards = []; s.briefs = []; s.shown = 0;
+  renderSearch(); $('#lurl').value = L.url;
+  renderResults('Recherche de la carte du lien…');
+  let res;
+  try { res = L.game === 'pkm' ? await matchPkm(L, s.lang) : await matchYgo(L, s.lang); }
+  catch(e){ if (tok === s.token) renderResults('Impossible de joindre la base de cartes. Réessaie dans un instant.'); return; }
+  if (tok !== s.token) return;
+  if (res.card){ renderConfigure(res.card, { cmLink: L.url, printCode: res.printCode || '' }); return; }
+  s.cards = res.candidates; s.briefs = s.cards; s.shown = s.cards.length;
+  if (!s.cards.length){ renderResults('Carte introuvable dans nos bases à partir de ce lien. Essaie la recherche par nom.'); return; }
+  renderResults();
 }
 
 async function runSearch(){
@@ -523,11 +637,13 @@ function renderResults(msg){
   const box = $('#sres'); if (!box) return;
   const s = search;
   if (msg){ box.innerHTML = `<div class="status">${esc(msg)}</div>`; return; }
-  if (!s.q){ box.innerHTML = ''; return; }
+  if (!s.q && !s.link){ box.innerHTML = ''; return; }
   if (!s.cards.length){ box.innerHTML = `<div class="status">Aucune carte trouvée pour « ${esc(s.q)} » en ${esc(langLabel(s.game, s.lang))}.</div>`; return; }
   const more = s.game === 'pkm' && s.shown < s.briefs.length;
   const count = s.game === 'pkm' ? s.briefs.length : s.cards.length;
-  box.innerHTML = `<div class="hint" style="margin-top:12px">${count} résultat${count>1?'s':''}${s.game==='ygo' && count>=60 ? ' (60 premiers — précise ta recherche)' : ''}</div>
+  const head = s.link ? `Pas sûr à 100 % de la carte de ce lien : choisis la bonne parmi ${count} carte${count>1?'s':''} proche${count>1?'s':''}.`
+    : `${count} résultat${count>1?'s':''}${s.game==='ygo' && count>=60 ? ' (60 premiers — précise ta recherche)' : ''}`;
+  box.innerHTML = `<div class="hint" style="margin-top:12px">${head}</div>
     <div class="results" id="rgrid">${s.cards.map((c, i) => `
       <button class="tile" data-r="${i}">
         ${imgBox(c, false)}
@@ -536,7 +652,7 @@ function renderResults(msg){
       </button>`).join('')}
     </div>
     ${more ? `<div style="text-align:center;margin-top:12px"><button class="btn" id="moreBtn">Voir plus (${s.briefs.length - s.shown} restants)</button></div>` : ''}`;
-  $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(s.cards[+t.dataset.r]); };
+  $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(s.cards[+t.dataset.r], s.link ? { cmLink: s.link.url } : null); };
   if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMorePkm(tok); if (tok === s.token) renderResults(); };
 }
 
@@ -580,9 +696,10 @@ function bindVersionFields(){
     $('#gradeRow').style.display = b.dataset.g === '1' ? '' : 'none'; };
 }
 
-function renderConfigure(card){
+function renderConfigure(card, pre){
+  pre = pre || {};
   $('#addTitle').textContent = 'Préciser la carte';
-  const o = { variant:'normal', graded:false, grader:'PSA', grade:'10', priceGraded:null, note:'', printCode:'' };
+  const o = { variant:'normal', graded:false, grader:'PSA', grade:'10', priceGraded:null, note:'', printCode: pre.printCode || '' };
   $('#addBody').innerHTML = `<div class="detail">
     ${imgBox(card, true)}
     <div>
@@ -598,17 +715,17 @@ function renderConfigure(card){
       <div class="form">${versionFields(o, card)}</div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
-        <a class="btn" id="cfgCm" href="${esc(cmUrl(card))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
+        <a class="btn" id="cfgCm" href="${esc(cmUrl({ ...card, printCode: o.printCode, cmLink: pre.cmLink }))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <button class="btn ghost" id="backBtn">← Retour aux résultats</button>
       </div>
     </div></div>`;
   bindVersionFields();
   // Le lien Cardmarket suit l'impression choisie (Yu-Gi-Oh!)
-  if ($('#cprint')) $('#cprint').onchange = e => { $('#cfgCm').href = cmUrl({ ...card, printCode: e.target.value }); };
+  if ($('#cprint')) $('#cprint').onchange = e => { pre.cmLink = null; $('#cfgCm').href = cmUrl({ ...card, printCode: e.target.value }); };
   $('#backBtn').onclick = renderSearch;
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
-    state.items.push(makeItem(card, opts)); save();
+    state.items.push(makeItem(card, { ...opts, cmLink: pre.cmLink })); save();
     closeModal('#addScrim'); filters = { ...filters, q:'' }; render();
     toast(`${card.name} ajoutée à ta wishlist`);
   };
@@ -652,6 +769,7 @@ function openDetail(i){
     $('#saveDet').onclick = () => {
       readVersionFields(o);
       const print = (it.prints || []).find(p => p.code === o.printCode);
+      if (o.printCode !== it.printCode) it.cmLink = null;
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note, printCode:o.printCode });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
@@ -689,7 +807,7 @@ async function refreshPrices(){
 // Le lien contient seulement les références des cartes ; les prix sont rechargés à l'ouverture.
 function buildShareLink(){
   const payload = { o: state.owner || '', c: state.items.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printCode || '',
-    it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '']) };
+    it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '', it.cmLink || 0]) };
   return location.href.split('#')[0] + '#share=' + b64e(JSON.stringify(payload));
 }
 function renderShare(){
@@ -716,12 +834,12 @@ async function openShared(hash){
   const refs = (payload.c || []);
   shared = { owner: payload.o, items: [], loading: true };
   render();
-  const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note]) => {
+  const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note, cmLink]) => {
     if (!GAMES[game]) return null;
     const c = await API.card(game, id, lang);
     if (!c) return null;
     return makeItem(c, { variant: rev ? 'reverse' : 'normal', printCode,
-      graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note });
+      graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note, cmLink: cmLink || null });
   });
   shared.items = items.filter(Boolean).map((it, k) => ({ ...it, addedAt: refs.length - k }));
   shared.loading = false;
