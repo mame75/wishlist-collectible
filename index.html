@@ -354,7 +354,7 @@ const API = {
       img: c.image ? c.image + '/low.webp' : (CUSTOM_IMG[c.id] || null),
       imgHi: c.image ? c.image + '/high.webp' : (CUSTOM_IMG[c.id] || null),
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
-      rarity: c.rarity || '',
+      rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
       prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
       prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
@@ -368,7 +368,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc3:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc4:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -410,7 +410,9 @@ const API = {
     return loc.map(c => this.ygoNorm(c, lang))
       .concat(en.filter(c => !seen.has(String(c.id))).map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
   },
-  ygoCard(id, lang){ return cached(`yc:${lang}:${id}`, () => this._ygoCard(id, lang)); },
+  // Carte pas encore traduite dans cette langue : on garde la version anglaise (nom anglais), avec la langue demandée
+  ygoCard(id, lang){ return cached(`yc2:${lang}:${id}`, async () => (await this._ygoCard(id, lang))
+    || (lang !== 'en' ? await this._ygoCard(id, 'en').then(c => c && { ...c, lang }) : null)); },
   async _ygoCard(id, lang){
     const r = await this.getJSON(this.ygoUrl(`id=${encodeURIComponent(id)}`, lang));
     return r && r.data && r.data[0] ? this.ygoNorm(r.data[0], lang) : null;
