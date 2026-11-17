@@ -575,13 +575,31 @@ async function matchYgo(L, lang){
   const exp = norm(L.expansion);
   const sets = hit.card_sets || [];
   const print = sets.find(s => norm(s.set_name) === exp && (!rarity || norm(s.set_rarity) === norm(rarity))) || sets.find(s => norm(s.set_name) === exp);
+  if (!print){
+    // Édition inconnue de YGOPRODeck : on la reprend du lien. Si elle n'est pas non plus dans la liste des éditions TCG,
+    // c'est très probablement un produit japonais (OCG).
+    const dates = await getYgoDates().catch(() => ({}));
+    const tcg = Object.keys(dates || {}).some(n => norm(n) === exp);
+    const ocg = /ocg/i.test(L.expansion) || !tcg;
+    const lp = { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
+    const c = await toCard(hit);
+    return { card: { ...c, lang: ocg ? 'ja' : c.lang, prints: [lp, ...(c.prints || [])] }, printKey: printKey(lp), linkPrint: true };
+  }
   return { card: await toCard(hit), printCode: print ? print.set_code : '', printKey: print ? `${print.set_code}|${print.set_rarity}` : '' };
 }
 
 /* Une impression = code + rareté (un même code peut exister en plusieurs raretés) */
-const printKey = p => p ? `${p.code}|${p.rarity}` : '';
-const keyCode = k => String(k || '').split('|')[0];
-const findPrint = (prints, key) => !key ? null : (prints || []).find(p => printKey(p) === key) || (prints || []).find(p => p.code === keyCode(key)) || null;
+// Édition reprise d'un lien Cardmarket (absente de la base, ex. produit japonais OCG) : clé « @extension|rareté », sans code
+const printKey = p => !p ? '' : p.link ? `@${p.set}|${p.rarity}` : `${p.code}|${p.rarity}`;
+const keyCode = k => { k = String(k || ''); return k.startsWith('@') ? '' : k.split('|')[0]; };
+const findPrint = (prints, key) => {
+  if (!key) return null;
+  const hit = (prints || []).find(p => printKey(p) === key) || (!key.startsWith('@') && (prints || []).find(p => p.code === keyCode(key)));
+  if (hit) return hit;
+  if (key.startsWith('@')){ const [set, rarity] = key.slice(1).split('|'); return { code:'', set, rarity: rarity || '', link:true }; }
+  return null;
+};
+const unslug = s => String(s || '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
 
 /* ========= Modèle d'un élément de wishlist ========= */
 function makeItem(card, opts){
@@ -591,7 +609,8 @@ function makeItem(card, opts){
     uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
-    printCode: print ? print.code : '', printKey: printKey(print), prints: card.prints,
+    printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link),
+    linkPrint: print && print.link ? print : null,
     cmId: card.cmId || null, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     trend: card.trend ? (card.trend[variant] ?? null) : null, printArt: !!card.printArt,
@@ -801,7 +820,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const open
 // Marchés : International (mêmes cartes, mêmes visuels en FR/EN/DE…) et Asie / OCG (cartes et impressions différentes)
 const MARKETS = {
   pkm: { intl:['fr','en','de','it','es'], asia:['ja'] },
-  ygo: { intl:['fr','en','de','it','pt'], asia:[] }
+  ygo: { intl:['fr','en','de','it','pt'], asia:['ja'] }
 };
 const marketOf = (game, lang) => MARKETS[game].asia.includes(lang) ? 'asia' : 'intl';
 const MARKET_LABEL = { intl:'TCG', asia:'OCG' };
@@ -848,7 +867,7 @@ async function importLink(raw){
   try { res = L.game === 'pkm' ? await matchPkm(L, lang) : await matchYgo(L, lang); }
   catch(e){ if (tok === s.token) renderResults('Impossible de joindre la base de cartes. Réessaie dans un instant.'); return; }
   if (tok !== s.token) return;
-  if (res.card){ renderConfigure(res.card, { cmLink: L.url, printCode: res.printCode || '', printKey: res.printKey || '' }); return; }
+  if (res.card){ renderConfigure(res.card, { cmLink: res.card.lang === 'ja' ? withLang(L.url, 'ja') : L.url, printCode: res.printCode || '', printKey: res.printKey || '' }); return; }
   s.linkCards = res.candidates;
   if (!s.linkCards.length){ renderResults('Carte introuvable dans nos bases à partir de ce lien. Essaie la recherche par nom.'); return; }
   renderResults();
@@ -1023,7 +1042,8 @@ function printSummary(prints, key){
   const p = findPrint(prints, key);
   if (!p) return `<b>Peu importe l'impression</b><span>Choisis une édition pour avoir la bonne illustration</span>`;
   const yr = ((ygoDates || {})[p.set] || '').slice(0, 4);
-  return `<b>${esc(p.set)}</b><span>${esc(p.code)} · ${esc(p.rarity)}${yr ? ' · ' + yr : ''}</span>`;
+  const bits = p.link ? [p.rarity, 'édition reprise du lien Cardmarket (absente de la base)'] : [p.code, p.rarity, yr];
+  return `<b>${esc(p.set)}</b><span>${esc(bits.filter(Boolean).join(' · '))}</span>`;
 }
 function bindPrintPicker(prints, onPick){
   if (!$('#ppOpen')) return;
@@ -1053,7 +1073,7 @@ async function openEditions(prints, selKey, onPick){
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: arts[p.code] && arts[p.code].img }, false)}
-          <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(p.rarity)}</div></div>
+          <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(p.rarity)}</div></div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
   };
@@ -1077,6 +1097,12 @@ async function openEditions(prints, selKey, onPick){
 // Remplace le visuel affiché dans une fenêtre (sans tout redessiner)
 function swapImg(scope, c){ const box = $(scope + ' .detail > .img'); if (box) box.outerHTML = imgBox(c, true); }
 
+// Pokémon : les langues du même marché (une carte OCG est une autre carte). Yu-Gi-Oh! : toutes, la base ne sépare pas TCG / OCG.
+function langChoices(game, lang){
+  const m = MARKETS[game], list = game === 'ygo' ? [...m.intl, ...m.asia] : m[marketOf(game, lang)];
+  return list.includes(lang) ? list : [lang, ...list];
+}
+
 function withLang(link, lang){
   if (!link) return link;
   try { const u = new URL(link); if (CM_LANG[lang]) u.searchParams.set('language', CM_LANG[lang]); else u.searchParams.delete('language'); return u.href; }
@@ -1090,7 +1116,7 @@ function renderConfigure(card, pre){
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '' };
   const market = marketOf(card.game, card.lang);
-  const langs = MARKETS[card.game][market].includes(card.lang) ? MARKETS[card.game][market] : [card.lang, ...MARKETS[card.game][market]];
+  const langs = langChoices(card.game, card.lang);
   $('#addBody').innerHTML = `<div class="detail">
     ${imgBox(card, true)}
     <div>
@@ -1156,7 +1182,7 @@ function openDetail(i){
   $('#detTitle').textContent = it.name;
   const o = { ...it };
   const mk = marketOf(it.game, it.lang);
-  const langs = MARKETS[it.game][mk].includes(it.lang) ? MARKETS[it.game][mk] : [it.lang, ...MARKETS[it.game][mk]];
+  const langs = langChoices(it.game, it.lang);
   let art;   // illustration choisie avec l'impression (undefined = inchangée)
   $('#detBody').innerHTML = `<div class="detail">
     ${imgBox(it, true)}
@@ -1181,7 +1207,7 @@ function openDetail(i){
       <div class="form">
         <div><label class="l" for="dlang">Langue de la carte</label>
           <select class="field" id="dlang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===it.lang?'selected':''}>${esc(langLabel(it.game, l))}</option>`).join('')}</select></div>
-        ${versionFields(o, it)}
+        ${versionFields(o, it.linkPrint ? { ...it, prints: [it.linkPrint, ...(it.prints || [])] } : it)}
       </div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
@@ -1190,7 +1216,7 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields();
-    bindPrintPicker(it.prints || [], async key => {
+    bindPrintPicker(it.linkPrint ? [it.linkPrint, ...(it.prints || [])] : (it.prints || []), async key => {
       art = it.game === 'ygo' ? (await printArt(keyCode(key))) : null;
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
     });
@@ -1201,7 +1227,7 @@ function openDetail(i){
       const print = findPrint(it.prints, o.printKey);
       if ((o.printKey || '') !== (it.printKey || printKey(findPrint(it.prints, it.printCode)))) it.cmLink = null;
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note,
-        printCode: print ? print.code : '', printKey: printKey(print) });
+        printCode: print ? print.code : '', printKey: printKey(print), linkPrint: print && print.link ? print : null });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       if (art !== undefined){ if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
