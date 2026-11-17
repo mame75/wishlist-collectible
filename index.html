@@ -159,7 +159,7 @@ label.l{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
 /* ========= Config ========= */
 const GAMES = {
   pkm: {label:'Pokémon', langs:[['fr','FR'],['en','EN'],['ja','JP'],['de','DE'],['it','IT'],['es','ES']]},
-  ygo: {label:'Yu-Gi-Oh!', langs:[['fr','FR'],['en','EN'],['de','DE'],['it','IT'],['pt','PT']]}
+  ygo: {label:'Yu-Gi-Oh!', langs:[['fr','FR'],['en','EN'],['de','DE'],['it','IT'],['pt','PT'],['ja','JP']]}
 };
 const GRADERS = ['PSA','CGC','BGS','PCA','Collect Aura','SGC'];
 const GRADES = ['10','9.5','9','8.5','8','7.5','7','6','5','4','3','2','1'];
@@ -248,7 +248,7 @@ const API = {
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: c.rarity || '',
       prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
-      prints: null, cmId: cm.idProduct || null, nameEn: null,
+      prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
     };
   },
@@ -555,9 +555,17 @@ document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', e =
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach(s => s.classList.remove('open')); });
 
 /* ---- Ajout : étape 1, recherche ---- */
-let search = { game:'pkm', lang:'fr', q:'', briefs:[], cards:[], shown:0, busy:false, token:0 };
+// Marchés : International (mêmes cartes, mêmes visuels en FR/EN/DE…) et Asie / OCG (cartes et impressions différentes)
+const MARKETS = {
+  pkm: { intl:['fr','en','de','it','es'], asia:['ja'] },
+  ygo: { intl:['fr','en','de','it','pt'], asia:[] }
+};
+const marketOf = (game, lang) => MARKETS[game].asia.includes(lang) ? 'asia' : 'intl';
+const MARKET_LABEL = { intl:'International', asia:'Japon' };
+const hasCJK = s => /[぀-ヿ㐀-鿿가-힯]/.test(s);
+const newGroup = () => ({ briefs:[], cards:[], shown:0, loaded:false, loading:false });
 
-function langOptions(g, sel){ return GAMES[g].langs.map(([v,l]) => `<option value="${v}" ${v===sel?'selected':''}>${l}</option>`).join(''); }
+let search = { game:'pkm', q:'', market:'intl', groups:{ intl:newGroup(), asia:newGroup() }, link:null, linkCards:[], token:0 };
 
 function renderSearch(){
   const s = search;
@@ -568,21 +576,17 @@ function renderSearch(){
         <button type="button" data-g="pkm" class="${s.game==='pkm'?'on':''}">Pokémon</button>
         <button type="button" data-g="ygo" class="${s.game==='ygo'?'on':''}">Yu-Gi-Oh!</button>
       </div>
-      <select class="field" id="slang" aria-label="Langue">${langOptions(s.game, s.lang)}</select>
-      <input class="field grow" id="sq" type="search" placeholder="${s.game==='pkm' ? 'Ex. Dracaufeu, Pikachu, Mew…' : 'Ex. Magicien Sombre, Dragon Blanc…'}" value="${esc(s.q)}" autocomplete="off">
+      <input class="field grow" id="sq" type="search" placeholder="${s.game==='pkm' ? 'Ex. Dracaufeu, Charizard, Pikachu…' : 'Ex. Magicien Sombre, Dark Magician…'}" value="${esc(s.q)}" autocomplete="off">
       <button class="btn primary" type="submit">Rechercher</button>
     </form>
     <form class="row" id="lform" style="margin-top:10px">
       <input class="field grow" id="lurl" type="url" placeholder="… ou colle un lien Cardmarket (fiche d'une carte)" autocomplete="off">
       <button class="btn" type="submit">Importer</button>
     </form>
-    <div class="hint" style="margin-top:8px">${s.game==='ygo' && s.lang!=='en'
-      ? 'Tape le nom en français ou en anglais : les cartes récentes ne sont parfois disponibles qu\'avec leur nom anglais.'
-      : 'Tape le nom dans la langue choisie.'} Prix : moyenne Cardmarket (identique pour toutes les langues).</div>
+    <div class="hint" style="margin-top:8px">Nom en français ou en anglais${s.game==='pkm' ? ' (ou en japonais)' : ''}. Tu choisiras la langue exacte de la carte à l'étape suivante.</div>
     <div id="sres"></div>`;
   $('#sgame').onclick = e => { const b = e.target.closest('button'); if (!b) return; s.game = b.dataset.g;
-    if (!GAMES[s.game].langs.some(x => x[0] === s.lang)) s.lang = 'fr'; s.briefs=[]; s.cards=[]; s.shown=0; renderSearch(); };
-  $('#slang').onchange = e => { s.lang = e.target.value; };
+    s.q = ''; s.link = null; s.groups = { intl:newGroup(), asia:newGroup() }; s.market = 'intl'; renderSearch(); };
   $('#sform').onsubmit = e => { e.preventDefault(); s.q = $('#sq').value.trim(); if (s.q){ s.link = null; runSearch(); } };
   $('#lform').onsubmit = e => { e.preventDefault(); importLink($('#lurl').value); };
   renderResults();
@@ -593,72 +597,141 @@ async function importLink(raw){
   const s = search, L = parseCmLink(raw || '');
   if (!L){ renderResults('Ce lien ne ressemble pas à une fiche de carte Cardmarket (Pokémon ou Yu-Gi-Oh!). Ouvre la fiche de la carte et copie son adresse.'); return; }
   const tok = ++s.token;
-  s.game = L.game; s.lang = L.lang || (GAMES[L.game].langs.some(x => x[0] === s.lang) ? s.lang : 'fr');
-  s.link = { url: L.url }; s.q = ''; s.cards = []; s.briefs = []; s.shown = 0;
+  const lang = L.lang || 'fr';
+  s.game = L.game; s.link = { url: L.url }; s.q = ''; s.linkCards = [];
   renderSearch(); $('#lurl').value = L.url;
   renderResults('Recherche de la carte du lien…');
   let res;
-  try { res = L.game === 'pkm' ? await matchPkm(L, s.lang) : await matchYgo(L, s.lang); }
+  try { res = L.game === 'pkm' ? await matchPkm(L, lang) : await matchYgo(L, lang); }
   catch(e){ if (tok === s.token) renderResults('Impossible de joindre la base de cartes. Réessaie dans un instant.'); return; }
   if (tok !== s.token) return;
   if (res.card){ renderConfigure(res.card, { cmLink: L.url, printCode: res.printCode || '' }); return; }
-  s.cards = res.candidates; s.briefs = s.cards; s.shown = s.cards.length;
-  if (!s.cards.length){ renderResults('Carte introuvable dans nos bases à partir de ce lien. Essaie la recherche par nom.'); return; }
+  s.linkCards = res.candidates;
+  if (!s.linkCards.length){ renderResults('Carte introuvable dans nos bases à partir de ce lien. Essaie la recherche par nom.'); return; }
   renderResults();
+}
+
+// Fusionne les résultats FR et EN : une seule entrée par carte (FR en priorité, même visuel)
+function mergeIntl(fr, en){
+  const map = new Map();
+  fr.forEach(b => map.set(b.id, { ...b, lang:'fr' }));
+  en.forEach(b => { const x = map.get(b.id);
+    if (x){ if (!x.image && b.image) x.image = b.image; }
+    else map.set(b.id, { ...b, lang:'en' }); });
+  const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
+  return [...map.values()].sort((a, b) => has(b) - has(a));
 }
 
 async function runSearch(){
   const s = search, tok = ++s.token;
-  s.busy = true; s.cards = []; s.briefs = []; s.shown = 0; renderResults('Recherche…');
+  s.groups = { intl:newGroup(), asia:newGroup() };
+  s.market = s.game === 'pkm' && hasCJK(s.q) ? 'asia' : 'intl';
+  renderResults('Recherche…');
   try {
     if (s.game === 'pkm'){
-      s.briefs = await API.pkmSearch(s.q, s.lang);
-      if (tok !== s.token) return;
-      await loadMorePkm(tok);
+      if (hasCJK(s.q)){
+        s.groups.asia.briefs = (await API.pkmSearch(s.q, 'ja')).map(b => ({ ...b, lang:'ja' }));
+        s.groups.intl.loaded = true;
+        await loadMore('asia', tok);
+      } else {
+        const [fr, en] = await Promise.all([API.pkmSearch(s.q, 'fr'), API.pkmSearch(s.q, 'en').catch(() => [])]);
+        if (tok !== s.token) return;
+        s.groups.intl.briefs = mergeIntl(fr, en);
+        await loadMore('intl', tok);
+        if (tok !== s.token) return;
+        renderResults();
+        findAsia(tok);   // en arrière-plan : versions japonaises du même Pokémon
+        return;
+      }
     } else {
-      s.cards = await API.ygoSearch(s.q, s.lang);
-      s.shown = s.cards.length;
+      const g = s.groups.intl;
+      g.cards = await API.ygoSearch(s.q, 'fr'); g.briefs = g.cards; g.shown = g.cards.length; g.loaded = true;
+      s.groups.asia.loaded = true;
     }
   } catch(e){
-    if (tok === s.token){ s.busy = false; renderResults('Impossible de joindre la base de cartes. Vérifie ta connexion et réessaie.'); }
+    if (tok === s.token) renderResults('Impossible de joindre la base de cartes. Vérifie ta connexion et réessaie.');
     return;
   }
-  if (tok !== s.token) return;
-  s.busy = false; renderResults();
+  if (tok === s.token) renderResults();
 }
 
-async function loadMorePkm(tok){
-  const s = search;
-  const slice = s.briefs.slice(s.shown, s.shown + PAGE);
-  s.shown += slice.length;
-  const cards = await mapLimit(slice, 6, b => API.pkmCard(b.id, s.lang));
+// Les noms japonais ne ressemblent pas aux noms FR/EN : on passe par le numéro de Pokédex des cartes trouvées
+async function findAsia(tok){
+  const s = search, g = s.groups.asia;
+  g.loading = true;
+  try {
+    const count = {};
+    s.groups.intl.cards.forEach(c => (c.dexId || []).forEach(d => { count[d] = (count[d] || 0) + 1; }));
+    const max = Math.max(0, ...Object.values(count));
+    const dex = Object.keys(count).filter(d => count[d] >= max * 0.3).sort((a, b) => count[b] - count[a]).slice(0, 3);
+    const lists = await Promise.all(dex.map(d => cached(`pdex:ja:${d}`, () =>
+      API.getJSON(`https://api.tcgdex.net/v2/ja/cards?dexId=eq:${d}`)).catch(() => [])));
+    if (tok !== s.token) return;
+    const seen = new Set();
+    const has = x => x.image ? 1 : 0;
+    g.briefs = lists.flat().filter(b => b && !seen.has(b.id) && seen.add(b.id)).map(b => ({ id:b.id, name:b.name, image:b.image, lang:'ja' }))
+      .sort((a, b) => has(b) - has(a));
+  } catch(e){ g.briefs = []; }
+  g.loading = false; g.loaded = true;
+  if (tok === s.token) renderResults();
+}
+
+async function loadMore(market, tok){
+  const s = search, g = s.groups[market];
+  const slice = g.briefs.slice(g.shown, g.shown + PAGE);
+  g.shown += slice.length;
+  const cards = await mapLimit(slice, 6, async b => (await API.pkmCard(b.id, b.lang)) || (b.lang === 'fr' ? await API.pkmCard(b.id, 'en') : null));
   if (tok !== s.token) return;
-  cards.forEach((c, k) => s.cards.push(c || { game:'pkm', id:slice[k].id, lang:s.lang, name:slice[k].name,
+  cards.forEach((c, k) => g.cards.push(c || { game:'pkm', id:slice[k].id, lang:slice[k].lang, name:slice[k].name,
     img: slice[k].image ? slice[k].image + '/low.webp' : null, imgHi: slice[k].image ? slice[k].image + '/high.webp' : null,
-    set:'', num:'', rarity:'', prices:{normal:null, reverse:null}, prints:null }));
+    set:'', num:'', rarity:'', prices:{normal:null, reverse:null}, prints:null, dexId:[] }));
+  g.loaded = true;
+}
+
+function resultTiles(cards){
+  return `<div class="results" id="rgrid">${cards.map((c, i) => `
+      <button class="tile" data-r="${i}">
+        ${imgBox(c, false, marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')}
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
+      </button>`).join('')}
+    </div>`;
 }
 
 function renderResults(msg){
   const box = $('#sres'); if (!box) return;
   const s = search;
   if (msg){ box.innerHTML = `<div class="status">${esc(msg)}</div>`; return; }
-  if (!s.q && !s.link){ box.innerHTML = ''; return; }
-  if (!s.cards.length){ box.innerHTML = `<div class="status">Aucune carte trouvée pour « ${esc(s.q)} » en ${esc(langLabel(s.game, s.lang))}.</div>`; return; }
-  const more = s.game === 'pkm' && s.shown < s.briefs.length;
-  const count = s.game === 'pkm' ? s.briefs.length : s.cards.length;
-  const head = s.link ? `Pas sûr à 100 % de la carte de ce lien : choisis la bonne parmi ${count} carte${count>1?'s':''} proche${count>1?'s':''}.`
-    : `${count} résultat${count>1?'s':''}${s.game==='ygo' && count>=60 ? ' (60 premiers — précise ta recherche)' : ''}`;
-  box.innerHTML = `<div class="hint" style="margin-top:12px">${head}</div>
-    <div class="results" id="rgrid">${s.cards.map((c, i) => `
-      <button class="tile" data-r="${i}">
-        ${imgBox(c, false)}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
-      </button>`).join('')}
-    </div>
-    ${more ? `<div style="text-align:center;margin-top:12px"><button class="btn" id="moreBtn">Voir plus (${s.briefs.length - s.shown} restants)</button></div>` : ''}`;
-  $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(s.cards[+t.dataset.r], s.link ? { cmLink: s.link.url } : null); };
-  if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMorePkm(tok); if (tok === s.token) renderResults(); };
+
+  if (s.link){   // candidats d'un lien Cardmarket
+    const n = s.linkCards.length;
+    box.innerHTML = `<div class="hint" style="margin-top:12px">Pas sûr à 100 % de la carte de ce lien : choisis la bonne parmi ${n} carte${n>1?'s':''} proche${n>1?'s':''}.</div>${resultTiles(s.linkCards)}`;
+    $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(s.linkCards[+t.dataset.r], { cmLink: s.link.url }); };
+    return;
+  }
+  if (!s.q){ box.innerHTML = ''; return; }
+
+  const g = s.groups[s.market];
+  const cnt = m => { const x = s.groups[m]; return x.loading ? '…' : x.briefs.length; };
+  const tabs = `<div class="seg" id="mtabs" style="margin-top:12px">
+      ${['intl','asia'].map(m => `<button type="button" data-m="${m}" class="${s.market===m?'on':''}">${MARKET_LABEL[m]} (${cnt(m)})</button>`).join('')}
+    </div>`;
+  let body;
+  if (s.market === 'asia' && s.game === 'ygo') body = `<div class="status">La base Yu-Gi-Oh! ne référence pas les impressions japonaises (OCG). Pour une carte OCG, colle son lien Cardmarket.</div>`;
+  else if (g.loading || (!g.loaded && g.briefs.length)) body = `<div class="status">Chargement…</div>`;
+  else if (!g.cards.length) body = `<div class="status">Aucune carte ${s.market==='asia' ? 'japonaise' : 'internationale'} trouvée pour « ${esc(s.q)} ».</div>`;
+  else {
+    const more = s.game === 'pkm' && g.shown < g.briefs.length;
+    body = resultTiles(g.cards) + (more ? `<div style="text-align:center;margin-top:12px"><button class="btn" id="moreBtn">Voir plus (${g.briefs.length - g.shown} restants)</button></div>` : '')
+      + (s.game==='ygo' && g.cards.length>=60 ? '<div class="hint">60 premiers résultats : précise ta recherche.</div>' : '');
+  }
+  box.innerHTML = tabs + body;
+  $('#mtabs').onclick = async e => { const b = e.target.closest('button'); if (!b) return;
+    s.market = b.dataset.m; const x = s.groups[s.market];
+    if (s.game === 'pkm' && !x.cards.length && x.briefs.length){ x.loaded = false; renderResults(); const tok = s.token; await loadMore(s.market, tok); }
+    renderResults(); };
+  if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(g.cards[+t.dataset.r]); };
+  if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMore(s.market, tok); if (tok === s.token) renderResults(); };
 }
 
 /* ---- Ajout : étape 2, précision de la carte ---- */
@@ -701,23 +774,36 @@ function bindVersionFields(){
     $('#gradeRow').style.display = b.dataset.g === '1' ? '' : 'none'; };
 }
 
+function withLang(link, lang){
+  if (!link) return link;
+  try { const u = new URL(link); if (CM_LANG[lang]) u.searchParams.set('language', CM_LANG[lang]); else u.searchParams.delete('language'); return u.href; }
+  catch(e){ return link; }
+}
+
 function renderConfigure(card, pre){
   pre = pre || {};
   $('#addTitle').textContent = 'Préciser la carte';
-  const o = { variant:'normal', graded:false, grader:'PSA', grade:'10', priceGraded:null, note:'', printCode: pre.printCode || '' };
+  const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
+              priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '' };
+  const market = marketOf(card.game, card.lang);
+  const langs = MARKETS[card.game][market].includes(card.lang) ? MARKETS[card.game][market] : [card.lang, ...MARKETS[card.game][market]];
   $('#addBody').innerHTML = `<div class="detail">
     ${imgBox(card, true)}
     <div>
       <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
-        <dt>Langue</dt><dd>${esc(langLabel(card.game, card.lang))}</dd>
+        <dt>Marché</dt><dd>${market === 'asia' ? 'Japon' : 'International'}</dd>
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>Prix moyen</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
       </dl>
-      <div class="form">${versionFields(o, card)}</div>
+      <div class="form">
+        <div><label class="l" for="clang">Langue de la carte</label>
+          <select class="field" id="clang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===card.lang?'selected':''}>${esc(langLabel(card.game, l))}</option>`).join('')}</select></div>
+        ${versionFields(o, card)}
+      </div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
         <a class="btn" id="cfgCm" href="${esc(cmUrl({ ...card, printCode: o.printCode, cmLink: pre.cmLink }))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
@@ -727,6 +813,16 @@ function renderConfigure(card, pre){
   bindVersionFields();
   // Le lien Cardmarket suit l'impression choisie (Yu-Gi-Oh!)
   if ($('#cprint')) $('#cprint').onchange = e => { pre.cmLink = null; $('#cfgCm').href = cmUrl({ ...card, printCode: e.target.value }); };
+  // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
+  $('#clang').onchange = async e => {
+    const lang = e.target.value; readVersionFields(o);
+    $('#clang').disabled = true;
+    let c2 = null;
+    try { c2 = card.game === 'pkm' ? await API.pkmCard(card.id, lang) : await API.ygoCard(card.id, lang); } catch(err){}
+    const next = c2 ? { ...c2, img: c2.img || card.img, imgHi: c2.imgHi || card.imgHi, prints: c2.prints || card.prints }
+                    : { ...card, lang, name: card.game === 'ygo' && lang === 'en' ? (card.nameEn || card.name) : card.name };
+    renderConfigure(next, { ...o, cmLink: withLang(pre.cmLink, lang) });
+  };
   $('#backBtn').onclick = renderSearch;
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
