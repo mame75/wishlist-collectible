@@ -147,6 +147,20 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 .hint{font-size:12.5px;color:var(--muted)}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .divider{border:0;border-top:1px solid var(--line);margin:20px 0 14px}
+.tr{font-size:12px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tr.up{color:#4ade80}.tr.down{color:#ff7b7b}.tr.flat{color:var(--faint)}
+/* Sélecteur d'impression (Yu-Gi-Oh!) */
+.pp .field{width:100%;margin-bottom:8px}
+.pplist{max-height:232px;overflow:auto;border:1px solid var(--line2);border-radius:12px;background:var(--inset)}
+.pprow{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:2px 10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 12px;cursor:pointer;color:var(--ink)}
+.pprow:last-child{border-bottom:0}
+.pprow:hover{background:var(--surface)}
+.pprow.on{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.pprow .yr{grid-row:span 2;font-size:12px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+.pprow .st{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pprow .cd{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pprow .rr{grid-column:2/4;font-size:11.5px;color:var(--faint);font-weight:700}
+.pprow.any .st{color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(30px);opacity:0;background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:800;font-size:14px;z-index:80;transition:.2s;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .sharebox{width:100%}
@@ -346,6 +360,8 @@ const API = {
   },
   /* --- Pokémon : TCGdex (prix Cardmarket en €) --- */
   pkmNorm(c, lang){
+    // Tendance : moyenne 7 jours comparée à la moyenne 30 jours
+    const ratio = (a, b) => { a = num(a); b = num(b); return a > 0 && b > 0 ? a / b - 1 : null; };
     const cm = c.pricing && c.pricing.cardmarket || {};
     const pick = (...k) => { for (const x of k){ const v = num(cm[x]); if (v != null && v > 0) return v; } return null; };
     const official = c.set && c.set.cardCount && c.set.cardCount.official;
@@ -356,6 +372,7 @@ const API = {
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
       prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
+      trend: { normal: ratio(cm.avg7, cm.avg30), reverse: ratio(cm['avg7-holo'], cm['avg30-holo']) },
       prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
     };
@@ -368,7 +385,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc4:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc5:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -549,6 +566,7 @@ function makeItem(card, opts){
     printCode: print ? print.code : '', prints: card.prints,
     cmId: card.cmId || null, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
+    trend: card.trend ? (card.trend[variant] ?? null) : null, printArt: !!card.printArt,
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
@@ -556,6 +574,28 @@ function makeItem(card, opts){
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
+function trendHTML(t){
+  if (t == null || !isFinite(t)) return '';
+  const p = Math.round(t * 100);
+  if (Math.abs(p) < 2) return '<span class="tr flat" title="Moyenne 7 jours ≈ moyenne 30 jours">= stable</span>';
+  return `<span class="tr ${p > 0 ? 'up' : 'down'}" title="Moyenne 7 jours par rapport à la moyenne 30 jours">${p > 0 ? '▲ +' : '▼ '}${p} %</span>`;
+}
+
+/* Illustration exacte d'une impression Yu-Gi-Oh! (YGOPRODeck indique l'illustration utilisée par chaque code) */
+async function printArt(code){
+  if (!code) return null;
+  const id = await cached(`ysi:${code}`, () => API.getJSON(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(code)}`)
+    .then(r => r && r.id ? r.id : null)).catch(() => null);
+  return id ? { img:`https://images.ygoprodeck.com/images/cards_small/${id}.jpg`, imgHi:`https://images.ygoprodeck.com/images/cards/${id}.jpg` } : null;
+}
+let ygoDates = null;
+async function getYgoDates(){
+  if (ygoDates) return ygoDates;
+  const list = await cached('ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php')
+    .then(r => Array.isArray(r) ? r.map(s => [s.set_name, s.tcg_date || '']) : null)).catch(() => null);
+  ygoDates = Object.fromEntries(list || []);
+  return ygoDates;
+}
 
 
 /* Visuel de carte, avec vignette de remplacement quand la base n'a pas d'image */
@@ -587,7 +627,7 @@ function tileHTML(it, i){
       <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b><span>${it.graded ? 'Gradée' : 'Moy. 30 j'}</span></div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${(!it.graded && trendHTML(it.trend)) || `<span>${it.graded ? 'Gradée' : it.game === 'ygo' ? 'Prix CM' : 'Moy. 30 j'}</span>`}</div>
   </button>`;
 }
 
@@ -721,11 +761,13 @@ function render(){
 
 /* ========= Modales ========= */
 function openModal(id){ $(id).classList.add('open'); }
-function closeModal(id){ $(id).classList.remove('open'); }
+// Fermer une fenêtre vide aussi son contenu (évite que deux formulaires partagent les mêmes champs)
+function closeModal(id){ const s = typeof id === 'string' ? $(id) : id; s.classList.remove('open');
+  const b = s.querySelector('#addBody, #detBody'); if (b) b.innerHTML = ''; }
 document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', e => {
-  if (e.target === s || e.target.closest('[data-close]')) s.classList.remove('open');
+  if (e.target === s || e.target.closest('[data-close]')) closeModal(s);
 }));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach(s => s.classList.remove('open')); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach(s => closeModal(s)); });
 
 /* ---- Ajout : étape 1, recherche ---- */
 // Marchés : International (mêmes cartes, mêmes visuels en FR/EN/DE…) et Asie / OCG (cartes et impressions différentes)
@@ -915,9 +957,10 @@ function versionFields(o, card){
     ${card.game === 'pkm' ? `<div><label class="l">Version</label>
       <div class="seg" id="cvar"><button type="button" data-v="normal" class="${o.variant!=='reverse'?'on':''}">Normale / Holo</button>
       <button type="button" data-v="reverse" class="${o.variant==='reverse'?'on':''}" ${hasRev?'':'disabled title="Pas de prix reverse disponible"'}>Reverse</button></div></div>` : ''}
-    ${prints.length ? `<div><label class="l" for="cprint">Impression (extension · rareté)</label>
-      <select class="field" id="cprint" style="width:100%"><option value="">Peu importe l'impression</option>
-      ${prints.map(p => `<option value="${esc(p.code)}" ${p.code===o.printCode?'selected':''}>${esc(p.code)} — ${esc(p.set)} · ${esc(p.rarity)}</option>`).join('')}</select></div>` : ''}
+    ${prints.length ? `<div class="pp"><label class="l" for="ppq">Impression · ${prints.length} disponible${prints.length>1?'s':''}</label>
+      <input type="hidden" id="cprint" value="${esc(o.printCode || '')}">
+      ${prints.length > 6 ? `<input class="field" id="ppq" type="search" placeholder="Filtrer : extension, code, rareté, année…" autocomplete="off">` : ''}
+      <div class="pplist" id="pplist"></div></div>` : ''}
     <div><label class="l">État</label>
       <div class="seg" id="cgr"><button type="button" data-g="0" class="${!o.graded?'on':''}">Raw</button><button type="button" data-g="1" class="${o.graded?'on':''}">Gradée</button></div></div>
     <div class="row" id="gradeRow" style="${o.graded?'':'display:none'}">
@@ -947,6 +990,30 @@ function bindVersionFields(){
     $('#gradeRow').style.display = b.dataset.g === '1' ? '' : 'none'; };
 }
 
+// Liste des impressions : la plus récente en haut, filtrable, sélection par clic
+function bindPrintPicker(prints, onPick){
+  const list = $('#pplist'); if (!list) return;
+  let dates = ygoDates || {};
+  const draw = () => {
+    const sel = $('#cprint').value, q = ($('#ppq') && $('#ppq').value || '').trim().toLowerCase();
+    const rows = prints.map(p => ({ ...p, yr: (dates[p.set] || '').slice(0, 4), d: dates[p.set] || '' }))
+      .filter(p => !q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q))
+      .sort((a, b) => (b.d || '').localeCompare(a.d || '') || a.set.localeCompare(b.set));
+    list.innerHTML = (q ? '' : `<button type="button" class="pprow any ${!sel ? 'on' : ''}" data-code=""><span class="yr">—</span><span class="st">Peu importe l'impression</span><span class="cd"></span></button>`)
+      + rows.map(p => `<button type="button" class="pprow ${p.code === sel ? 'on' : ''}" data-code="${esc(p.code)}">
+          <span class="yr">${esc(p.yr || '—')}</span><span class="st">${esc(p.set)}</span><span class="cd">${esc(p.code)}</span><span class="rr">${esc(p.rarity)}</span></button>`).join('')
+      + (rows.length ? '' : '<div class="status">Aucune impression ne correspond.</div>');
+    const on = list.querySelector('.pprow.on'); if (on && !q && on.scrollIntoView) on.scrollIntoView({ block:'nearest' });
+  };
+  draw();
+  if (!ygoDates) getYgoDates().then(d => { dates = d; if (document.body.contains(list)) draw(); });
+  if ($('#ppq')) $('#ppq').oninput = draw;
+  list.onclick = e => { const r = e.target.closest('.pprow'); if (!r) return; $('#cprint').value = r.dataset.code; draw(); onPick(r.dataset.code); };
+}
+
+// Remplace le visuel affiché dans une fenêtre (sans tout redessiner)
+function swapImg(scope, c){ const box = $(scope + ' .detail > .img'); if (box) box.outerHTML = imgBox(c, true); }
+
 function withLang(link, lang){
   if (!link) return link;
   try { const u = new URL(link); if (CM_LANG[lang]) u.searchParams.set('language', CM_LANG[lang]); else u.searchParams.delete('language'); return u.href; }
@@ -955,6 +1022,7 @@ function withLang(link, lang){
 
 function renderConfigure(card, pre){
   pre = pre || {};
+  card = { ...card, baseImg: card.baseImg || card.img, baseImgHi: card.baseImgHi || card.imgHi };
   $('#addTitle').textContent = 'Préciser la carte';
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '' };
@@ -972,6 +1040,7 @@ function renderConfigure(card, pre){
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>Prix moyen</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+        ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">7 j vs 30 j</span></dd>` : ''}
       </dl>
       <div class="form">
         <div><label class="l" for="clang">Langue de la carte</label>
@@ -985,15 +1054,23 @@ function renderConfigure(card, pre){
       </div>
     </div></div>`;
   bindVersionFields();
-  // Le lien Cardmarket suit l'impression choisie (Yu-Gi-Oh!)
-  if ($('#cprint')) $('#cprint').onchange = e => { pre.cmLink = null; $('#cfgCm').href = cmUrl({ ...card, printCode: e.target.value }); };
+  // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
+  const applyArt = async code => {
+    const art = card.game === 'ygo' ? await printArt(code) : null;
+    if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; }
+    else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
+    swapImg('#addScrim', card);
+  };
+  bindPrintPicker(card.prints || [], code => { pre.cmLink = null; $('#cfgCm').href = cmUrl({ ...card, printCode: code }); applyArt(code); });
+  if (card.game === 'ygo' && o.printCode && !card.printArt) applyArt(o.printCode);   // impression déjà connue (import par lien)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
   $('#clang').onchange = async e => {
     const lang = e.target.value; readVersionFields(o);
     $('#clang').disabled = true;
     let c2 = null;
     try { c2 = card.game === 'pkm' ? await API.pkmCard(card.id, lang) : await API.ygoCard(card.id, lang); } catch(err){}
-    const next = c2 ? { ...c2, img: c2.img || card.img, imgHi: c2.imgHi || card.imgHi, prints: c2.prints || card.prints }
+    const next = c2 ? { ...c2, img: card.printArt ? card.img : (c2.img || card.img), imgHi: card.printArt ? card.imgHi : (c2.imgHi || card.imgHi),
+                        printArt: card.printArt, baseImg: c2.img || card.baseImg, baseImgHi: c2.imgHi || card.baseImgHi, prints: c2.prints || card.prints }
                     : { ...card, lang, name: card.game === 'ygo' && lang === 'en' ? (card.nameEn || card.name) : card.name };
     renderConfigure(next, { ...o, cmLink: withLang(pre.cmLink, lang) });
   };
@@ -1015,11 +1092,15 @@ function openDetail(i){
   const ro = !!shared;
   $('#detTitle').textContent = it.name;
   const o = { ...it };
+  const mk = marketOf(it.game, it.lang);
+  const langs = MARKETS[it.game][mk].includes(it.lang) ? MARKETS[it.game][mk] : [it.lang, ...MARKETS[it.game][mk]];
+  let art;   // illustration choisie avec l'impression (undefined = inchangée)
   $('#detBody').innerHTML = `<div class="detail">
     ${imgBox(it, true)}
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
-      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `Prix moyen Cardmarket${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen Cardmarket'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      ${!it.graded && it.trend != null ? `<div style="margin-top:4px">${trendHTML(it.trend)} <span class="hint">moyenne 7 jours vs 30 jours</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
@@ -1034,7 +1115,11 @@ function openDetail(i){
         <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
       </div>
       ${ro ? '' : `<hr class="divider">
-      <div class="form">${versionFields(o, it)}</div>
+      <div class="form">
+        <div><label class="l" for="dlang">Langue de la carte</label>
+          <select class="field" id="dlang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===it.lang?'selected':''}>${esc(langLabel(it.game, l))}</option>`).join('')}</select></div>
+        ${versionFields(o, it)}
+      </div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
         <button class="btn danger" id="delDet">Retirer de la wishlist</button>
@@ -1042,14 +1127,22 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields();
-    $('#saveDet').onclick = () => {
+    bindPrintPicker(it.prints || [], async code => {
+      art = it.game === 'ygo' ? (await printArt(code)) : null;
+      swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
+    });
+    $('#saveDet').onclick = async () => {
       readVersionFields(o);
+      const lang = $('#dlang').value;
+      const btn = $('#saveDet'); btn.disabled = true; btn.textContent = 'Enregistrement…';
       const print = (it.prints || []).find(p => p.code === o.printCode);
       if (o.printCode !== it.printCode) it.cmLink = null;
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note, printCode:o.printCode });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
+      if (art !== undefined){ if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
+      if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
+      await refreshOne(it, true).catch(() => {});   // nom, visuel et prix dans la langue / version choisies
       save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
-      if (it.game === 'pkm') refreshOne(it).then(() => { save(); render(); });
     };
     let armed = false;
     $('#delDet').onclick = () => {
@@ -1061,12 +1154,17 @@ function openDetail(i){
 }
 
 /* ========= Actualisation des prix ========= */
-async function refreshOne(it){
+async function refreshOne(it, full){
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
   it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
+  it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
   it.hasReverse = c.prices.reverse != null;
-  it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang;
+  if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
+  if (full){   // après un changement de langue : nom et infos dans la nouvelle langue
+    it.name = c.name; it.nameJa = c.nameJa || null;
+    if (it.game === 'pkm'){ it.set = c.set; it.num = c.num; it.rarity = c.rarity; }
+  }
   if (c.prints) it.prints = c.prints;
   if (c.cmId) it.cmId = c.cmId;
   if (c.nameEn) it.nameEn = c.nameEn;
@@ -1115,7 +1213,8 @@ async function openShared(hash){
     if (!GAMES[game]) return null;
     const c = await API.card(game, id, lang);
     if (!c) return null;
-    return makeItem(c, { variant: rev ? 'reverse' : 'normal', printCode,
+    const art = game === 'ygo' && printCode ? await printArt(printCode) : null;
+    return makeItem(art ? { ...c, ...art, printArt: true } : c, { variant: rev ? 'reverse' : 'normal', printCode,
       graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note, cmLink: cmLink || null });
   });
   shared.items = items.filter(Boolean).map((it, k) => ({ ...it, addedAt: refs.length - k }));
