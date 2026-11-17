@@ -230,6 +230,45 @@ async function cached(key, fn){
   return v;
 }
 
+/* ========= Traduction des noms de cartes japonaises =========
+   PokeAPI donne, pour chaque numéro de Pokédex, le nom japonais et le nom français de l'espèce.
+   On remplace l'espèce dans le nom de la carte et on traduit les préfixes / suffixes connus. */
+async function speciesNames(dex){
+  return cached(`sp:${dex}`, async () => {
+    const r = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${dex}`);
+    if (!r.ok) return null;
+    const j = await r.json(), n = l => (j.names.find(x => x.language.name === l) || {}).name;
+    return { fr: n('fr'), ja: n('ja') || n('ja-Hrkt') };
+  });
+}
+const JA_PREFIX = { 'かがやく':[ '', ' radieux' ], 'メガ':[ 'Méga-', '' ], 'ダーク':[ '', ' obscur' ], 'ガラル':[ '', ' de Galar' ],
+  'アローラ':[ '', " d'Alola" ], 'ヒスイ':[ '', ' de Hisui' ], 'パルデア':[ '', ' de Paldea' ], 'ロケット団の':[ '', ' de la Team Rocket' ] };
+function frSuffix(s){
+  s = s.trim();
+  if (!s) return '';
+  let m;
+  if ((m = s.match(/^([XY])(ex|EX)$/))) return ` ${m[1]}-${m[2]}`;
+  if (/^(ex|EX|GX|TAG ?TEAM)$/.test(s)) return '-' + s;
+  if (/^(V|VMAX|VSTAR|V-UNION|BREAK|LEGEND|☆|◇|δ|プリズムスター)$/.test(s)) return ' ' + s.replace('プリズムスター', '◇');
+  if (/^LV\.?X$/i.test(s)) return ' NIV.X';
+  return null;   // suffixe inconnu : on ne traduit pas
+}
+async function translateJa(name, dexIds){
+  if (!name || !dexIds || !dexIds.length || dexIds.length > 3) return null;
+  const sp = await Promise.all(dexIds.map(d => speciesNames(d).catch(() => null)));
+  if (sp.some(x => !x || !x.ja || !x.fr)) return null;
+  let rest = name, pre = '', post = '';
+  // Préfixe connu (かがやく, メガ…) ou propriétaire (« X の ») qu'on ne sait pas traduire
+  for (const k of Object.keys(JA_PREFIX)) if (rest.startsWith(k)){ [pre, post] = JA_PREFIX[k]; rest = rest.slice(k.length); break; }
+  if (rest.indexOf(sp[0].ja) !== 0) return null;   // texte inconnu avant l'espèce (ex. nom d'un dresseur) : on garde le japonais
+  let fr = sp.map(x => x.fr).join(' & ');
+  let tail = rest;
+  for (const x of sp){ const i = tail.indexOf(x.ja); if (i < 0) return null; tail = tail.slice(i + x.ja.length).replace(/^[&＆]/, ''); }
+  const suf = frSuffix(tail);
+  if (suf === null) return null;
+  return pre + fr + post + suf;
+}
+
 /* ========= Sources de données ========= */
 const API = {
   async getJSON(url){
@@ -262,11 +301,15 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc2:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
+    if (lang === 'ja'){
+      const fr = await translateJa(card.name, card.dexId).catch(() => null);
+      if (fr){ card.nameJa = card.name; card.name = fr; }
+    }
     // Pas de visuel dans cette langue : on essaie le visuel anglais de la même carte
     if (!card.img && lang !== 'en'){
       const en = await this.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
@@ -435,7 +478,7 @@ function makeItem(card, opts){
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', prints: card.prints,
-    cmId: card.cmId || null, nameEn: card.nameEn || null,
+    cmId: card.cmId || null, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
@@ -793,6 +836,7 @@ function renderConfigure(card, pre){
     ${imgBox(card, true)}
     <div>
       <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
+      ${card.nameJa ? `<div class="hint">Nom japonais : ${esc(card.nameJa)} · traduction automatique</div>` : ''}
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
         <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Japon)' : 'TCG (international)'}</dd>
@@ -851,6 +895,7 @@ function openDetail(i){
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
+        ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
         ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
         ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.rarity)}</dd>` : ''}
@@ -897,6 +942,7 @@ async function refreshOne(it){
   if (c.prints) it.prints = c.prints;
   if (c.cmId) it.cmId = c.cmId;
   if (c.nameEn) it.nameEn = c.nameEn;
+  if (c.nameJa){ it.nameJa = c.nameJa; it.name = c.name; }
   it.refreshedAt = Date.now();
 }
 async function refreshPrices(){
