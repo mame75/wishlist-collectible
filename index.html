@@ -194,7 +194,9 @@ function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 /* ========= Cache local (24 h) =========
    Garde dans le navigateur les cartes et recherches déjà consultées : moins d'appels aux bases,
    donc des recherches plus rapides et moins de risques d'être bloqué. Les prix Cardmarket ne changent qu'une fois par jour. */
-const CACHE_PREFIX = 'wlc.c.';
+// Changer la version vide la mémoire existante (à faire quand le format des cartes gardées change)
+const CACHE_PREFIX = 'wlc.c2.';
+try { for (let i = localStorage.length - 1; i >= 0; i--){ const k = localStorage.key(i); if (k && k.startsWith('wlc.c.')) localStorage.removeItem(k); } } catch(e){}
 const CACHE_TTL = 24 * 3600 * 1000;
 let forceFresh = false;   // vrai pendant « Actualiser les prix »
 function cacheGet(key){
