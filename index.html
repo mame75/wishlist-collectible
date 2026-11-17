@@ -693,12 +693,13 @@ function scanFile(files, code, rarity, region){
 }
 async function tcgScans(nameEn, prints, lang){
   const g = await ygoGallery(nameEn); if (!g) return {};
+  // Un fichier peut être cité dans la galerie sans avoir été mis en ligne : on essaie la langue de la carte, puis l'anglais
   const want = {};
   prints.forEach(p => { if (p.ocg || p.link || !p.code) return;
-    const f = scanFile(g.files, p.code, p.rarity, YP_REGION[lang] || 'EN') || scanFile(g.files, p.code, p.rarity, 'EN');
-    if (f) want[printKey(p)] = f; });
-  const urls = await fileUrls([...new Set(Object.values(want))]);
-  return Object.fromEntries(Object.entries(want).map(([k, f]) => [k, urls[f]]).filter(([, u]) => u));
+    const fs = [...new Set([scanFile(g.files, p.code, p.rarity, YP_REGION[lang] || 'EN'), scanFile(g.files, p.code, p.rarity, 'EN')].filter(Boolean))];
+    if (fs.length) want[printKey(p)] = fs; });
+  const urls = await fileUrls([...new Set(Object.values(want).flat())]);
+  return Object.fromEntries(Object.entries(want).map(([k, fs]) => [k, fs.map(f => urls[f]).find(Boolean)]).filter(([, u]) => u));
 }
 // Illustration d'une édition : scan de l'édition elle-même (Yugipedia), sinon l'illustration générique (YGOPRODeck)
 async function editionArt(c, p, lang){
