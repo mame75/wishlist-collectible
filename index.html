@@ -1044,7 +1044,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>Prix moyen</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">7 j vs 30 j</span></dd>` : ''}
       </dl>
       <div class="form">
