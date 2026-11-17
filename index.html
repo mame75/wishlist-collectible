@@ -287,10 +287,16 @@ const API = {
     };
   },
   ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
-  ygoSearch(q, lang){ return cached(`ys:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
+  ygoSearch(q, lang){ return cached(`ys2:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
   async _ygoSearch(q, lang){
-    const r = await this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(q)}&num=60&offset=0`, lang));
-    return r && Array.isArray(r.data) ? r.data.map(c => this.ygoNorm(c, lang)) : [];
+    const get = l => this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(q)}&num=60&offset=0`, l)).then(r => r && Array.isArray(r.data) ? r.data : []);
+    if (lang === 'en') return (await get('en')).map(c => this.ygoNorm(c, lang));
+    // Les cartes récentes n'ont pas encore de nom traduit chez YGOPRODeck : elles n'apparaissent
+    // qu'en anglais. On cherche donc aussi en anglais et on ajoute celles qui manquent (nom anglais affiché).
+    const [loc, en] = await Promise.all([get(lang), get('en').catch(() => [])]);
+    const seen = new Set(loc.map(c => String(c.id)));
+    return loc.map(c => this.ygoNorm(c, lang))
+      .concat(en.filter(c => !seen.has(String(c.id))).map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
   },
   ygoCard(id, lang){ return cached(`yc:${lang}:${id}`, () => this._ygoCard(id, lang)); },
   async _ygoCard(id, lang){
@@ -470,7 +476,9 @@ function renderSearch(){
       <input class="field grow" id="sq" type="search" placeholder="${s.game==='pkm' ? 'Ex. Dracaufeu, Pikachu, Mew…' : 'Ex. Magicien Sombre, Dragon Blanc…'}" value="${esc(s.q)}" autocomplete="off">
       <button class="btn primary" type="submit">Rechercher</button>
     </form>
-    <div class="hint" style="margin-top:8px">Tape le nom dans la langue choisie. Prix : moyenne Cardmarket (identique pour toutes les langues).</div>
+    <div class="hint" style="margin-top:8px">${s.game==='ygo' && s.lang!=='en'
+      ? 'Tape le nom en français ou en anglais : les cartes récentes ne sont parfois disponibles qu\'avec leur nom anglais.'
+      : 'Tape le nom dans la langue choisie.'} Prix : moyenne Cardmarket (identique pour toutes les langues).</div>
     <div id="sres"></div>`;
   $('#sgame').onclick = e => { const b = e.target.closest('button'); if (!b) return; s.game = b.dataset.g;
     if (!GAMES[s.game].langs.some(x => x[0] === s.lang)) s.lang = 'fr'; s.briefs=[]; s.cards=[]; s.shown=0; renderSearch(); };
