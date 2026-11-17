@@ -191,6 +191,43 @@ let state = { owner:'', items:[] };
 function load(){ try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && Array.isArray(s.items)) state = s; } catch(e){} }
 function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
 
+/* ========= Cache local (24 h) =========
+   Garde dans le navigateur les cartes et recherches déjà consultées : moins d'appels aux bases,
+   donc des recherches plus rapides et moins de risques d'être bloqué. Les prix Cardmarket ne changent qu'une fois par jour. */
+const CACHE_PREFIX = 'wlc.c.';
+const CACHE_TTL = 24 * 3600 * 1000;
+let forceFresh = false;   // vrai pendant « Actualiser les prix »
+function cacheGet(key){
+  if (forceFresh) return undefined;
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key); if (!raw) return undefined;
+    const e = JSON.parse(raw);
+    if (Date.now() - e.t > CACHE_TTL){ localStorage.removeItem(CACHE_PREFIX + key); return undefined; }
+    return e.v;
+  } catch(e){ return undefined; }
+}
+function cacheSet(key, v){
+  const s = JSON.stringify({t: Date.now(), v});
+  try { localStorage.setItem(CACHE_PREFIX + key, s); }
+  catch(e){ cachePrune(true); try { localStorage.setItem(CACHE_PREFIX + key, s); } catch(e2){} }
+}
+function cachePrune(all){
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--){
+      const k = localStorage.key(i); if (!k || !k.startsWith(CACHE_PREFIX)) continue;
+      if (all){ localStorage.removeItem(k); continue; }
+      try { if (Date.now() - JSON.parse(localStorage.getItem(k)).t > CACHE_TTL) localStorage.removeItem(k); } catch(e){ localStorage.removeItem(k); }
+    }
+  } catch(e){}
+}
+async function cached(key, fn){
+  const hit = cacheGet(key);
+  if (hit !== undefined) return hit;
+  const v = await fn();
+  if (v != null && !(Array.isArray(v) && !v.length)) cacheSet(key, v);   // on ne garde pas les résultats vides (peut-être une erreur passagère)
+  return v;
+}
+
 /* ========= Sources de données ========= */
 const API = {
   async getJSON(url){
@@ -215,14 +252,16 @@ const API = {
       priceDate: cm.updated || null
     };
   },
-  async pkmSearch(q, lang){
+  pkmSearch(q, lang){ return cached(`ps:${lang}:${q.toLowerCase()}`, () => this._pkmSearch(q, lang)); },
+  async _pkmSearch(q, lang){
     const list = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`);
     if (!Array.isArray(list)) return [];
     // Cartes avec visuel d'abord (tri stable : l'ordre de la base est conservé)
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  async pkmCard(id, lang){
+  pkmCard(id, lang){ return cached(`pc:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
@@ -248,11 +287,13 @@ const API = {
     };
   },
   ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
-  async ygoSearch(q, lang){
+  ygoSearch(q, lang){ return cached(`ys:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
+  async _ygoSearch(q, lang){
     const r = await this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(q)}&num=60&offset=0`, lang));
     return r && Array.isArray(r.data) ? r.data.map(c => this.ygoNorm(c, lang)) : [];
   },
-  async ygoCard(id, lang){
+  ygoCard(id, lang){ return cached(`yc:${lang}:${id}`, () => this._ygoCard(id, lang)); },
+  async _ygoCard(id, lang){
     const r = await this.getJSON(this.ygoUrl(`id=${encodeURIComponent(id)}`, lang));
     return r && r.data && r.data[0] ? this.ygoNorm(r.data[0], lang) : null;
   },
@@ -629,7 +670,8 @@ async function refreshOne(it){
 }
 async function refreshPrices(){
   const b = $('#refreshBtn'); if (b){ b.disabled = true; b.textContent = 'Actualisation…'; }
-  await mapLimit(state.items, 4, refreshOne);
+  forceFresh = true;
+  try { await mapLimit(state.items, 3, refreshOne); } finally { forceFresh = false; }
   save(); render(); toast('Prix actualisés');
 }
 
@@ -679,6 +721,7 @@ async function openShared(hash){
 /* ========= Navigation & démarrage ========= */
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (b){ view = b.dataset.view; render(); } };
 load();
+cachePrune(false);
 const m = location.hash.match(/^#share=(.+)$/);
 if (m) openShared(m[1]); else {
   render();
