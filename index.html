@@ -658,14 +658,62 @@ const YP_RARITY = { C:'Common', R:'Rare', SR:'Super Rare', UR:'Ultra Rare', ScR:
   PlScR:'Platinum Secret Rare', MLR:'Millennium Rare', MLSR:'Millennium Super Rare', MLUR:'Millennium Ultra Rare',
   MLScR:'Millennium Secret Rare', MLGR:'Millennium Gold Rare', KCR:'Kaiba Corporation Rare', KCUR:'Kaiba Corporation Ultra Rare',
   EScR:'Extra Secret Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
-async function ocgPrints(nameEn){
-  if (!nameEn) return [];
-  return cached(`yp2:${nameEn}`, async () => {
+// Galerie Yugipedia d'une carte : texte (liste des éditions) + noms des fichiers de scans
+async function ygoGallery(nameEn){
+  if (!nameEn) return null;
+  return cached(`yg:${nameEn}`, async () => {
     const page = 'Card_Gallery:' + nameEn.replace(/ /g, '_');
     const r = await fetch(`https://yugipedia.com/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext|images&redirects=1&format=json&origin=*`);
     if (!r.ok) return null;
-    const j = await r.json(); if (!j.parse) return [];
-    const text = j.parse.wikitext['*'] || '', files = (j.parse.images || []).map(f => f.replace(/_/g, ' '));
+    const j = await r.json(); if (!j.parse) return { text:'', files:[] };
+    return { text: j.parse.wikitext['*'] || '', files: (j.parse.images || []).map(f => f.replace(/_/g, ' ')) };
+  }).catch(() => null);
+}
+// Adresse des fichiers (par paquets de 50), gardée 24 h
+async function fileUrls(files){
+  const out = {}, need = [];
+  files.forEach(f => { const v = cacheGet(`yfu:${f}`); if (v !== undefined) out[f] = v; else need.push(f); });
+  for (let i = 0; i < need.length; i += 50){
+    const q = await fetch(`https://yugipedia.com/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(need.slice(i, i + 50).map(f => 'File:' + f).join('|'))}`)
+      .then(r => r.json()).catch(() => null);
+    Object.values((q && q.query && q.query.pages) || {}).forEach(pg => { if (pg.imageinfo){ const f = pg.title.replace(/^File:/, ''); out[f] = pg.imageinfo[0].url; cacheSet(`yfu:${f}`, out[f]); } });
+  }
+  return out;
+}
+// Scan d'une édition TCG dans la langue de la carte (ex. BETB-FR + Starlight Rare), sinon en anglais
+const YP_REGION = { en:'EN', fr:'FR', de:'DE', it:'IT', pt:'PT', es:'SP', ja:'JP' };
+const RAR_ABBR = Object.assign(Object.fromEntries(Object.entries(YP_RARITY).map(([k, v]) => [v.toLowerCase(), k])), {
+  'starlight rare':'StR', 'short print':'SP', 'super short print':'SSP', 'starfoil rare':'SFR', 'mosaic rare':'MSR', 'shatterfoil rare':'SHR',
+  'ghost/gold rare':'GGR', 'gold rare':'GUR', 'secret rare':'ScR', 'ultra rare':'UR', 'super rare':'SR', 'rare':'R', 'common':'C' });
+function scanFile(files, code, rarity, region){
+  const prefix = String(code).split('-')[0], abbr = RAR_ABBR[String(rarity || '').toLowerCase()];
+  if (!prefix || !abbr) return null;
+  return files.filter(f => f.includes(`-${prefix}-${region}-${abbr}`) && !/artwork|-NC\b/i.test(f))
+    .sort((a, b) => (/-1E\b/.test(b) - /-1E\b/.test(a)) || a.length - b.length)[0] || null;
+}
+async function tcgScans(nameEn, prints, lang){
+  const g = await ygoGallery(nameEn); if (!g) return {};
+  const want = {};
+  prints.forEach(p => { if (p.ocg || p.link || !p.code) return;
+    const f = scanFile(g.files, p.code, p.rarity, YP_REGION[lang] || 'EN') || scanFile(g.files, p.code, p.rarity, 'EN');
+    if (f) want[printKey(p)] = f; });
+  const urls = await fileUrls([...new Set(Object.values(want))]);
+  return Object.fromEntries(Object.entries(want).map(([k, f]) => [k, urls[f]]).filter(([, u]) => u));
+}
+// Illustration d'une édition : scan de l'édition elle-même (Yugipedia), sinon l'illustration générique (YGOPRODeck)
+async function editionArt(c, p, lang){
+  if (!p) return null;
+  if (p.img) return { img: p.img, imgHi: p.img };
+  if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
+  const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
+  return u ? { img: u, imgHi: u } : await printArt(p.code);
+}
+
+async function ocgPrints(nameEn){
+  if (!nameEn) return [];
+  return cached(`yp3:${nameEn}`, async () => {
+    const g = await ygoGallery(nameEn); if (!g) return null;
+    const text = g.text, files = g.files;
     const out = [], seen = new Set();
     text.split('{{Card gallery|region=').slice(1).forEach(block => {
       // Seulement les vraies cartes OCG : pas Rush Duel ni les cartes d'anime, de manga ou de jeux vidéo (sections « type=… »)
@@ -680,12 +728,7 @@ async function ocgPrints(nameEn){
         out.push({ code, set, rarity, ocg:true, file });
       });
     });
-    const need = [...new Set(out.map(p => p.file).filter(Boolean))], urls = {};
-    for (let i = 0; i < need.length; i += 50){
-      const q = await fetch(`https://yugipedia.com/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(need.slice(i, i + 50).map(f => 'File:' + f).join('|'))}`)
-        .then(r => r.json()).catch(() => null);
-      Object.values((q && q.query && q.query.pages) || {}).forEach(pg => { if (pg.imageinfo) urls[pg.title.replace(/^File:/, '')] = pg.imageinfo[0].url; });
-    }
+    const urls = await fileUrls([...new Set(out.map(p => p.file).filter(Boolean))]);
     return out.reverse().map(p => ({ code:p.code, set:p.set, rarity:p.rarity, ocg:true, img: p.file ? urls[p.file] || null : null }));
   }).then(v => v || []).catch(() => []);
 }
@@ -1139,7 +1182,7 @@ function printSummary(prints, key){
   const bits = p.link ? [p.rarity, 'édition reprise du lien Cardmarket (absente de la base)'] : [p.code, p.rarity, p.ocg ? 'OCG' : yr];
   return `<b>${esc(p.set)}</b><span>${esc(bits.filter(Boolean).join(' · '))}</span>`;
 }
-function bindPrintPicker(prints, onPick, nameEn){
+function bindPrintPicker(prints, onPick, nameEn, getLang){
   if (!$('#ppOpen')) return;
   let list = prints.slice();
   const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); };
@@ -1151,7 +1194,7 @@ function bindPrintPicker(prints, onPick, nameEn){
     if (p && !list.some(x => printKey(x) === key)) list = [p, ...list];
     $('#cprint').value = key; sum(); onPick(key, p || null, fromLink || null);
   };
-  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => select(p), nameEn);
+  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => select(p), nameEn, getLang ? getLang() : 'en');
   return { select };
 }
 // Champ « Lien Cardmarket exact » : dès qu'un lien valide est collé, il désigne l'édition (image et version suivent)
@@ -1169,7 +1212,7 @@ function bindLinkField(c, getLang, picker, onOther){
 }
 
 let edToken = 0;
-async function openEditions(prints, selKey, onPick, nameEn){
+async function openEditions(prints, selKey, onPick, nameEn, lang){
   const tok = ++edToken;
   const dates = await getYgoDates().catch(() => ({})) || {};
   const dec = p => ({ ...p, key: printKey(p), d: dates[p.set] || '', yr: (dates[p.set] || '').slice(0, 4) });
@@ -1212,8 +1255,13 @@ async function openEditions(prints, selKey, onPick, nameEn){
     all = all.concat(jp.filter(p => !have.has(printKey(p))).map(dec));
     ocgState = 'done'; draw();
   });
-  // Illustrations chargées au fur et à mesure (une requête par code, gardée en mémoire 24 h)
-  const codes = [...new Set(all.filter(p => !p.ocg && !p.link && p.code).map(p => p.code))];
+  // Illustrations : d'abord le scan exact de chaque édition (Yugipedia, dans la langue de la carte), sinon l'illustration générique
+  const tcg = all.filter(p => !p.ocg && !p.link && p.code);
+  const scans = nameEn ? await tcgScans(nameEn, tcg, lang).catch(() => ({})) : {};
+  if (tok !== edToken) return;
+  tcg.forEach(p => { if (scans[p.key]) p.img = scans[p.key]; });
+  draw();
+  const codes = [...new Set(tcg.filter(p => !p.img).map(p => p.code))];
   await mapLimit(codes, 4, async code => {
     if (tok !== edToken) return;
     arts[code] = await printArt(code);
@@ -1279,7 +1327,7 @@ function renderConfigure(card, pre){
   // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
   const applyArt = async (key, p) => {
     p = p || findPrint(withExtra(card), key);
-    const art = p && p.img ? { img: p.img, imgHi: p.img } : (card.game === 'ygo' && p && !p.ocg && p.code ? await printArt(p.code) : null);
+    const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
     if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; }
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
@@ -1293,7 +1341,7 @@ function renderConfigure(card, pre){
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
     $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '', cmLink: pre.cmLink }); applyArt(key, p);
     $('#cmHint').textContent = cmHint(card, key, pre.cmLink);
-  }, card.game === 'ygo' ? (card.nameEn || card.name) : null);
+  }, card.game === 'ygo' ? (card.nameEn || card.name) : null, () => $('#clang').value);
   bindLinkField(card, () => $('#clang').value, picker, url => {
     pre.cmLink = url;
     $('#cfgCm').href = cmUrl({ ...card, printCode: keyCode($('#cprint') ? $('#cprint').value : ''), cmLink: url });
@@ -1373,10 +1421,18 @@ function openDetail(i){
       if (!fromLink && $('#ccm')) $('#ccm').value = '';
       if (p && p.ocg) $('#dlang').value = 'ja';
       else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
-      art = p && p.img ? { img: p.img, imgHi: p.img } : (it.game === 'ygo' && p && !p.ocg && p.code ? await printArt(p.code) : null);
+      art = await editionArt(it, p, $('#dlang').value);
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
-    }, it.game === 'ygo' ? (it.nameEn || it.name) : null);
+    }, it.game === 'ygo' ? (it.nameEn || it.name) : null, () => $('#dlang').value);
     bindLinkField(it, () => $('#dlang').value, picker, () => {});
+    // Changer de langue change aussi le scan de l'édition (ex. version française de la carte)
+    $('#dlang').onchange = async () => {
+      if (it.game !== 'ygo') return;
+      const p = picked !== undefined ? picked : findPrint(withExtra(it), $('#cprint') ? $('#cprint').value : '');
+      if (!p) return;
+      art = await editionArt(it, p, $('#dlang').value);
+      if (art) swapImg('#detScrim', { ...it, ...art });
+    };
     $('#saveDet').onclick = async () => {
       readVersionFields(o);
       const lang = $('#dlang').value;
@@ -1469,7 +1525,7 @@ async function openShared(hash){
       const op = (await ocgPrints(c.nameEn || c.name)).find(p => printKey(p) === printCode);
       if (op) card = { ...c, extraPrint: op };
     }
-    const art = game === 'ygo' && printCode && !card.extraPrint ? await printArt(keyCode(printCode)) : null;
+    const art = game === 'ygo' && printCode && !card.extraPrint ? await editionArt(c, findPrint(c.prints, printCode), lang) : null;
     return makeItem(art ? { ...card, ...art, printArt: true } : card, { variant: rev ? 'reverse' : 'normal', printKey: printCode,
       graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note, cmLink: cmLink || null });
   });
