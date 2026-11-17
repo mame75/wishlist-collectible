@@ -96,7 +96,10 @@ select.field option{background:var(--surface)}
 .tile:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 40px -18px rgba(0,0,0,.9),0 0 0 1px rgba(255,207,58,.08)}
 .img{position:relative;aspect-ratio:63/88;border-radius:0;overflow:hidden;background:var(--inset)}
 .tile .img{box-shadow:0 10px 24px -14px rgba(0,0,0,.9)}
-.img img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+.img img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;display:block}
+/* Grand visuel (ajout, fiche) : l'image garde ses vraies proportions, sans recadrage ni bandes */
+.detail .img:has(img){aspect-ratio:auto;background:none}
+.detail .img img{height:auto}
 .img .ph{position:absolute;inset:0;display:grid;place-items:center;padding:12px;text-align:center;color:var(--muted);font-size:12px;
   background:radial-gradient(circle at 50% 42%,#20232b 0 20%,transparent 21%),repeating-linear-gradient(135deg,#15171d 0 8px,#121419 8px 16px);border:1px solid var(--line2);border-radius:0}
 .img .ph span{display:grid;gap:4px;background:rgba(7,8,10,.86);padding:9px 11px;border-radius:10px}
