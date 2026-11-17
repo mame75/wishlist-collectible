@@ -241,12 +241,17 @@ const API = {
 };
 
 /* ========= Liens marchands ========= */
+// Identifiants de langue Cardmarket (filtre des offres sur la fiche produit)
+const CM_LANG = { en:1, fr:2, de:3, es:4, it:5, ja:7, pt:8 };
 // Pokémon : fiche exacte via l'identifiant Cardmarket fourni par TCGdex.
 // Yu-Gi-Oh! : recherche par code d'impression (ex. CT13-EN003) qui mène à la bonne carte, sinon par nom anglais.
 function cmUrl(it){
   const base = 'https://www.cardmarket.com/fr/';
   if (it.game === 'pkm'){
-    if (it.cmId) return `${base}Pokemon/Products?idProduct=${encodeURIComponent(it.cmId)}`;
+    if (it.cmId){
+      const lg = CM_LANG[it.lang];
+      return `${base}Pokemon/Products?idProduct=${encodeURIComponent(it.cmId)}${lg ? '&language=' + lg : ''}`;
+    }
     return `${base}Pokemon/Products/Search?searchString=${encodeURIComponent(it.name)}`;
   }
   const q = it.printCode || it.nameEn || it.name;
