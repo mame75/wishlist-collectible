@@ -489,10 +489,16 @@ function cmHint(c, key, link){
   if (link || c.game !== 'ygo') return '';
   const p = findPrint(withExtra(c), key);
   if (!p) return '';
-  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats.`;
+  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats — ou colle le lien exact ci-dessous.`;
   if ((c.prints || []).filter(x => x.code === p.code).length > 1)
-    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions.`;
+    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions — ou colle le lien exact de cette version ci-dessous.`;
   return '';
+}
+// Lien collé par l'utilisateur : doit être une fiche de carte Cardmarket ; on aligne le filtre de langue sur la carte
+function checkCmLink(v, lang){
+  if (!v) return { ok:true, url:null };
+  const L = parseCmLink(v);
+  return L ? { ok:true, url: withLang(L.url, lang) } : { ok:false };
 }
 const hintHTML = t => `<div class="hint" id="cmHint" style="margin-top:8px">${esc(t)}</div>`;
 
@@ -1083,7 +1089,9 @@ function versionFields(o, card){
       <div><label class="l" for="cgprice">Prix gradé (€)</label><input class="field num" id="cgprice" inputmode="decimal" placeholder="ex. 120" value="${o.priceGraded ?? ''}"></div>
       <div class="hint" style="flex-basis:100%">Pas de source gratuite pour les prix gradés : saisis le prix que tu as repéré (eBay, Cardmarket…).</div>
     </div>
-    <div><label class="l" for="cnote">Note perso (optionnel)</label><input class="field" id="cnote" style="width:100%" placeholder="ex. pour compléter le set, édition 1…" value="${esc(o.note || '')}"></div>`;
+    <div><label class="l" for="cnote">Note perso (optionnel)</label><input class="field" id="cnote" style="width:100%" placeholder="ex. pour compléter le set, édition 1…" value="${esc(o.note || '')}"></div>
+    <div><label class="l" for="ccm">Lien Cardmarket exact (optionnel)</label><input class="field" id="ccm" type="url" style="width:100%" placeholder="Colle ici l'adresse de la fiche de cette version sur Cardmarket" value="${esc(o.cmLinkInput || '')}" autocomplete="off">
+      <div class="hint" style="margin-top:4px">Le bouton « Voir sur Cardmarket » mènera à cette fiche, pour toi comme pour tes amis.</div></div>`;
 }
 
 function readVersionFields(o){
@@ -1093,6 +1101,7 @@ function readVersionFields(o){
   o.grader = $('#cgrader').value; o.grade = $('#cgrade').value;
   o.priceGraded = num($('#cgprice').value);
   o.note = $('#cnote').value.trim();
+  if ($('#ccm')) o.cmLinkInput = $('#ccm').value.trim();
   return o;
 }
 
@@ -1202,7 +1211,8 @@ function renderConfigure(card, pre){
   card = { ...card, baseImg: card.baseImg || card.img, baseImgHi: card.baseImgHi || card.imgHi };
   $('#addTitle').textContent = 'Préciser la carte';
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
-              priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '' };
+              priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '',
+              cmLinkInput: pre.cmLink || '' };
   const market = marketOf(card.game, card.lang);
   const langs = langChoices(card.game, card.lang);
   $('#addBody').innerHTML = `<div class="detail">
@@ -1248,6 +1258,7 @@ function renderConfigure(card, pre){
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
     $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '' }); applyArt(key, p);
     $('#cmHint').textContent = cmHint(card, key, null);
+    if ($('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
   }, card.game === 'ygo' ? (card.nameEn || card.name) : null);
   if (card.game === 'ygo' && o.printKey) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
@@ -1265,7 +1276,9 @@ function renderConfigure(card, pre){
   $('#backBtn').onclick = renderSearch;
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
-    state.items.push(makeItem(card, { ...opts, cmLink: pre.cmLink })); save();
+    const chk = checkCmLink(opts.cmLinkInput, card.lang);
+    if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
+    state.items.push(makeItem(card, { ...opts, cmLink: chk.url })); save();
     closeModal('#addScrim'); filters = { ...filters, q:'' }; render();
     toast(`${card.name} ajoutée à ta wishlist`);
   };
@@ -1279,7 +1292,7 @@ function openDetail(i){
   const it = items[i]; if (!it) return;
   const ro = !!shared;
   $('#detTitle').textContent = it.name;
-  const o = { ...it };
+  const o = { ...it, cmLinkInput: it.cmLink || '' };
   const mk = marketOf(it.game, it.lang);
   const langs = langChoices(it.game, it.lang);
   let art, picked;   // illustration et édition choisies (undefined = inchangées)
@@ -1326,6 +1339,9 @@ function openDetail(i){
     $('#saveDet').onclick = async () => {
       readVersionFields(o);
       const lang = $('#dlang').value;
+      const chk = checkCmLink(o.cmLinkInput, lang);
+      if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
+      const linkEdited = o.cmLinkInput !== (it.cmLink || '');
       const btn = $('#saveDet'); btn.disabled = true; btn.textContent = 'Enregistrement…';
       const print = picked !== undefined ? picked : findPrint(withExtra(it), o.printKey);
       if ((o.printKey || '') !== (it.printKey || printKey(findPrint(it.prints, it.printCode)))) it.cmLink = null;
@@ -1334,6 +1350,7 @@ function openDetail(i){
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       if (art !== undefined){ if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
+      if (linkEdited) it.cmLink = chk.url;
       await refreshOne(it, true).catch(() => {});   // nom, visuel et prix dans la langue / version choisies
       save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
     };
