@@ -561,7 +561,7 @@ const MARKETS = {
   ygo: { intl:['fr','en','de','it','pt'], asia:[] }
 };
 const marketOf = (game, lang) => MARKETS[game].asia.includes(lang) ? 'asia' : 'intl';
-const MARKET_LABEL = { intl:'International', asia:'Japon' };
+const MARKET_LABEL = { intl:'TCG', asia:'OCG' };
 const hasCJK = s => /[぀-ヿ㐀-鿿가-힯]/.test(s);
 const newGroup = () => ({ briefs:[], cards:[], shown:0, loaded:false, loading:false });
 
@@ -719,7 +719,7 @@ function renderResults(msg){
   let body;
   if (s.market === 'asia' && s.game === 'ygo') body = `<div class="status">La base Yu-Gi-Oh! ne référence pas les impressions japonaises (OCG). Pour une carte OCG, colle son lien Cardmarket.</div>`;
   else if (g.loading || (!g.loaded && g.briefs.length)) body = `<div class="status">Chargement…</div>`;
-  else if (!g.cards.length) body = `<div class="status">Aucune carte ${s.market==='asia' ? 'japonaise' : 'internationale'} trouvée pour « ${esc(s.q)} ».</div>`;
+  else if (!g.cards.length) body = `<div class="status">Aucune carte ${MARKET_LABEL[s.market]} trouvée pour « ${esc(s.q)} ».</div>`;
   else {
     const more = s.game === 'pkm' && g.shown < g.briefs.length;
     body = resultTiles(g.cards) + (more ? `<div style="text-align:center;margin-top:12px"><button class="btn" id="moreBtn">Voir plus (${g.briefs.length - g.shown} restants)</button></div>` : '')
@@ -793,7 +793,7 @@ function renderConfigure(card, pre){
       <h3 style="margin:0 0 2px;font-size:22px">${esc(card.name)}</h3>
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
-        <dt>Marché</dt><dd>${market === 'asia' ? 'Japon' : 'International'}</dd>
+        <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Japon)' : 'TCG (international)'}</dd>
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
