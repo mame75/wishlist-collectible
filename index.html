@@ -489,9 +489,9 @@ function cmHint(c, key, link){
   if (link || c.game !== 'ygo') return '';
   const p = findPrint(withExtra(c), key);
   if (!p) return '';
-  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats — ou colle le lien exact ci-dessous.`;
+  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats — ou colle le lien exact dans « Lien Cardmarket exact ».`;
   if ((c.prints || []).filter(x => x.code === p.code).length > 1)
-    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions — ou colle le lien exact de cette version ci-dessous.`;
+    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions — ou colle le lien exact de cette version dans « Lien Cardmarket exact ».`;
   return '';
 }
 // Lien collé par l'utilisateur : doit être une fiche de carte Cardmarket ; on aligne le filtre de langue sur la carte
