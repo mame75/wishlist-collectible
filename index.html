@@ -484,6 +484,18 @@ function cmUrl(it){
   const q = (it.printCode && !/-JP/i.test(it.printCode) ? it.printCode : '') || it.nameEn || it.name;
   return `${base}YuGiOh/Products/Search?searchString=${encodeURIComponent(q)}`;
 }
+// Quand le lien Cardmarket ne peut pas tomber pile sur l'édition, on dit quoi faire une fois sur place
+function cmHint(c, key, link){
+  if (link || c.game !== 'ygo') return '';
+  const p = findPrint(withExtra(c), key);
+  if (!p) return '';
+  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats.`;
+  if ((c.prints || []).filter(x => x.code === p.code).length > 1)
+    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions.`;
+  return '';
+}
+const hintHTML = t => `<div class="hint" id="cmHint" style="margin-top:8px">${esc(t)}</div>`;
+
 function ebayUrl(it){
   const q = [it.name, it.num || it.printCode, it.graded ? it.grader + ' ' + it.grade : ''].filter(Boolean).join(' ');
   return `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(q)}`;
@@ -1217,6 +1229,7 @@ function renderConfigure(card, pre){
         <a class="btn" id="cfgCm" href="${esc(cmUrl({ ...card, printCode: o.printCode, cmLink: pre.cmLink }))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <button class="btn ghost" id="backBtn">← Retour aux résultats</button>
       </div>
+      ${hintHTML(cmHint(card, o.printKey || o.printCode, pre.cmLink))}
     </div></div>`;
   bindVersionFields();
   // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
@@ -1234,6 +1247,7 @@ function renderConfigure(card, pre){
     const want = p && p.ocg ? 'ja' : (p && card.lang === 'ja' && !p.link ? 'fr' : card.lang);
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
     $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '' }); applyArt(key, p);
+    $('#cmHint').textContent = cmHint(card, key, null);
   }, card.game === 'ygo' ? (card.nameEn || card.name) : null);
   if (card.game === 'ygo' && o.printKey) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
@@ -1288,6 +1302,7 @@ function openDetail(i){
         <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
       </div>
+      ${hintHTML(cmHint(it, it.printKey || it.printCode, it.cmLink))}
       ${ro ? '' : `<hr class="divider">
       <div class="form">
         <div><label class="l" for="dlang">Langue de la carte</label>
