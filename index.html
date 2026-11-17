@@ -202,7 +202,7 @@ const API = {
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: c.rarity || '',
       prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
-      prints: null,
+      prints: null, cmId: cm.idProduct || null, nameEn: null,
       priceDate: cm.updated || null
     };
   },
@@ -224,6 +224,7 @@ const API = {
       set:'', num:'', rarity:'',
       prices: { normal: num(p.cardmarket_price) || null, reverse:null },
       prints: (c.card_sets || []).map(s => ({code:s.set_code, set:s.set_name, rarity:s.set_rarity})),
+      cmId: null, nameEn: c.name_en || c.name,
       priceDate: null
     };
   },
@@ -240,10 +241,18 @@ const API = {
 };
 
 /* ========= Liens marchands ========= */
+// Pokémon : fiche exacte via l'identifiant Cardmarket fourni par TCGdex.
+// Yu-Gi-Oh! : recherche par code d'impression (ex. CT13-EN003) qui mène à la bonne carte, sinon par nom anglais.
 function cmUrl(it){
-  const path = it.game === 'pkm' ? 'Pokemon' : 'YuGiOh';
-  return `https://www.cardmarket.com/fr/${path}/Products/Search?searchString=${encodeURIComponent(it.name)}`;
+  const base = 'https://www.cardmarket.com/fr/';
+  if (it.game === 'pkm'){
+    if (it.cmId) return `${base}Pokemon/Products?idProduct=${encodeURIComponent(it.cmId)}`;
+    return `${base}Pokemon/Products/Search?searchString=${encodeURIComponent(it.name)}`;
+  }
+  const q = it.printCode || it.nameEn || it.name;
+  return `${base}YuGiOh/Products/Search?searchString=${encodeURIComponent(q)}`;
 }
+const cmExact = it => it.game === 'pkm' ? !!it.cmId : !!it.printCode;
 function ebayUrl(it){
   const q = [it.name, it.num || it.printCode, it.graded ? it.grader + ' ' + it.grade : ''].filter(Boolean).join(' ');
   return `https://www.ebay.fr/sch/i.html?_nkw=${encodeURIComponent(q)}`;
@@ -258,6 +267,7 @@ function makeItem(card, opts){
     img: card.img, imgHi: card.imgHi,
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', prints: card.prints,
+    cmId: card.cmId || null, nameEn: card.nameEn || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
@@ -547,7 +557,7 @@ function openDetail(i){
         ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
       </dl>
       <div class="actions" style="margin-top:0">
-        <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
+        <a class="btn primary" href="${esc(cmUrl(it))}" target="_blank" rel="noopener">${cmExact(it) ? 'Voir la fiche Cardmarket' : 'Chercher sur Cardmarket'}</a>
         <a class="btn" href="${esc(ebayUrl(it))}" target="_blank" rel="noopener">Chercher sur eBay</a>
       </div>
       ${ro ? '' : `<hr style="border:0;border-top:1px solid var(--line);margin:18px 0 12px">
@@ -584,6 +594,8 @@ async function refreshOne(it){
   it.hasReverse = c.prices.reverse != null;
   it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi;
   if (c.prints) it.prints = c.prints;
+  if (c.cmId) it.cmId = c.cmId;
+  if (c.nameEn) it.nameEn = c.nameEn;
   it.refreshedAt = Date.now();
 }
 async function refreshPrices(){
@@ -639,7 +651,12 @@ async function openShared(hash){
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (b){ view = b.dataset.view; render(); } };
 load();
 const m = location.hash.match(/^#share=(.+)$/);
-if (m) openShared(m[1]); else render();
+if (m) openShared(m[1]); else {
+  render();
+  // Complète les cartes ajoutées avant la V1.1 (identifiant Cardmarket, nom anglais)
+  const old = state.items.filter(it => it.game === 'pkm' ? !it.cmId : !it.nameEn);
+  if (old.length) mapLimit(old, 4, refreshOne).then(() => { save(); render(); });
+}
 }
 </script>
 </body>
