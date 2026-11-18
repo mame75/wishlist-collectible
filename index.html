@@ -789,7 +789,7 @@ function imgBox(c, hi, badges){
   const src = hi ? c.imgHi : c.img;
   const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
   return `<div class="img">
-    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} onerror="this.remove()">` : ''}
+    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
   </div>`;
@@ -1590,6 +1590,12 @@ function bmkSource(){
 const SITE_URL = location.href.split('#')[0].split('?')[0];
 const BOOKMARKLET = 'javascript:' + encodeURIComponent('(' + bmkSource.toString().replace('__SITE__', SITE_URL) + ')()');
 
+const canLoad = (src, ms = 5000) => new Promise(res => {
+  const i = new Image(), t = setTimeout(() => res(false), ms);
+  i.onload = () => { clearTimeout(t); res(i.naturalWidth > 0); };
+  i.onerror = () => { clearTimeout(t); res(false); };
+  i.referrerPolicy = 'no-referrer'; i.src = src;
+});
 // Arrivée depuis le favori : on retrouve la carte dans nos bases ; l'image, le prix et le lien viennent de Cardmarket
 async function importFromCm(d){
   const L = parseCmLink((d && d.u) || '');
@@ -1606,7 +1612,8 @@ async function importFromCm(d){
     card = { game: L.game, id: 'cm', lang, name: d.name || unslug(sp.name), set: unslug(L.expansion), num: d.num || '',
       rarity: d.rar || (sp.rarity ? unslug(sp.rarity) : ''), prices: { normal: cmPrice, reverse: null }, prints: [], manual: true, img: null, imgHi: null };
   }
-  if (d.img) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
+  // L'image de Cardmarket n'est gardée que si elle s'affiche hors de Cardmarket ; sinon le scan de l'édition prend le relais
+  if (d.img && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
   if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
   renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
 }
@@ -1623,6 +1630,14 @@ if (m) openShared(m[1]); else {
   // Complète les cartes ajoutées avant la V1.1 (identifiant Cardmarket, nom anglais)
   const old = state.items.filter(it => it.game === 'pkm' ? !it.cmId : !it.nameEn);
   if (old.length) mapLimit(old, 4, refreshOne).then(() => { save(); render(); });
+  // Images Cardmarket qui ne s'affichent pas : remplacées par le scan de l'édition (ou l'image de nos bases)
+  const cmImgs = state.items.filter(it => it.cmImg);
+  if (cmImgs.length) mapLimit(cmImgs, 3, async it => {
+    if (await canLoad(it.cmImg)) return;
+    it.cmImg = null; it.printArt = false;
+    const art = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), it.printKey || it.printCode), it.lang).catch(() => null) : null;
+    if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else await refreshOne(it).catch(() => {});
+  }).then(() => { save(); render(); });
 }
 }
 </script>
