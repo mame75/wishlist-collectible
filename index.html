@@ -1617,7 +1617,8 @@ async function importFromCm(d){
   }
   // L'image de Cardmarket n'est gardée que si elle s'affiche hors de Cardmarket ; sinon le scan de l'édition prend le relais
   card = { ...card, baseImg: card.img, baseImgHi: card.imgHi };
-  if (d.img && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
+  // Les photos de Cardmarket (product-images.s3.cardmarket.com) refusent tout affichage hors de leur site (erreur 403) : inutile d'attendre
+  if (d.img && !/product-images\.s3\.cardmarket\.com/.test(d.img) && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
   if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
   renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
 }
