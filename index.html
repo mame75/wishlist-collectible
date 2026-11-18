@@ -742,7 +742,7 @@ const withExtra = c => c.extraPrint ? [c.extraPrint, ...(c.prints || []).filter(
 function makeItem(card, opts){
   const variant = opts.variant || 'normal';
   const print = findPrint(withExtra(card), opts.printKey || opts.printCode);
-  if (print && print.img){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
+  if (print && print.img && !card.cmImg){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
   return {
     uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
@@ -755,7 +755,8 @@ function makeItem(card, opts){
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
-    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now()
+    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(),
+    cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
@@ -812,7 +813,7 @@ function tileHTML(it, i){
       <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${(!it.graded && trendHTML(it.trend)) || `<span>${it.graded ? 'Gradée' : it.game === 'ygo' ? 'Prix CM' : 'Moy. 30 j'}</span>`}</div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${(!it.graded && trendHTML(it.trend)) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Moy. 30 j'}</span>`}</div>
   </button>`;
 }
 
@@ -984,11 +985,16 @@ function renderSearch(){
       <button class="btn" type="submit">Importer</button>
     </form>
     <div class="hint" style="margin-top:8px">Nom en français ou en anglais${s.game==='pkm' ? ' (ou en japonais)' : ''}. Tu choisiras la langue exacte de la carte à l'étape suivante.</div>
+    <div class="ppsum" style="margin-top:12px"><div class="t"><b>Encore plus rapide depuis Cardmarket</b>
+      <span>Glisse ce bouton dans ta barre de favoris. Sur la fiche d'une carte Cardmarket, clique dessus : la carte arrive ici avec son image, son prix et son lien.</span></div>
+      <a class="btn sm primary" id="bmk" draggable="true" title="Glisse-moi dans ta barre de favoris">+ Wishlist</a></div>
     <div id="sres"></div>`;
   $('#sgame').onclick = e => { const b = e.target.closest('button'); if (!b) return; s.game = b.dataset.g;
     s.q = ''; s.link = null; s.groups = { intl:newGroup(), asia:newGroup() }; s.market = 'intl'; renderSearch(); };
   $('#sform').onsubmit = e => { e.preventDefault(); s.q = $('#sq').value.trim(); if (s.q){ s.link = null; runSearch(); } };
   $('#lform').onsubmit = e => { e.preventDefault(); importLink($('#lurl').value); };
+  $('#bmk').setAttribute('href', BOOKMARKLET);
+  $('#bmk').onclick = e => { e.preventDefault(); toast('Glisse ce bouton dans ta barre de favoris'); };
   renderResults();
   setTimeout(() => $('#sq') && $('#sq').focus(), 30);
 }
@@ -1340,6 +1346,7 @@ function renderConfigure(card, pre){
   };
   const picker = bindPrintPicker(withExtra(card), (key, p, fromLink) => {
     if (p && (p.ocg || p.link)) card.extraPrint = p;
+    card.cmImg = null;   // autre édition : l'image Cardmarket ne correspond plus
     pre.cmLink = fromLink || null;
     if (!fromLink && $('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
@@ -1353,7 +1360,7 @@ function renderConfigure(card, pre){
     $('#cfgCm').href = cmUrl({ ...card, printCode: keyCode($('#cprint') ? $('#cprint').value : ''), cmLink: url });
     $('#cmHint').textContent = cmHint(card, $('#cprint') ? $('#cprint').value : '', url);
   });
-  if (card.game === 'ygo' && o.printKey) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
+  if (card.game === 'ygo' && o.printKey && !card.cmImg) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
   $('#clang').onchange = async e => {
     const lang = e.target.value; readVersionFields(o);
@@ -1453,7 +1460,7 @@ function openDetail(i){
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note,
         printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg) ? print : null });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
-      if (art !== undefined){ if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
+      if (art !== undefined){ it.cmImg = null; if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
       if (linkEdited) it.cmLink = chk.url;
       await refreshOne(it, true).catch(() => {});   // nom, visuel et prix dans la langue / version choisies
@@ -1470,9 +1477,10 @@ function openDetail(i){
 
 /* ========= Actualisation des prix ========= */
 async function refreshOne(it, full){
+  if (it.manual) return;   // carte créée depuis Cardmarket, absente de nos bases
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
-  it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
+  if (!it.cmPrice) it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
   it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
@@ -1497,7 +1505,9 @@ async function refreshPrices(){
 // Le lien contient seulement les références des cartes ; les prix sont rechargés à l'ouverture.
 function buildShareLink(){
   const payload = { o: state.owner || '', c: state.items.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printKey || it.printCode || '',
-    it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '', it.cmLink || 0]) };
+    it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '', it.cmLink || 0,
+    (it.cmImg || it.cmPrice || it.manual) ? { i: it.cmImg || 0, p: it.cmPrice ? it.priceRaw : 0,
+      m: it.manual ? { n: it.name, s: it.set, r: it.rarity, u: it.num } : 0 } : 0]) };
   return location.href.split('#')[0] + '#share=' + b64e(JSON.stringify(payload));
 }
 function renderShare(){
@@ -1524,16 +1534,20 @@ async function openShared(hash){
   const refs = (payload.c || []);
   shared = { owner: payload.o, items: [], loading: true };
   render();
-  const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note, cmLink]) => {
+  const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note, cmLink, x]) => {
     if (!GAMES[game]) return null;
-    const c = await API.card(game, id, lang);
+    x = x || {};
+    const c = x.m ? { game, id:'cm', lang, name: x.m.n, set: x.m.s, rarity: x.m.r, num: x.m.u, prices: { normal: x.p || null, reverse: null }, prints: [], manual: true }
+      : await API.card(game, id, lang);
     if (!c) return null;
     let card = c;
+    if (x.i) card = { ...card, img: x.i, imgHi: x.i, printArt: true, cmImg: x.i };
+    if (x.p) card = { ...card, prices: { ...card.prices, normal: x.p }, cmPrice: true };
     if (game === 'ygo' && printCode && !printCode.startsWith('@') && !findPrint(c.prints, printCode)){
       const op = (await ocgPrints(c.nameEn || c.name)).find(p => printKey(p) === printCode);
       if (op) card = { ...c, extraPrint: op };
     }
-    const art = game === 'ygo' && printCode && !card.extraPrint ? await editionArt(c, findPrint(c.prints, printCode), lang) : null;
+    const art = game === 'ygo' && printCode && !card.extraPrint && !card.cmImg ? await editionArt(c, findPrint(c.prints, printCode), lang) : null;
     return makeItem(art ? { ...card, ...art, printArt: true } : card, { variant: rev ? 'reverse' : 'normal', printKey: printCode,
       graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note, cmLink: cmLink || null });
   });
@@ -1542,13 +1556,70 @@ async function openShared(hash){
   render();
 }
 
+/* ========= Favori « + Wishlist » (à utiliser depuis une fiche Cardmarket) =========
+   Le favori lit la page que l'utilisateur regarde (image, nom, prix, lien) et ouvre ce site avec ces infos (#cm=…).
+   Son code est ci-dessous : il est converti en lien « javascript: » à glisser dans la barre de favoris. */
+function bmkSource(){
+  var SITE = '__SITE__';
+  if (!/cardmarket\.com$/.test(location.hostname)){ alert("Ouvre la fiche d'une carte sur Cardmarket, puis clique sur ce favori."); return; }
+  var q = function(s, r){ return (r || document).querySelector(s); };
+  var meta = function(p){ var m = q('meta[property="' + p + '"]') || q('meta[name="' + p + '"]'); return m && m.content; };
+  var img = meta('og:image') || '';
+  var imgs = [].slice.call(document.images).filter(function(i){ return /product-images/.test(i.currentSrc || i.src); })
+    .sort(function(a, b){ return b.naturalWidth - a.naturalWidth; });
+  if (imgs[0] && !/product-images/.test(img)) img = imgs[0].currentSrc || imgs[0].src;
+  var h = q('h1'), title = h ? ((h.childNodes[0] && h.childNodes[0].textContent) || h.textContent).trim() : document.title;
+  var rm = title.match(/\(V\.\s*\d+\s*-\s*([^)]+)\)/);
+  var info = {}, dds = {};
+  [].forEach.call(document.querySelectorAll('dt'), function(dt){
+    var dd = dt.nextElementSibling;
+    if (dd && dd.tagName === 'DD'){ var k = dt.textContent.trim().toLowerCase(); info[k] = dd.textContent.replace(/\s+/g, ' ').trim(); dds[k] = dd; }
+  });
+  var key = function(re){ return Object.keys(info).filter(function(k){ return re.test(k); })[0]; };
+  var price = function(re){ var k = key(re); if (!k) return null; var m = info[k].match(/\d[\d.\s]*,\d+|\d+(\.\d+)?/); if (!m) return null;
+    return parseFloat(m[0].replace(/[.\s](?=\d{3})/g, '').replace(',', '.')); };
+  var rar = '', rk = key(/raret|rarity/);
+  if (rk){ var t = dds[rk].querySelector('[data-bs-original-title],[data-original-title],[aria-label],[title]');
+    rar = t ? (t.getAttribute('data-bs-original-title') || t.getAttribute('data-original-title') || t.getAttribute('aria-label') || t.getAttribute('title')) : info[rk]; }
+  var nk = key(/num[ée]ro|number/);
+  var p = price(/30 jours|30-day|30 days/); if (p == null) p = price(/tendance|trend/); if (p == null) p = price(/partir|from/);
+  var d = { u: location.href, img: img, name: title.replace(/\s*\(V\.[^)]*\)\s*$/, '').trim(), price: p, num: nk ? info[nk] : '', rar: rar || (rm ? rm[1].trim() : '') };
+  var s = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  window.open(SITE + '#cm=' + s, '_blank');
+}
+const SITE_URL = location.href.split('#')[0].split('?')[0];
+const BOOKMARKLET = 'javascript:' + encodeURIComponent('(' + bmkSource.toString().replace('__SITE__', SITE_URL) + ')()');
+
+// Arrivée depuis le favori : on retrouve la carte dans nos bases ; l'image, le prix et le lien viennent de Cardmarket
+async function importFromCm(d){
+  const L = parseCmLink((d && d.u) || '');
+  renderSearch(); openModal('#addScrim');
+  if (!L){ renderResults("Cette page Cardmarket n'est pas une fiche de carte Pokémon ou Yu-Gi-Oh!."); return; }
+  const s = search; s.game = L.game; s.link = { url: L.url }; renderSearch();
+  renderResults('Ajout depuis Cardmarket…');
+  const lang = L.lang || 'fr', url = withLang(L.url, lang), cmPrice = num(d.price);
+  let res = null;
+  try { res = L.game === 'pkm' ? await matchPkm(L, lang) : await matchYgo(L, lang); } catch(e){}
+  let card = res && res.card;
+  if (!card){   // carte absente de nos bases : on la crée telle que décrite par Cardmarket
+    const sp = L.game === 'ygo' ? ygoSlugParts(L.slug) : { name: L.slug, rarity: null };
+    card = { game: L.game, id: 'cm', lang, name: d.name || unslug(sp.name), set: unslug(L.expansion), num: d.num || '',
+      rarity: d.rar || (sp.rarity ? unslug(sp.rarity) : ''), prices: { normal: cmPrice, reverse: null }, prints: [], manual: true, img: null, imgHi: null };
+  }
+  if (d.img) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
+  if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
+  renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
+}
+
 /* ========= Navigation & démarrage ========= */
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (b){ view = b.dataset.view; render(); } };
 load();
 cachePrune(false);
 const m = location.hash.match(/^#share=(.+)$/);
+const cmh = location.hash.match(/^#cm=(.+)$/);
 if (m) openShared(m[1]); else {
   render();
+  if (cmh){ history.replaceState(null, '', location.pathname); let d = null; try { d = JSON.parse(b64d(cmh[1])); } catch(e){} importFromCm(d); }
   // Complète les cartes ajoutées avant la V1.1 (identifiant Cardmarket, nom anglais)
   const old = state.items.filter(it => it.game === 'pkm' ? !it.cmId : !it.nameEn);
   if (old.length) mapLimit(old, 4, refreshOne).then(() => { save(); render(); });
