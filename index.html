@@ -756,7 +756,7 @@ function makeItem(card, opts){
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(),
-    cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual,
+    cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
@@ -952,6 +952,7 @@ function render(){
 function openModal(id){ $(id).classList.add('open'); }
 // Fermer une fenêtre vide aussi son contenu (évite que deux formulaires partagent les mêmes champs)
 function closeModal(id){ const s = typeof id === 'string' ? $(id) : id; s.classList.remove('open');
+  if (s.id === 'addScrim' || s.id === 'detScrim') pasteHandler = null;
   const b = s.querySelector('#addBody, #detBody, #edBody'); if (b) b.innerHTML = ''; if (s.id === 'edScrim') edToken++; }
 document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', e => {
   if (e.target === s || e.target.closest('[data-close]')) closeModal(s);
@@ -1144,6 +1145,39 @@ function renderResults(msg){
 }
 
 /* ---- Ajout : étape 2, précision de la carte ---- */
+/* ---- Image personnalisée : coller (Ctrl+V) ou choisir un fichier ; gardée sur cet appareil ---- */
+let pasteHandler = null;
+document.addEventListener('paste', e => {
+  if (!pasteHandler) return;
+  const item = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.type.startsWith('image/'));
+  if (!item) return;
+  e.preventDefault(); toCardImage(item.getAsFile()).then(pasteHandler).catch(() => toast("Impossible de lire cette image"));
+});
+// Réduit l'image (largeur max 480 px, JPEG) pour qu'elle tienne dans la mémoire du navigateur
+function toCardImage(blob){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(blob), im = new Image();
+    im.onload = () => { const w = Math.min(480, im.naturalWidth), hh = Math.round(im.naturalHeight * w / im.naturalWidth);
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = hh; cv.getContext('2d').drawImage(im, 0, 0, w, hh);
+      URL.revokeObjectURL(url); res(cv.toDataURL('image/jpeg', 0.86)); };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(); };
+    im.src = url;
+  });
+}
+function imgPasteHTML(has){
+  return `<div><label class="l">Image de cette version</label>
+    <div class="row"><button type="button" class="btn sm" id="upPick">Choisir un fichier</button>
+      <button type="button" class="btn sm ghost" id="upDel" ${has ? '' : 'hidden'}>Retirer mon image</button>
+      <input type="file" id="upFile" accept="image/*" hidden></div>
+    <div class="hint" style="margin-top:4px">Ou fais « Copier l'image » sur Cardmarket, puis Ctrl+V ici. L'image est gardée sur cet appareil (pas dans le lien partagé).</div></div>`;
+}
+function bindImgPaste(onImg, onDel){
+  pasteHandler = d => { onImg(d); if ($('#upDel')) $('#upDel').hidden = false; toast('Image ajoutée'); };
+  $('#upPick').onclick = () => $('#upFile').click();
+  $('#upFile').onchange = e => { const f = e.target.files[0]; if (f) toCardImage(f).then(pasteHandler).catch(() => toast("Impossible de lire cette image")); };
+  $('#upDel').onclick = () => { onDel(); $('#upDel').hidden = true; };
+}
+
 function versionFields(o, card){
   const hasRev = card.prices ? card.prices.reverse != null : o.hasReverse;
   const prints = card.prints || [];
@@ -1329,6 +1363,7 @@ function renderConfigure(card, pre){
         <div><label class="l" for="clang">Langue de la carte</label>
           <select class="field" id="clang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===card.lang?'selected':''}>${esc(langLabel(card.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...card, prints: withExtra(card) })}
+        ${imgPasteHTML(!!card.userImg)}
       </div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
@@ -1349,7 +1384,7 @@ function renderConfigure(card, pre){
   };
   const picker = bindPrintPicker(withExtra(card), (key, p, fromLink) => {
     if (p && (p.ocg || p.link)) card.extraPrint = p;
-    card.cmImg = null;   // autre édition : l'image Cardmarket ne correspond plus
+    card.cmImg = null; card.userImg = null;   // autre édition : les images de l'ancienne ne correspondent plus
     pre.cmLink = fromLink || null;
     if (!fromLink && $('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
@@ -1363,7 +1398,7 @@ function renderConfigure(card, pre){
     $('#cfgCm').href = cmUrl({ ...card, printCode: keyCode($('#cprint') ? $('#cprint').value : ''), cmLink: url });
     $('#cmHint').textContent = cmHint(card, $('#cprint') ? $('#cprint').value : '', url);
   });
-  if (card.game === 'ygo' && o.printKey && !card.cmImg) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
+  if (card.game === 'ygo' && o.printKey && !card.cmImg && !card.userImg) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
   $('#clang').onchange = async e => {
     const lang = e.target.value; readVersionFields(o);
@@ -1372,11 +1407,14 @@ function renderConfigure(card, pre){
     try { c2 = card.game === 'pkm' ? await API.pkmCard(card.id, lang) : await API.ygoCard(card.id, lang); } catch(err){}
     const next = c2 ? { ...c2, img: card.printArt ? card.img : (c2.img || card.img), imgHi: card.printArt ? card.imgHi : (c2.imgHi || card.imgHi),
                         printArt: card.printArt, baseImg: c2.img || card.baseImg, baseImgHi: c2.imgHi || card.baseImgHi, prints: c2.prints || card.prints,
-                        extraPrint: card.extraPrint }
+                        extraPrint: card.extraPrint, userImg: card.userImg, cmImg: card.cmImg }
                     : { ...card, lang, name: card.game === 'ygo' && lang === 'en' ? (card.nameEn || card.name) : card.name };
     renderConfigure(next, { ...o, cmLink: withLang(pre.cmLink, lang) });
   };
   $('#backBtn').onclick = renderSearch;
+  bindImgPaste(d => { card.userImg = d; card.img = card.imgHi = d; card.printArt = true; swapImg('#addScrim', card); },
+    () => { card.userImg = null; card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; swapImg('#addScrim', card);
+            if (card.game === 'ygo' && $('#cprint') && $('#cprint').value) applyArt($('#cprint').value); });
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
     const chk = checkCmLink(opts.cmLinkInput, card.lang);
@@ -1425,6 +1463,7 @@ function openDetail(i){
         <div><label class="l" for="dlang">Langue de la carte</label>
           <select class="field" id="dlang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===it.lang?'selected':''}>${esc(langLabel(it.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...it, prints: withExtra(it) })}
+        ${imgPasteHTML(!!it.userImg)}
       </div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
@@ -1433,8 +1472,11 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields();
+    let userImg;   // undefined = inchangée, null = retirée
+    bindImgPaste(d => { userImg = d; swapImg('#detScrim', { ...it, img: d, imgHi: d }); },
+      () => { userImg = null; swapImg('#detScrim', { ...it, img: it.userImg ? it.baseImg || null : it.img, imgHi: it.userImg ? it.baseImgHi || null : it.imgHi }); });
     const picker = bindPrintPicker(withExtra(it), async (key, p, fromLink) => {
-      picked = p;
+      picked = p; if (userImg === undefined && it.userImg) userImg = null;   // autre édition : l'image perso ne correspond plus
       if (!fromLink && $('#ccm')) $('#ccm').value = '';
       if (p && p.ocg) $('#dlang').value = 'ja';
       else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
@@ -1466,6 +1508,10 @@ function openDetail(i){
       if (art !== undefined){ it.cmImg = null; if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
       if (linkEdited) it.cmLink = chk.url;
+      if (userImg === null && it.userImg){ it.userImg = null; if (art === undefined){ it.printArt = false;
+        const a2 = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), it.printKey), lang).catch(() => null) : null;
+        if (a2){ it.img = a2.img; it.imgHi = a2.imgHi; it.printArt = true; } } }
+      if (userImg){ it.userImg = userImg; it.img = it.imgHi = userImg; it.printArt = true; it.cmImg = null; }
       await refreshOne(it, true).catch(() => {});   // nom, visuel et prix dans la langue / version choisies
       save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
     };
