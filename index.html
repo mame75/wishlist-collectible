@@ -298,7 +298,10 @@ const b64d = str => decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace
 /* ========= Stockage local ========= */
 let state = { owner:'', items:[] };
 function load(){ try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && Array.isArray(s.items)) state = s; } catch(e){}
-  state.items.forEach(it => { if (it.linkPrint && !it.extraPrint) it.extraPrint = it.linkPrint; delete it.linkPrint; }); }
+  state.items.forEach(it => { if (it.linkPrint && !it.extraPrint) it.extraPrint = it.linkPrint; delete it.linkPrint; });
+  // Photos collées avant leur rattachement aux versions : rangées dans la bibliothèque de photos
+  state.arts = state.arts || {};
+  state.items.forEach(it => { if (it.userImg){ const k = `${it.game}:${it.id}:${it.printKey || ''}`; if (!state.arts[k]) state.arts[k] = it.userImg; } }); }
 function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
 
 /* ========= Cache local (24 h) =========
@@ -702,9 +705,30 @@ async function tcgScans(nameEn, prints, lang){
   return Object.fromEntries(Object.entries(want).map(([k, fs]) => [k, fs.map(f => urls[f]).find(Boolean)]).filter(([, u]) => u));
 }
 // Illustration d'une édition : scan de l'édition elle-même (Yugipedia), sinon l'illustration générique (YGOPRODeck)
+/* Photos collées par l'utilisateur : une par version (carte + édition + rareté), gardées sur l'appareil.
+   Coller une nouvelle photo remplace l'ancienne partout (wishlist, page des éditions, ajouts suivants). */
+const artKey = (c, key) => `${c.game}:${c.id}:${key || ''}`;
+const getUserArt = (c, key) => (state.arts || {})[artKey(c, key)] || null;
+const itemKey = it => it.printKey || printKey(findPrint(withExtra(it), it.printCode)) || '';
+async function setUserArt(c, key, d){
+  state.arts = state.arts || {};
+  if (d) state.arts[artKey(c, key)] = d; else delete state.arts[artKey(c, key)];
+  const same = state.items.filter(it => it.game === c.game && it.id === c.id && itemKey(it) === (key || ''));
+  for (const it of same){
+    if (d){ it.userImg = d; it.img = it.imgHi = d; it.printArt = true; it.cmImg = null; continue; }
+    if (!it.userImg) continue;
+    it.userImg = null; it.printArt = false;   // retour au visuel automatique de cette version
+    const a = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), key), it.lang).catch(() => null) : null;
+    if (a){ it.img = a.img; it.imgHi = a.imgHi; it.printArt = true; } else await refreshOne(it).catch(() => {});
+  }
+  save();
+}
+
 async function editionArt(c, p, lang){
   if (!p) return null;
-  if (p.img) return { img: p.img, imgHi: p.img };
+  const ua = getUserArt(c, printKey(p));
+  if (ua) return { img: ua, imgHi: ua, user: true };
+  if (p.img && !p.user) return { img: p.img, imgHi: p.img };
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
@@ -742,7 +766,9 @@ const withExtra = c => c.extraPrint ? [c.extraPrint, ...(c.prints || []).filter(
 function makeItem(card, opts){
   const variant = opts.variant || 'normal';
   const print = findPrint(withExtra(card), opts.printKey || opts.printCode);
-  if (print && print.img && !card.cmImg){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
+  const ua = getUserArt(card, printKey(print));
+  if (ua) card = { ...card, img: ua, imgHi: ua, printArt: true, userImg: ua, cmImg: null };
+  if (print && print.img && !card.cmImg && !ua){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
   return {
     uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
@@ -1229,7 +1255,7 @@ function printSummary(prints, key){
   const bits = p.link ? [p.rarity, 'édition reprise du lien Cardmarket (absente de la base)'] : [p.code, p.rarity, p.ocg ? 'OCG' : yr];
   return `<b>${esc(p.set)}</b><span>${esc(bits.filter(Boolean).join(' · '))}</span>`;
 }
-function bindPrintPicker(prints, onPick, nameEn, getLang){
+function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   if (!$('#ppOpen')) return;
   let list = prints.slice();
   const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); };
@@ -1241,7 +1267,7 @@ function bindPrintPicker(prints, onPick, nameEn, getLang){
     if (p && !list.some(x => printKey(x) === key)) list = [p, ...list];
     $('#cprint').value = key; sum(); onPick(key, p || null, fromLink || null);
   };
-  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => select(p), nameEn, getLang ? getLang() : 'en');
+  $('#ppOpen').onclick = () => openEditions(list, $('#cprint').value, (key, p) => select(p), nameEn, getLang ? getLang() : 'en', owner);
   return { select };
 }
 // Champ « Lien Cardmarket exact » : dès qu'un lien valide est collé, il désigne l'édition (image et version suivent)
@@ -1259,10 +1285,11 @@ function bindLinkField(c, getLang, picker, onOther){
 }
 
 let edToken = 0;
-async function openEditions(prints, selKey, onPick, nameEn, lang){
+async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   const tok = ++edToken;
   const dates = await getYgoDates().catch(() => ({})) || {};
-  const dec = p => ({ ...p, key: printKey(p), d: dates[p.set] || '', yr: (dates[p.set] || '').slice(0, 4) });
+  const dec = p => { const ua = owner ? getUserArt(owner, printKey(p)) : null;
+    return { ...p, key: printKey(p), d: dates[p.set] || '', yr: (dates[p.set] || '').slice(0, 4), ...(ua ? { img: ua, user: true } : {}) }; };
   let all = prints.map(dec).sort((a, b) => !!a.ocg - !!b.ocg || (b.d || '').localeCompare(a.d || '') || a.set.localeCompare(b.set));
   const arts = {};   // code → illustration
   const selOcg = (all.find(p => p.key === selKey) || {}).ocg;
@@ -1285,7 +1312,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang){
     const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)));
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
-          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img) }, false, p.ocg ? '<span class="bdg">JP</span>' : '')}
+          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img) }, false, (p.ocg ? '<span class="bdg">JP</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(p.rarity)}</div></div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
@@ -1306,7 +1333,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang){
   const tcg = all.filter(p => !p.ocg && !p.link && p.code);
   const scans = nameEn ? await tcgScans(nameEn, tcg, lang).catch(() => ({})) : {};
   if (tok !== edToken) return;
-  tcg.forEach(p => { if (scans[p.key]) p.img = scans[p.key]; });
+  tcg.forEach(p => { if (scans[p.key] && !p.user) p.img = scans[p.key]; });
   draw();
   const codes = [...new Set(tcg.filter(p => !p.img).map(p => p.code))];
   await mapLimit(codes, 4, async code => {
@@ -1338,6 +1365,7 @@ function withLang(link, lang){
 function renderConfigure(card, pre){
   pre = pre || {};
   card = { ...card, baseImg: card.baseImg || card.img, baseImgHi: card.baseImgHi || card.imgHi };
+  { const ua = getUserArt(card, pre.printKey || ''); if (ua) card = { ...card, img: ua, imgHi: ua, userImg: ua, printArt: true }; }
   $('#addTitle').textContent = 'Préciser la carte';
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '',
@@ -1378,13 +1406,13 @@ function renderConfigure(card, pre){
     p = p || findPrint(withExtra(card), key);
     const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
     if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
-    if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; }
+    if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; card.userImg = art.user ? art.img : null; }
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
   };
   const picker = bindPrintPicker(withExtra(card), (key, p, fromLink) => {
     if (p && (p.ocg || p.link)) card.extraPrint = p;
-    card.cmImg = null; card.userImg = null;   // autre édition : les images de l'ancienne ne correspondent plus
+    card.cmImg = null; card.userImg = null;   // autre édition : l'image affichée sera celle de la nouvelle (ta photo si tu en as collé une)
     pre.cmLink = fromLink || null;
     if (!fromLink && $('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
@@ -1392,7 +1420,7 @@ function renderConfigure(card, pre){
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
     $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '', cmLink: pre.cmLink }); applyArt(key, p);
     $('#cmHint').textContent = cmHint(card, key, pre.cmLink);
-  }, card.game === 'ygo' ? (card.nameEn || card.name) : null, () => $('#clang').value);
+  }, card.game === 'ygo' ? (card.nameEn || card.name) : null, () => $('#clang').value, card);
   bindLinkField(card, () => $('#clang').value, picker, url => {
     pre.cmLink = url;
     $('#cfgCm').href = cmUrl({ ...card, printCode: keyCode($('#cprint') ? $('#cprint').value : ''), cmLink: url });
@@ -1412,9 +1440,10 @@ function renderConfigure(card, pre){
     renderConfigure(next, { ...o, cmLink: withLang(pre.cmLink, lang) });
   };
   $('#backBtn').onclick = renderSearch;
-  bindImgPaste(d => { card.userImg = d; card.img = card.imgHi = d; card.printArt = true; swapImg('#addScrim', card); },
-    () => { card.userImg = null; card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; swapImg('#addScrim', card);
-            if (card.game === 'ygo' && $('#cprint') && $('#cprint').value) applyArt($('#cprint').value); });
+  const curKey = () => ($('#cprint') ? $('#cprint').value : '') || '';
+  bindImgPaste(d => { card.userImg = d; card.img = card.imgHi = d; card.printArt = true; swapImg('#addScrim', card); setUserArt(card, curKey(), d); render(); },
+    async () => { await setUserArt(card, curKey(), null); card.userImg = null; card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false;
+                  swapImg('#addScrim', card); if (card.game === 'ygo' && curKey()) applyArt(curKey()); render(); });
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
     const chk = checkCmLink(opts.cmLinkInput, card.lang);
@@ -1472,18 +1501,19 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields();
-    let userImg;   // undefined = inchangée, null = retirée
+    let userImg;   // photo de la version : undefined = inchangée, null = retirée
     bindImgPaste(d => { userImg = d; swapImg('#detScrim', { ...it, img: d, imgHi: d }); },
-      () => { userImg = null; swapImg('#detScrim', { ...it, img: it.userImg ? it.baseImg || null : it.img, imgHi: it.userImg ? it.baseImgHi || null : it.imgHi }); });
+      async () => { userImg = null; const a = it.game === 'ygo' ? await editionArt({ ...it }, findPrint(withExtra(it), $('#cprint') ? $('#cprint').value : itemKey(it)), $('#dlang').value).catch(() => null) : null;
+        swapImg('#detScrim', a && !a.user ? { ...it, ...a } : { ...it, img: null, imgHi: null }); });
     const picker = bindPrintPicker(withExtra(it), async (key, p, fromLink) => {
-      picked = p; if (userImg === undefined && it.userImg) userImg = null;   // autre édition : l'image perso ne correspond plus
+      picked = p; userImg = undefined;   // autre édition : on affiche sa propre image (ta photo si tu en as collé une)
       if (!fromLink && $('#ccm')) $('#ccm').value = '';
       if (p && p.ocg) $('#dlang').value = 'ja';
       else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
       art = await editionArt(it, p, $('#dlang').value);
       if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
-    }, it.game === 'ygo' ? (it.nameEn || it.name) : null, () => $('#dlang').value);
+    }, it.game === 'ygo' ? (it.nameEn || it.name) : null, () => $('#dlang').value, it);
     bindLinkField(it, () => $('#dlang').value, picker, () => {});
     // Changer de langue change aussi le scan de l'édition (ex. version française de la carte)
     $('#dlang').onchange = async () => {
@@ -1505,13 +1535,11 @@ function openDetail(i){
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note,
         printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg) ? print : null });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
-      if (art !== undefined){ it.cmImg = null; if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
+      if (art !== undefined){ it.cmImg = null; it.userImg = art && art.user ? art.img : null;
+        if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
       if (linkEdited) it.cmLink = chk.url;
-      if (userImg === null && it.userImg){ it.userImg = null; if (art === undefined){ it.printArt = false;
-        const a2 = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), it.printKey), lang).catch(() => null) : null;
-        if (a2){ it.img = a2.img; it.imgHi = a2.imgHi; it.printArt = true; } } }
-      if (userImg){ it.userImg = userImg; it.img = it.imgHi = userImg; it.printArt = true; it.cmImg = null; }
+      if (userImg !== undefined) await setUserArt(it, itemKey(it), userImg);   // met à jour la photo de cette version partout
       await refreshOne(it, true).catch(() => {});   // nom, visuel et prix dans la langue / version choisies
       save(); closeModal('#detScrim'); render(); toast('Carte mise à jour');
     };
