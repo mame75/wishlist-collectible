@@ -756,7 +756,8 @@ function makeItem(card, opts){
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(),
-    cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual
+    cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual,
+    baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
@@ -787,9 +788,11 @@ async function getYgoDates(){
 /* Visuel de carte, avec vignette de remplacement quand la base n'a pas d'image */
 function imgBox(c, hi, badges){
   const src = hi ? c.imgHi : c.img;
+  const fb = hi ? (c.baseImgHi || c.baseImg) : c.baseImg;   // image de secours si celle-ci ne s'affiche pas
   const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
   return `<div class="img">
-    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+    ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
+      ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
   </div>`;
@@ -1613,6 +1616,7 @@ async function importFromCm(d){
       rarity: d.rar || (sp.rarity ? unslug(sp.rarity) : ''), prices: { normal: cmPrice, reverse: null }, prints: [], manual: true, img: null, imgHi: null };
   }
   // L'image de Cardmarket n'est gardée que si elle s'affiche hors de Cardmarket ; sinon le scan de l'édition prend le relais
+  card = { ...card, baseImg: card.img, baseImgHi: card.imgHi };
   if (d.img && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
   if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
   renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
