@@ -448,16 +448,22 @@ const API = {
     };
   },
   ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
-  ygoSearch(q, lang){ return cached(`ys2:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
+  ygoSearch(q, lang){ return cached(`ys3:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
   async _ygoSearch(q, lang){
-    const get = l => this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(q)}&num=60&offset=0`, l)).then(r => r && Array.isArray(r.data) ? r.data : []);
+    const get = (l, term = q) => this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(term)}&num=60&offset=0`, l)).then(r => r && Array.isArray(r.data) ? r.data : []);
     if (lang === 'en') return (await get('en')).map(c => this.ygoNorm(c, lang));
     // Les cartes récentes n'ont pas encore de nom traduit chez YGOPRODeck : elles n'apparaissent
     // qu'en anglais. On cherche donc aussi en anglais et on ajoute celles qui manquent (nom anglais affiché).
     const [loc, en] = await Promise.all([get(lang), get('en').catch(() => [])]);
+    // Recherche « traduite » : « magicien sombre » → « Dark Magician », pour trouver aussi les cartes de la même famille
+    // qui n'ont pas encore de nom français (ex. Dark Magician the Pharaoh's Servant)
+    const nq = norm(q);
+    const enNames = [...new Set(loc.filter(c => c.name_en && norm(c.name).includes(nq) && norm(c.name_en) !== nq).map(c => c.name_en))]
+      .sort((a, b) => a.length - b.length).slice(0, 3);
+    const extra = (await Promise.all(enNames.map(n => get('en', n).catch(() => [])))).flat();
     const seen = new Set(loc.map(c => String(c.id)));
-    return loc.map(c => this.ygoNorm(c, lang))
-      .concat(en.filter(c => !seen.has(String(c.id))).map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
+    const more = [...en, ...extra].filter(c => { const k = String(c.id); if (seen.has(k)) return false; seen.add(k); return true; });
+    return loc.map(c => this.ygoNorm(c, lang)).concat(more.map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
   },
   // Carte pas encore traduite dans cette langue : on garde la version anglaise (nom anglais), avec la langue demandée
   ygoCard(id, lang){ return cached(`yc2:${lang}:${id}`, async () => (await this._ygoCard(id, lang))
@@ -1149,7 +1155,15 @@ async function runSearch(){
         s.groups.intl.loaded = true;
         await loadMore('asia', tok);
       } else {
-        const [fr, en] = await Promise.all([API.pkmSearch(s.q, 'fr'), API.pkmSearch(s.q, 'en').catch(() => [])]);
+        const [fr, en0] = await Promise.all([API.pkmSearch(s.q, 'fr'), API.pkmSearch(s.q, 'en').catch(() => [])]);
+        // Recherche « traduite » : nom anglais des premiers résultats français (ex. Dracaufeu → Charizard)
+        // pour trouver aussi les cartes qui n'ont pas de version française
+        let en = en0;
+        if (fr.length && !en0.length){
+          const ref = fr.find(b => norm(b.name) === norm(s.q)) || [...fr].sort((a, b) => a.name.length - b.name.length)[0];
+          const c0 = await API.pkmCard(ref.id, 'en').catch(() => null);
+          if (c0 && c0.name && norm(c0.name) !== norm(s.q)) en = await API.pkmSearch(c0.name.replace(/\s*(ex|EX|GX|V|VMAX|VSTAR)$/,'').trim(), 'en').catch(() => []);
+        }
         if (tok !== s.token) return;
         s.groups.intl.briefs = mergeIntl(fr, en);
         await loadMore('intl', tok);
