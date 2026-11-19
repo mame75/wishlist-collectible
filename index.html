@@ -1420,6 +1420,12 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   if (!$('#ppOpen')) return;
   let list = prints.slice();
   const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); drawEa(); };
+  // Total des éditions comme dans la page « Choisir l'édition » : TCG + variantes étendues + OCG
+  if (nameEn) Promise.all([tcgVariants(nameEn).catch(() => []), ocgPrints(nameEn).catch(() => [])]).then(([ea, jp]) => {
+    const btn = $('#ppOpen'); if (!btn) return;
+    const keys = new Set([...list, ...ea, ...jp].map(printKey));
+    btn.textContent = `Voir les éditions (${keys.size})`;
+  });
   // Illustration normale / étendue (Ultra Rare, Starlight Rare, ou toute édition qui a une variante étendue)
   let eaTok = 0;
   const drawEa = async () => {
