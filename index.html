@@ -1488,8 +1488,13 @@ async function getHomeSets(){
       ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 40)
           .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => [])
   ]);
+  // Pokémon : la liste est dans l'ordre de sortie ; le détail des dernières donne la date et un visuel (logo, sinon une carte de l'extension)
+  const recent = await Promise.all((ps || []).slice(-14).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
+    .then(d => d && { id: d.id, name: d.name, date: d.releaseDate || '', n: d.cardCount && (d.cardCount.total || d.cardCount.official),
+      img: d.logo ? d.logo + '.png' : (((d.cards || []).find(c => c.image) || {}).image || '') && ((d.cards || []).find(c => c.image).image + '/low.webp'), card: !d.logo }))
+    .catch(() => null)));
   return {
-    pkm: (ps || []).filter(x => x.logo).slice(-8).reverse().map(x => ({ id: x.id, name: x.name, n: x.cardCount && (x.cardCount.total || x.cardCount.official), img: x.logo + '.png' })),
+    pkm: recent.filter(x => x && (!x.date || x.date <= today)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8),
     ygo: (ys || []).filter(x => x.date <= today).slice(0, 8)
   };
 }
