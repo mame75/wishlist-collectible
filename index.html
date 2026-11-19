@@ -575,7 +575,7 @@ const YGO_RARITIES = ['Quarter-Century-Secret-Rare','Platinum-Secret-Rare','Pris
   'Short-Print','Super-Short-Print','Common','Rare'];
 // Même rareté, noms différents selon la source (nom officiel Konami / Yugipedia ↔ nom Cardmarket)
 const RARITY_ALIASES = { prismaticsecretrare: 'secretparallelrare' };
-const rnorm = r => { const n = norm(r); return Object.entries(RARITY_ALIASES).find(([a, b]) => n === b) ? Object.entries(RARITY_ALIASES).find(([a, b]) => n === b)[0] : n; };
+const rnorm = r => { const n = norm(r); for (const [a, b] of Object.entries(RARITY_ALIASES)) if (n === b) return a; return n; };
 const sameRarity = (a, b) => rnorm(a) === rnorm(b);
 const CM_RARITY_NAME = { prismaticsecretrare: 'Secret Parallel Rare' };   // nom affiché par Cardmarket pour les éditions OCG
 const rarityLabel = p => p && p.ocg && CM_RARITY_NAME[norm(p.rarity)] ? `${p.rarity} (${CM_RARITY_NAME[norm(p.rarity)]} sur Cardmarket)` : (p ? p.rarity : '');
@@ -1320,7 +1320,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img) }, false, (p.ocg ? '<span class="bdg">JP</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
-          <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(p.rarity)}</div></div>
+          <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div></div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
   };
@@ -1486,7 +1486,7 @@ function openDetail(i){
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
         ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
-        ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.rarity)}</dd>` : ''}
+        ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.extraPrint && it.extraPrint.ocg ? rarityLabel(it.extraPrint) : it.rarity)}</dd>` : ''}
         ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
       </dl>
       <div class="actions" style="margin-top:0">
