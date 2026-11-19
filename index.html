@@ -1943,27 +1943,49 @@ function withLang(link, lang){
   catch(e){ return link; }
 }
 
-// Pokémon : toutes les versions d'une carte (même nom), de l'extension la plus récente à la plus ancienne
+// Pokémon : toutes les éditions d'une carte, TCG (même nom) puis OCG japonaises (même Pokémon, même type ex / V / Méga…)
+const pkmForm = n => { const s = String(n || '').trim();
+  const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
+  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
 async function pkmVersions(card){
-  const name = card.nameJa || card.name, lang = card.lang;
-  const [list, sets] = await Promise.all([
-    cached(`pv:${lang}:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []),
-    cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => [])]);
-  const order = Object.fromEntries((sets || []).map((s, i) => [s.id, { i, name: s.name }]));
-  return (list || []).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = order[sid] || { i: -1, name: sid };
-      return { id: b.id, localId: b.localId, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i }; })
-    .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true }));
+  const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
+  const setsOf = async l => { const s = await cached(l === 'fr' ? 'home2:psets' : `psets:${l}`, () => API.getJSON(`https://api.tcgdex.net/v2/${l}/sets`)).catch(() => []);
+    return Object.fromEntries((s || []).map((x, i) => [x.id, { i, name: x.name }])); };
+  const byDex = async l => (await Promise.all((card.dexId || []).map(d => cached(`pdex:${l}:${d}`,
+    () => API.getJSON(`https://api.tcgdex.net/v2/${l}/cards?dexId=eq:${d}`)).catch(() => [])))).flat().filter(Boolean);
+  const form = pkmForm(card.nameJa || card.name);
+  const sameForm = l => l.filter(b => pkmForm(b.name) === form);
+  const name = card.nameJa || card.name;
+  const [tcgL, ocgL, tSets, oSets] = await Promise.all([
+    intl ? cached(`pv:${tl}:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('fr').then(sameForm),
+    !intl ? cached(`pv:ja:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('ja').then(sameForm),
+    setsOf(tl), setsOf('ja')]);
+  const map = (list, sets, ocg) => { const seen = new Set();
+    return (list || []).filter(b => b && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
+      return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
+    .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true })); };
+  return [...map(tcgL, tSets, false), ...map(ocgL, oSets, true)];
 }
 async function openPkmVersions(card, onPick){
-  $('#edBody').innerHTML = '<div class="status">Recherche des versions…</div>';
+  $('#edBody').innerHTML = '<div class="status">Recherche des éditions…</div>';
   openModal('#edScrim');
   const vs = await pkmVersions(card);
   if (!$('#edScrim').classList.contains('open')) return;
-  $('#edBody').innerHTML = `<div class="hint">${vs.length} version${vs.length > 1 ? 's' : ''} de « ${esc(card.name)} », de la plus récente à la plus ancienne</div>
-    <div class="edgrid" id="pvgrid">${vs.map((v, i) => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${i}">
-      ${imgBox({ name: card.name, img: v.img, set: v.set }, false, '')}
-      <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}</div></div></button>`).join('')}</div>`;
-  $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+  let mk = marketOf('pkm', card.lang) === 'asia' ? 'ocg' : 'all';
+  const draw = () => {
+    const n = m => vs.filter(v => m === 'all' || (m === 'ocg') === v.ocg).length;
+    const rows = vs.filter(v => mk === 'all' || (mk === 'ocg') === v.ocg);
+    $('#edBody').innerHTML = `<div class="edhead"><div class="chips" id="pvm">${[['all','Toutes'],['tcg','TCG'],['ocg','OCG']].map(([m, l]) =>
+        `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('')}</div></div>
+      <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
+      <div class="edgrid" id="pvgrid">${rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
+        ${imgBox({ name: v.name, img: v.img, set: v.set }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
+        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg ? ' · ' + esc(v.name) : ''}</div></div></button>`).join('')
+        || '<div class="status" style="grid-column:1/-1">Aucune édition trouvée.</div>'}</div>`;
+    $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
+    $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+  };
+  draw();
 }
 
 // Page carte : remplace l'écran d'Explore (le bouton Retour ramène aux résultats, à la même position)
@@ -2020,12 +2042,14 @@ function renderConfigure(card, pre){
   if (card.game === 'pkm' && $('#clang')){
     $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
       <div class="ppsum"><div class="t"><b>${esc(card.set || '—')}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + esc(card.rarity) : ''}</span></div>
-        <button type="button" class="btn sm" id="pvOpen">Voir les versions</button></div></div>`);
-    pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les versions (${vs.length})`; }).catch(() => {});
+        <button type="button" class="btn sm" id="pvOpen">Voir les éditions</button></div></div>`);
+    pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
       const opts = readVersionFields(o);
-      const c2 = (await API.pkmCard(v.id, card.lang).catch(() => null)) || (card.lang !== 'en' ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
-      if (c2) renderConfigure(card.lang !== 'en' && c2.lang === 'en' ? { ...c2, lang: card.lang } : c2, { variant: opts.variant, graded: opts.graded, grader: opts.grader, grade: opts.grade, priceGraded: opts.priceGraded, note: opts.note });
+      // Édition OCG : la carte japonaise ; édition TCG : dans la langue choisie (ou en anglais si la carte n'existe pas dans cette langue)
+      const want = v.ocg ? 'ja' : (marketOf('pkm', card.lang) === 'intl' ? card.lang : 'fr');
+      const c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
+      if (c2) renderConfigure(!v.ocg && want !== 'en' && c2.lang === 'en' ? { ...c2, lang: want } : c2, { variant: opts.variant, graded: opts.graded, grader: opts.grader, grade: opts.grade, priceGraded: opts.priceGraded, note: opts.note });
       else toast('Version indisponible pour le moment');
     });
   }
