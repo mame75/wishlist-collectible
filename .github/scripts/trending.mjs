@@ -43,10 +43,27 @@ async function prices(date, cat, group){
 }
 
 // ---- Cartes des extensions récentes qui montent
+// Extensions récentes d'après nos bases (dates de sortie fiables), retrouvées par leur nom chez TCGplayer
+const n = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+async function recentNames(cat){
+  if (cat === 3){
+    const sets = (await get('https://api.tcgdex.net/v2/en/sets')) || [];
+    const det = [];
+    for (const s of sets.slice(-20)){ const d = await get(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(s.id)}`); if (d) det.push(d); }
+    return det.filter(d => d.releaseDate && d.releaseDate <= now && (d.cardCount && d.cardCount.official) >= 60)
+      .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)).slice(0, 6).map(d => d.name);
+  }
+  const ys = (await get('https://db.ygoprodeck.com/api/v7/cardsets.php')) || [];
+  return ys.filter(s => s.tcg_date && s.tcg_date <= now && s.num_of_cards >= 20)
+    .sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 8).map(s => s.set_name);
+}
+const stats = {};
 async function movers(cat){
   const groups = ((await get(`${TCG}/${cat}/groups`)) || {}).results || [];
-  const recent = groups.filter(g => !g.isSupplemental && g.publishedOn && g.publishedOn.slice(0, 10) <= now)
-    .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn)).slice(0, 8);
+  const names = await recentNames(cat);
+  // « ME02: Phantasmal Flames » ↔ « Phantasmal Flames »
+  const recent = names.map(nm => groups.find(g => n(g.name) === n(nm)) || groups.find(g => n(g.name).endsWith(' ' + n(nm)))).filter(Boolean);
+  stats[cat] = { names, groups: recent.map(g => g.name), cards: 0 };
   const list = [];
   for (const g of recent){
     const [prods, pNow, pThen] = await Promise.all([get(`${TCG}/${cat}/${g.groupId}/products`), prices(now, cat, g.groupId), prices(then, cat, g.groupId)]);
@@ -61,6 +78,7 @@ async function movers(cat){
         if (!best || v > best.price) best = { price: v, change: old ? v / old - 1 : null };
       }
       if (!best || best.price < MIN || best.change == null) continue;
+      stats[cat].cards++;
       list.push({ pid: p.productId, name: p.cleanName || p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
     }
     console.log(cat, g.name);
@@ -111,6 +129,6 @@ for (const c of out) await fr(c).catch(() => {});
 const P = out.filter(c => c.game === 'pkm'), Y = out.filter(c => c.game === 'ygo'), cards = [];
 for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i]); if (Y[i]) cards.push(Y[i]); }
 await mkdir('data', { recursive: true });
-await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, cards }));
+await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, stats, cards }));
 await rm('data/history-ygo.json', { force: true });
 console.log('tendances :', cards.length);
