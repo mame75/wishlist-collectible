@@ -1,0 +1,24 @@
+name: Cartes tendance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/scripts/trending.mjs', '.github/workflows/trending.yml']
+  schedule:
+    - cron: '23 5 * * *'
+permissions:
+  contents: write
+concurrency: trending
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node .github/scripts/trending.mjs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          git add data/trending.json data/history-ygo.json
+          git diff --cached --quiet || (git commit -m "Cartes tendance : mise à jour" && (git push || (git pull --rebase && git push)))

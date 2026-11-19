@@ -268,6 +268,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
     </div>
     <nav id="nav">
       <button data-view="explore">Explore</button>
+      <button data-view="sets">Sets</button>
       <button data-view="wishlist" class="on">Wishlist</button>
       <button data-view="collection">Collection<em>bientôt</em></button>
     </nav>
@@ -1126,6 +1127,7 @@ function render(){
   $('#shareBtn').style.display = shared || view !== 'wishlist' ? 'none' : '';
   const main = $('#main');
   if (view === 'explore'){ renderExplore(); return; }
+  if (view === 'sets'){ renderSets(); return; }
   if (view === 'card'){ if (!$('#cardBody')){ view = 'explore'; renderExplore(); } return; }   // page carte : gérée par renderConfigure
 
   if (view === 'collection'){
@@ -1520,28 +1522,28 @@ function resultTiles(cards, mk){
 async function getHomeSets(){
   const today = new Date().toISOString().slice(0, 10);
   const [ps, ys] = await Promise.all([
-    cached('home:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => []),
-    cached('home:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
+    cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => []),
+    cached('home2:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
       ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 40)
           .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => [])
   ]);
   // Pokémon : la liste est dans l'ordre de sortie ; le détail des dernières donne la date et un visuel (logo, sinon une carte de l'extension)
-  const recent = await Promise.all((ps || []).slice(-14).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
+  const recent = await Promise.all((ps || []).slice(-30).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
     .then(d => d && { id: d.id, name: d.name, date: d.releaseDate || '', n: d.cardCount && (d.cardCount.total || d.cardCount.official),
       img: d.logo ? d.logo + '.png' : (((d.cards || []).find(c => c.image) || {}).image || '') && ((d.cards || []).find(c => c.image).image + '/low.webp'), card: !d.logo }))
     .catch(() => null)));
   return {
-    pkm: recent.filter(x => x && (!x.date || x.date <= today)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 8),
-    ygo: (ys || []).filter(x => x.date <= today).slice(0, 8)
+    pkm: recent.filter(x => x && (!x.date || x.date <= today)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 24),
+    ygo: (ys || []).filter(x => x.date <= today).slice(0, 24)
   };
 }
-let homeSets = null;
-function homeHTML(){
+let homeSets = null, setsGame = 'all';
+function setsHTML(){
   if (!homeSets){
-    getHomeSets().then(d => { homeSets = d; if (view === 'explore' && search.mode === 'home') renderResults(); });
+    getHomeSets().then(d => { homeSets = d; if (view === 'sets') render(); });
     return '<div class="status">Chargement des dernières extensions…</div>';
   }
-  const block = (g, title, list) => xf.game !== 'all' && xf.game !== g ? '' : `<h3 class="xh">${title}</h3>
+  const block = (g, title, list) => setsGame !== 'all' && setsGame !== g ? '' : `<h3 class="xh">${title}</h3>
     <div class="sets">${list.map((x, i) => `<button class="settile" data-g="${g}" data-i="${i}">
       <div class="lg"><img src="${esc(x.img || (g === 'ygo' ? `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : ''))}" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></div>
       <div class="tname">${esc(x.name)}</div>
@@ -1549,12 +1551,48 @@ function homeHTML(){
     </button>`).join('') || '<div class="status">Indisponible pour le moment.</div>'}</div>`;
   return block('pkm', 'Dernières extensions Pokémon', homeSets.pkm) + block('ygo', 'Dernières extensions Yu-Gi-Oh!', homeSets.ygo);
 }
-// Ouvrir une extension : toutes ses cartes dans les résultats
+// Onglet « Sets » : dernières extensions des deux jeux
+function renderSets(){
+  $('#main').innerHTML = `<section class="xhead"><div class="gridhead" style="margin:0"><h2 style="margin:0;font-size:22px">Dernières extensions</h2>
+      <div class="chips" id="setsG">${[['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']].map(([v, l]) => `<button class="chip ${setsGame === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div></section>
+    <section style="padding:20px 0 80px" id="setsBody">${setsHTML()}</section>`;
+  $('#setsG').onclick = e => { const c = e.target.closest('.chip'); if (c){ setsGame = c.dataset.v; renderSets(); } };
+  $('#setsBody').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, homeSets[b.dataset.g][+b.dataset.i]));
+}
+
+/* ---- Accueil d'Explore : cartes tendance (fichier data/trending.json, compilé chaque jour) ---- */
+let trending = null;
+function trendingHTML(){
+  if (!trending){
+    fetch('data/trending.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : { cards: [] }).catch(() => ({ cards: [] }))
+      .then(d => { trending = d; if (view === 'explore' && search.mode === 'home') renderResults(); });
+    return '<div class="status">Chargement des tendances…</div>';
+  }
+  const list = (trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game);
+  if (!list.length) return '<div class="status">Les tendances arrivent bientôt.</div>';
+  const day = trending.updated ? new Date(trending.updated).toLocaleDateString('fr-FR', { day:'numeric', month:'long' }) : '';
+  return `<div class="gridhead"><h3 class="xh" style="margin:0">Cartes tendance</h3>
+      <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur Cardmarket ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
+    <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
+      ${imgBox({ name: c.name, img: c.img, set: c.set }, false, '')}
+      <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div></div>
+      <div class="tprice"><b>${eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
+        ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : '<span>CM</span>'}</div>
+    </button>`).join('')}</div>`;
+}
+async function openTrending(c){
+  toast('Chargement de la carte…');
+  const card = await (c.game === 'pkm' ? API.pkmCard(c.id, 'fr') : API.ygoCard(c.id, 'fr')).catch(() => null);
+  if (!card){ toast('Carte indisponible pour le moment'); return; }
+  renderConfigure(card);
+}
+
+// Ouvrir une extension : toutes ses cartes dans les résultats d'Explore
 async function openSet(g, x){
   const s = search, tok = ++s.token;
   resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name; s.isSet = true;
   xf = { ...xf, game: g, set: '', rarity: '', autoGame: true };
-  renderExplore();
+  view = 'explore'; render();
   window.scrollTo(0, 0);
   if (g === 'pkm'){
     s.pkmBusy = true; s.ygoAll = [];
@@ -1596,8 +1634,8 @@ function renderResults(msg){
   }
   if (s.mode === 'home'){
     side.innerHTML = xSideHTML(s, [], true); bindXSide();
-    box.innerHTML = homeHTML();
-    box.querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, homeSets[b.dataset.g][+b.dataset.i]));
+    box.innerHTML = trendingHTML();
+    if ($('#tgrid')) $('#tgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) openTrending((trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game)[+t.dataset.t]); };
     return;
   }
   const list = allCards(s), cards = list.filter(c => xMatch(c));
@@ -1606,7 +1644,7 @@ function renderResults(msg){
   const moreMk = xf.game === 'ygo' ? null : xf.market !== 'all' ? (s.groups[xf.market].shown < s.groups[xf.market].briefs.length ? xf.market : null)
     : ['intl','asia'].find(m => s.groups[m].shown < s.groups[m].briefs.length) || null;
   const busy = [s.pkmBusy && 'Pokémon', s.ygoLoading && 'Yu-Gi-Oh!', s.ocgLoading && 'éditions OCG', s.eaLoading && 'illustrations étendues'].filter(Boolean);
-  const head = `<div class="gridhead">${s.isSet ? '<button class="btn ghost sm" id="setBack">← Extensions</button>' : ''}<h3 class="xh" style="margin:0">${esc(s.label)}</h3>
+  const head = `<div class="gridhead">${s.isSet ? '<button class="btn ghost sm" id="setBack">← Sets</button>' : ''}<h3 class="xh" style="margin:0">${esc(s.label)}</h3>
       <span class="count">${cards.length} carte${cards.length > 1 ? 's' : ''}</span>
       ${busy.length ? `<span class="hint">Recherche : ${busy.join(', ')}…</span>` : ''}</div>`;
   let body;
@@ -1624,7 +1662,7 @@ function renderResults(msg){
       c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
   if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMore(moreMk, tok); if (tok === s.token) renderResults(); };
   if ($('#setBack')) $('#setBack').onclick = () => { s.token++; resetResults(s); s.mode = 'home'; s.isSet = false;
-    if (xf.autoGame){ xf.game = 'all'; xf.autoGame = false; } xf.set = xf.rarity = ''; renderResults(); window.scrollTo(0, 0); };
+    if (xf.autoGame){ xf.game = 'all'; xf.autoGame = false; } xf.set = xf.rarity = ''; goView('sets'); };
   if (focusId && $('#' + focusId)){ const el = $('#' + focusId); el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch(e){} }
 }
 
