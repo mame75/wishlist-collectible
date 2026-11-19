@@ -812,14 +812,30 @@ async function setUserArt(c, key, d){
   save();
 }
 
+// Photos TCGplayer (impression anglaise) : catalogue public tcgcsv.com, compilé chaque semaine dans data/tcgp/<PRÉFIXE>.json
+const tcgpSets = {};
+const tcgpSet = pre => tcgpSets[pre] ||= fetch(`data/tcgp/${encodeURIComponent(pre)}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+const TCGP = 'https://tcgplayer-cdn.tcgplayer.com/product/';
+async function tcgpImg(p){
+  if (!p || p.ocg || p.link || !p.code) return null;
+  const code = String(p.code).toUpperCase(), map = await tcgpSet(code.split('-')[0]);
+  const hits = Object.entries(map).filter(([k]) => { const [c, r] = k.split('|'); return c === code && sameRarity(r, p.rarity); });
+  // Version normale / étendue ; si TCGplayer n'en a qu'une pour cette rareté (ex. Starlight uniquement étendue), on la prend
+  const hit = hits.find(([k]) => k.endsWith('|EA') === !!p.ea) || (hits.length === 1 ? hits[0] : null);
+  return hit ? { img: `${TCGP}${hit[1]}_400w.jpg`, imgHi: `${TCGP}${hit[1]}_in_1000x1000.jpg`, tcgp: true } : null;
+}
+const hiRes = u => String(u).replace(/_400w\.jpg$/, '_in_1000x1000.jpg');
+
 async function editionArt(c, p, lang){
   if (!p) return null;
   const ua = getUserArt(c, printKey(p));
   if (ua) return { img: ua, imgHi: ua, user: true };
-  if (p.img && !p.user) return { img: p.img, imgHi: p.img, ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
+  if (p.img && !p.user) return { img: p.img, imgHi: hiRes(p.img), ...(p.tcgp ? { tcgp: true } : {}), ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
+  const tp = await tcgpImg(p).catch(() => null);
+  if (tp) return tp;
   // Rareté qui n'existe qu'en illustration étendue mais sans scan : on montre le scan étendu d'une autre rareté de la même édition
   if (await artVariants(p).catch(() => null) === 'ea'){
     const twins = (await tcgVariants(c.nameEn || c.name).catch(() => [])).filter(v => v.code === p.code);
@@ -832,6 +848,7 @@ async function editionArt(c, p, lang){
 }
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
 const artNote = a => !a ? '' : a.generic ? ART_NOTE
+  : a.tcgp ? 'Photo TCGplayer (impression anglaise) : pas encore de scan de cette version sur Yugipedia.'
   : a.substitute ? `Pas encore de scan de cette rareté : illustration étendue de la ${a.substitute} avec un effet animé pour la distinguer.` : '';
 
 // Liste officielle des cartes d'une extension (Yugipedia) : quelles raretés existent en illustration normale et/ou étendue
@@ -1575,6 +1592,9 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   const scans = nameEn ? await tcgScans(nameEn, tcg, lang).catch(() => ({})) : {};
   if (tok !== edToken) return;
   tcg.forEach(p => { if (scans[p.key] && !p.user) p.img = scans[p.key]; });
+  // Pas de scan Yugipedia : photo TCGplayer de cette version exacte
+  await Promise.all(tcg.filter(p => !p.img).map(async p => { const t = await tcgpImg(p).catch(() => null); if (t){ p.img = t.img; p.tcgp = true; } }));
+  if (tok !== edToken) return;
   // Raretés uniquement en illustration étendue sans scan : scan étendu d'une autre rareté de la même édition
   for (const p of tcg.filter(x => !x.img && !x.ea)){
     if (await artVariants(p).catch(() => null) !== 'ea') continue;
