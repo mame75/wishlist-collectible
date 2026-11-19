@@ -426,6 +426,9 @@ async function translateJa(name, dexIds){
 }
 
 /* ========= Sources de données ========= */
+// Pokémon TCG Pocket (jeu mobile) : présent dans TCGdex, mais ce ne sont pas des cartes physiques → écarté partout
+const POCKET_SET = /^(A\d+[a-z]?|B\d+[a-z]?|P-[A-Z])$/;
+const isPocketCard = id => POCKET_SET.test(String(id || '').slice(0, String(id || '').lastIndexOf('-')) || String(id || ''));
 const API = {
   async getJSON(url){
     const r = await fetch(url);
@@ -459,7 +462,7 @@ const API = {
     if (!Array.isArray(list)) return [];
     // Cartes avec visuel d'abord (tri stable : l'ordre de la base est conservé)
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
-    return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
+    return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
   pkmCard(id, lang){ return cached(`pc7:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
@@ -1381,7 +1384,7 @@ async function findAsia(tok){
     if (tok !== s.token) return;
     const seen = new Set();
     const has = x => x.image ? 1 : 0;
-    g.briefs = lists.flat().filter(b => b && !seen.has(b.id) && seen.add(b.id)).map(b => ({ id:b.id, name:b.name, image:b.image, lang:'ja' }))
+    g.briefs = lists.flat().filter(b => b && !isPocketCard(b.id) && !seen.has(b.id) && seen.add(b.id)).map(b => ({ id:b.id, name:b.name, image:b.image, lang:'ja' }))
       .sort((a, b) => has(b) - has(a));
   } catch(e){ g.briefs = []; }
   g.loading = false; g.loaded = true;
@@ -1542,7 +1545,7 @@ async function getHomeSets(){
           .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => [])
   ]);
   // Pokémon : la liste est dans l'ordre de sortie ; le détail des dernières donne la date et un visuel (logo, sinon une carte de l'extension)
-  const recent = await Promise.all((ps || []).slice(-30).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
+  const recent = await Promise.all((ps || []).filter(x => !POCKET_SET.test(x.id)).slice(-30).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
     .then(d => d && { id: d.id, name: d.name, date: d.releaseDate || '', n: d.cardCount && (d.cardCount.total || d.cardCount.official),
       img: d.logo ? d.logo + '.png' : (((d.cards || []).find(c => c.image) || {}).image || '') && ((d.cards || []).find(c => c.image).image + '/low.webp'), card: !d.logo }))
     .catch(() => null)));
@@ -1958,10 +1961,14 @@ async function pkmVersions(card){
   const name = card.nameJa || card.name;
   const [tcgL, ocgL, tSets, oSets] = await Promise.all([
     intl ? cached(`pv:${tl}:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('fr').then(sameForm),
-    !intl ? cached(`pv:ja:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('ja').then(sameForm),
+    !intl ? cached(`pv:ja:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => [])
+      // Carte TCG : cartes japonaises du même Pokémon et du même type, complétées par une recherche sur leur nom japonais
+      : byDex('ja').then(sameForm).then(async l => { const names = [...new Set(l.map(b => b.name))].slice(0, 2);
+          const more = await Promise.all(names.map(nm => cached(`pv:ja:${norm(nm)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(nm)}`)).catch(() => [])));
+          return [...l, ...more.flat().filter(Boolean)]; }),
     setsOf(tl), setsOf('ja')]);
   const map = (list, sets, ocg) => { const seen = new Set();
-    return (list || []).filter(b => b && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
+    return (list || []).filter(b => b && !isPocketCard(b.id) && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
       return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
     .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true })); };
   return [...map(tcgL, tSets, false), ...map(ocgL, oSets, true)];
