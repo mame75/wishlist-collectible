@@ -794,7 +794,7 @@ async function editionArt(c, p, lang){
   if (!p) return null;
   const ua = getUserArt(c, printKey(p));
   if (ua) return { img: ua, imgHi: ua, user: true };
-  if (p.img && !p.user) return { img: p.img, imgHi: p.img };
+  if (p.img && !p.user) return { img: p.img, imgHi: p.img, ...(p.holo ? { holo: p.holo, substitute: p.substitute } : {}) };
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
@@ -1546,7 +1546,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   for (const p of tcg.filter(x => !x.img && !x.ea)){
     if (await artVariants(p).catch(() => null) !== 'ea') continue;
     const twin = all.find(x => x.ea && x.img && x.code === p.code);
-    if (twin) p.img = p.holo = twin.img;
+    if (twin){ p.img = p.holo = twin.img; p.substitute = twin.rarity; }
   }
   if (tok !== edToken) return;
   draw();
