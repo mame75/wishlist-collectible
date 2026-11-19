@@ -1951,6 +1951,7 @@ const pkmForm = n => { const s = String(n || '').trim();
   const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
   return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
 async function pkmVersions(card){
+  if (card.vsOf){ const vs = await pkmVersions(card.vsOf); return vs; }   // édition japonaise TCGplayer : mêmes éditions que la carte d'origine
   const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
   const setsOf = async l => { const s = await cached(l === 'fr' ? 'home2:psets' : `psets:${l}`, () => API.getJSON(`https://api.tcgdex.net/v2/${l}/sets`)).catch(() => []);
     return Object.fromEntries((s || []).map((x, i) => [x.id, { i, name: x.name }])); };
@@ -1971,7 +1972,20 @@ async function pkmVersions(card){
     return (list || []).filter(b => b && !isPocketCard(b.id) && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
       return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
     .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true })); };
-  return [...map(tcgL, tSets, false), ...map(ocgL, oSets, true)];
+  const tcg = map(tcgL, tSets, false);
+  let ocg = map(ocgL, oSets, true);
+  // Pas d'édition japonaise dans TCGdex (Dresseurs, Objets… sans n° de Pokédex) : catalogue japonais de TCGplayer, par nom anglais
+  if (!ocg.length && intl){
+    const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
+    const k = norm(en && en.name);
+    if (k){
+      const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+      ocg = (idx[k] || []).map(([pid, set, num, rar, photo]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, set, rarity: rar, ocg: true, lang: 'ja', tcgpj: true,
+        img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
+        .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+    }
+  }
+  return [...tcg, ...ocg];
 }
 async function openPkmVersions(card, onPick){
   $('#edBody').innerHTML = '<div class="status">Recherche des éditions…</div>';
@@ -1987,7 +2001,7 @@ async function openPkmVersions(card, onPick){
       <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
       <div class="edgrid" id="pvgrid">${rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg ? ' · ' + esc(v.name) : ''}</div></div></button>`).join('')
+        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg && !v.tcgpj ? ' · ' + esc(v.name) : ''}</div>${v.rarity ? `<div class="rr">${esc(v.rarity)}</div>` : ''}</div></button>`).join('')
         || '<div class="status" style="grid-column:1/-1">Aucune édition trouvée.</div>'}</div>`;
     $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
     $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
@@ -2053,6 +2067,9 @@ function renderConfigure(card, pre){
     pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
       const opts = readVersionFields(o);
+      // Édition japonaise connue seulement de TCGplayer : fiche créée à partir du catalogue (pas de prix Cardmarket)
+      if (v.tcgpj){ renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img, imgHi: v.imgHi,
+        prices: { normal: null, reverse: null }, prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
       // Édition OCG : la carte japonaise ; édition TCG : dans la langue choisie (ou en anglais si la carte n'existe pas dans cette langue)
       const want = v.ocg ? 'ja' : (marketOf('pkm', card.lang) === 'intl' ? card.lang : 'fr');
       const c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
