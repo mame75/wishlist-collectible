@@ -599,7 +599,8 @@ async function printFromLink(c, url){
   if (!L || L.game !== 'ygo') return null;
   const { rarity } = ygoSlugParts(L.slug);
   const { isOcg, exp } = expParts(L.expansion);
-  const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0]; };
+  const pick = list => { const cand = list.filter(p => norm(p.set) === exp), m = p => rarity && sameRarity(p.rarity, unslug(rarity));
+    return cand.find(p => m(p) && !p.ea) || cand.find(m) || cand[0]; };
   const known = linkedKey(url);
   if (known){ const all = [...(c.prints || []), ...(await tcgVariants(c.nameEn || c.name)), ...(await ocgPrints(c.nameEn || c.name))];
     const k = all.find(p => printKey(p) === known); if (k) return k; }
@@ -646,8 +647,10 @@ async function matchYgo(L, lang){
     // D'abord les éditions japonaises de Yugipedia (avec leur scan), sinon l'édition telle que décrite dans le lien
     const jp = await ocgPrints(hit.name);
     const cand = jp.filter(p => norm(p.set) === exp);
-    const op = cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0];
-    if (op) return { card: { ...c, lang:'ja', extraPrint: op }, printKey: printKey(op) };
+    const known = linkedKey(L.url), m = p => rarity && sameRarity(p.rarity, unslug(rarity));
+    const op = (known && cand.find(p => printKey(p) === known)) || cand.find(p => m(p) && !p.ea) || cand.find(m) || cand[0];
+    const amb = !known && op && cand.some(x => x !== op && x.code === op.code && sameRarity(x.rarity, op.rarity));
+    if (op) return { card: { ...c, lang:'ja', extraPrint: op }, printKey: printKey(op), ambiguous: amb };
     const lp = { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
     return { card: { ...c, lang: ocg ? 'ja' : c.lang, extraPrint: lp }, printKey: printKey(lp) };
   }
@@ -682,7 +685,7 @@ const YP_RARITY = { C:'Common', R:'Rare', SR:'Super Rare', UR:'Ultra Rare', ScR:
   HGR:'Holographic Parallel Rare', GScR:'Gold Secret Rare', GUR:'Gold Rare', PGR:'Premium Gold Rare', PlR:'Platinum Rare',
   PlScR:'Platinum Secret Rare', MLR:'Millennium Rare', MLSR:'Millennium Super Rare', MLUR:'Millennium Ultra Rare',
   MLScR:'Millennium Secret Rare', MLGR:'Millennium Gold Rare', KCR:'Kaiba Corporation Rare', KCUR:'Kaiba Corporation Ultra Rare',
-  EScR:'Extra Secret Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
+  EScR:'Extra Secret Rare', GMR:'Grandmaster Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
 // Galerie Yugipedia d'une carte : texte (liste des éditions) + noms des fichiers de scans
 async function ygoGallery(nameEn){
   if (!nameEn) return null;
@@ -782,7 +785,7 @@ const sameBase = (a, b) => !!a && !!b && a.code === b.code && sameRarity(a.rarit
 
 async function ocgPrints(nameEn){
   if (!nameEn) return [];
-  return cached(`yp4:${nameEn}`, async () => {
+  return cached(`yp6:${nameEn}`, async () => {
     const g = await ygoGallery(nameEn); if (!g) return null;
     const text = g.text, files = g.files;
     const out = [], seen = new Set();
@@ -792,16 +795,18 @@ async function ocgPrints(nameEn){
       block.split('\n}}')[0].split('\n').slice(1).forEach(line => {
         const parts = line.split('//')[0].split(';').map(s => s.trim());
         // « ::OP » = cartes « Official Proxy » (démonstration), pas des cartes à collectionner
-        if (parts.length < 3 || !/-JP/i.test(parts[0]) || /^RD\//i.test(parts[0]) || /::/.test(line)) return;
-        const [code, set, abbr] = parts, rarity = YP_RARITY[abbr] || abbr, key = `${code}|${rarity}`;
+        if (parts.length < 3 || !/-JP/i.test(parts[0]) || /^RD\//i.test(parts[0]) || /::/.test(line.split('//')[0])) return;
+        const [code, set, abbr] = parts, rarity = YP_RARITY[abbr] || abbr, ea = parts.slice(3).includes('EA');
+        const key = `${code}|${rarity}${ea ? '|EA' : ''}`;
         if (seen.has(key)) return; seen.add(key);
         const prefix = code.split('-')[0];
-        const file = files.filter(f => f.includes(`-${prefix}-JP-${abbr}`) && !/artwork|-NC\b/i.test(f)).sort((a, b) => a.length - b.length)[0] || null;
-        out.push({ code, set, rarity, ocg:true, file });
+        const file = files.filter(f => f.includes(`-${prefix}-JP-${abbr}`) && !/artwork|-NC\b/i.test(f) && (ea ? /-EA\b/.test(f) : !/-EA\b/.test(f)))
+          .sort((a, b) => a.length - b.length)[0] || null;
+        out.push({ code, set, rarity, ocg:true, ea, file });
       });
     });
     const urls = await fileUrls([...new Set(out.map(p => p.file).filter(Boolean))]);
-    return out.reverse().map(p => ({ code:p.code, set:p.set, rarity:p.rarity, ocg:true, img: p.file ? urls[p.file] || null : null }));
+    return out.reverse().map(p => ({ code:p.code, set:p.set, rarity:p.rarity, ocg:true, ...(p.ea ? { ea:true } : {}), img: p.file ? urls[p.file] || null : null }));
   }).then(v => v || []).catch(() => []);
 }
 const withExtra = c => c.extraPrint ? [c.extraPrint, ...(c.prints || []).filter(p => printKey(p) !== printKey(c.extraPrint))] : (c.prints || []);
@@ -1258,7 +1263,8 @@ function versionFields(o, card){
     ${prints.length ? `<div class="pp"><label class="l">Impression</label>
       <input type="hidden" id="cprint" value="${esc(o.printKey || (o.printCode ? printKey(findPrint(prints, o.printCode)) : ''))}">
       <div class="ppsum"><div class="t" id="ppsumT"></div>
-        <button type="button" class="btn sm" id="ppOpen">Voir les éditions (${prints.length})</button></div></div>` : ''}
+        <button type="button" class="btn sm" id="ppOpen">Voir les éditions (${prints.length})</button></div>
+      <div class="row" id="eaRow" style="margin-top:8px"></div></div>` : ''}
     <div><label class="l">État</label>
       <div class="seg" id="cgr"><button type="button" data-g="0" class="${!o.graded?'on':''}">Raw</button><button type="button" data-g="1" class="${o.graded?'on':''}">Gradée</button></div></div>
     <div class="row" id="gradeRow" style="${o.graded?'':'display:none'}">
@@ -1302,7 +1308,25 @@ function printSummary(prints, key){
 function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   if (!$('#ppOpen')) return;
   let list = prints.slice();
-  const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); };
+  const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); drawEa(); };
+  // Illustration normale / étendue (Ultra Rare, Starlight Rare, ou toute édition qui a une variante étendue)
+  const drawEa = () => {
+    const box = $('#eaRow'); if (!box) return;
+    const p = findPrint(list, $('#cprint').value);
+    const show = nameEn && p && !p.link && (/ultra rare|starlight rare/i.test(p.rarity) || p.ea || list.some(x => x.ea && x.code === p.code && sameRarity(x.rarity, p.rarity)));
+    box.innerHTML = show ? `<span class="hint">Illustration</span><div class="seg" id="eaSeg">
+      <button type="button" data-ea="0" class="${p.ea ? '' : 'on'}">Normale</button><button type="button" data-ea="1" class="${p.ea ? 'on' : ''}">Étendue</button></div>` : '';
+    if (!show) return;
+    $('#eaSeg').onclick = async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const want = b.dataset.ea === '1'; if (want === !!p.ea) return;
+      const pool = [...list, ...(await tcgVariants(nameEn).catch(() => [])), ...(await ocgPrints(nameEn).catch(() => []))];
+      const twin = pool.find(x => !x.link && x.code === p.code && sameRarity(x.rarity, p.rarity) && !!x.ea === want)
+        || (want ? { code: p.code, set: p.set, rarity: p.rarity, ...(p.ocg ? { ocg:true } : {}), ea:true }   // inconnue de Yugipedia : version créée, sans scan
+                 : { code: p.code, set: p.set, rarity: p.rarity, ...(p.ocg ? { ocg:true } : {}) });
+      select(twin);
+    };
+  };
   sum();
   if (!ygoDates) getYgoDates().then(() => { if ($('#ppsumT')) sum(); });
   const select = (p, fromLink) => {
