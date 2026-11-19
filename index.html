@@ -705,6 +705,23 @@ const YP_RARITY = { C:'Common', R:'Rare', SR:'Super Rare', UR:'Ultra Rare', ScR:
   PlScR:'Platinum Secret Rare', MLR:'Millennium Rare', MLSR:'Millennium Super Rare', MLUR:'Millennium Ultra Rare',
   MLScR:'Millennium Secret Rare', MLGR:'Millennium Gold Rare', KCR:'Kaiba Corporation Rare', KCUR:'Kaiba Corporation Ultra Rare',
   EScR:'Extra Secret Rare', GMR:'Grand Master Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
+// Rang de rareté (plus haut = plus rare) pour trier les éditions
+const RARITY_RANK = Object.fromEntries(Object.entries({
+  '10000 Secret Rare':100, 'Grand Master Rare':95, 'Quarter Century Secret Rare':90, 'Starlight Rare':88, 'Ghost Rare':85,
+  'Prismatic Secret Rare':80, 'Secret Parallel Rare':80, 'Ultimate Rare':78, "Collector's Rare":76, '20th Secret Rare':75,
+  'Extra Secret Rare':74, 'Platinum Secret Rare':72, 'Holographic Rare':70, 'Holographic Parallel Rare':70,
+  'Millennium Secret Rare':66, 'Gold Secret Rare':65, 'Premium Gold Rare':64, 'Secret Rare':60, 'Platinum Rare':58,
+  'Millennium Gold Rare':56, 'Gold Rare':55, 'Ultra Parallel Rare':54, 'Ultra Rare':50, 'Millennium Ultra Rare':48,
+  'Kaiba Corporation Ultra Rare':47, 'Super Parallel Rare':42, 'Super Rare':40, 'Millennium Super Rare':38,
+  'Parallel Rare':35, 'Normal Parallel Rare':34, 'Millennium Rare':32, 'Kaiba Corporation Rare':31, 'Rare':30,
+  'Short Print':15, 'Super Short Print':16, 'Common':10, 'Normal Rare':10, 'Normal':10,
+  // Pokémon (TCGdex)
+  'Mega Hyper Rare':92, 'Hyper rare':90, 'Special illustration rare':86, 'Illustration rare':70, 'Shiny Ultra Rare':68,
+  'Shiny rare':60, 'ACE SPEC Rare':58, 'Double rare':55, 'Rare Holo':40, 'Holo Rare':40, 'Uncommon':20, 'None':0
+}).map(([k, v]) => [k.toLowerCase().replace(/[^a-z0-9]/g, ''), v]));
+const rarityRank = r => { const k = String(r || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (k in RARITY_RANK) return RARITY_RANK[k];
+  return /secret/.test(k) ? 60 : /ultra/.test(k) ? 50 : /super/.test(k) ? 40 : /rare/.test(k) ? 30 : 25; };
 // Galerie Yugipedia d'une carte : texte (liste des éditions) + noms des fichiers de scans
 async function ygoGallery(nameEn){
   if (!nameEn) return null;
@@ -1474,12 +1491,14 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     $('#edm').innerHTML = [['all','Toutes'],['tcg','TCG'],['ocg','OCG (Japon)']].map(([m, l]) =>
       `<button class="chip ${mkt===m?'on':''}" data-m="${m}">${l}<span>${m === 'ocg' && ocgState === 'loading' ? '…' : n(m)}</span></button>`).join('');
     $('#edinfo').textContent = ocgState === 'loading' ? 'Recherche des éditions japonaises sur Yugipedia…'
-      : mkt === 'ocg' ? 'Éditions japonaises et scans : Yugipedia' : 'De la plus récente à la plus ancienne';
+      : mkt === 'ocg' ? 'Éditions japonaises et scans : Yugipedia' : 'De la plus rare à la moins rare';
   };
   const draw = () => {
     chips();
     const q = ($('#edq').value || '').trim().toLowerCase();
-    const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)));
+    // Du plus rare au moins rare ; à rareté égale : version normale puis étendue, et la plus récente d'abord
+    const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)))
+      .map((p, i) => [p, i]).sort(([a, i], [b, j]) => rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img) }, false, (p.ocg ? '<span class="bdg">JP</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
