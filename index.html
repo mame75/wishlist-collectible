@@ -588,13 +588,18 @@ function ygoSlugParts(slug){
   return r ? { name: slug.slice(0, -(r.length + 1)), rarity: r } : { name: slug, rarity: null };
 }
 // Le lien collé fait foi : on retrouve l'édition qu'il désigne (TCG, sinon japonaise via Yugipedia, sinon telle que décrite)
+// Cardmarket ajoute « -OCG » au nom des extensions japonaises (ex. Beyond-the-Brave-OCG) : c'est le même nom côté Yugipedia, sans le suffixe
+function expParts(slug){
+  const isOcg = /(^|-)OCG(-JP)?$/i.test(slug);
+  return { isOcg, exp: norm(isOcg ? slug.replace(/-?OCG(-JP)?$/i, '') : slug) };
+}
 async function printFromLink(c, url){
   const L = parseCmLink(url);
   if (!L || L.game !== 'ygo') return null;
   const { rarity } = ygoSlugParts(L.slug);
-  const exp = norm(L.expansion), rr = rarity ? norm(unslug(rarity)) : null;
+  const { isOcg, exp } = expParts(L.expansion);
   const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0]; };
-  return pick(c.prints || []) || pick(await ocgPrints(c.nameEn || c.name))
+  return (!isOcg && pick(c.prints || [])) || pick(await ocgPrints(c.nameEn || c.name))
     || { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
 }
 
@@ -624,15 +629,15 @@ async function matchYgo(L, lang){
     const cands = list.map(c => ({ c, s: overlap(nameTok, words(c.name)) })).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 12);
     return { candidates: await Promise.all(cands.map(x => toCard(x.c))) };
   }
-  const exp = norm(L.expansion);
-  const sets = hit.card_sets || [];
+  const { isOcg, exp } = expParts(L.expansion);
+  const sets = isOcg ? [] : (hit.card_sets || []);   // extension OCG : uniquement les éditions japonaises
   const print = sets.find(s => norm(s.set_name) === exp && (!rarity || sameRarity(s.set_rarity, unslug(rarity)))) || sets.find(s => norm(s.set_name) === exp);
   if (!print){
     // Édition inconnue de YGOPRODeck : on la reprend du lien. Si elle n'est pas non plus dans la liste des éditions TCG,
     // c'est très probablement un produit japonais (OCG).
     const dates = await getYgoDates().catch(() => ({}));
     const tcg = Object.keys(dates || {}).some(n => norm(n) === exp);
-    const ocg = /ocg/i.test(L.expansion) || !tcg;
+    const ocg = isOcg || !tcg;
     const c = await toCard(hit);
     // D'abord les éditions japonaises de Yugipedia (avec leur scan), sinon l'édition telle que décrite dans le lien
     const jp = await ocgPrints(hit.name);
