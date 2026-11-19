@@ -762,6 +762,33 @@ async function editionArt(c, p, lang){
 }
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
 
+// Liste officielle des cartes d'une extension (Yugipedia) : quelles raretés existent en illustration normale et/ou étendue
+async function setArtInfo(setName, ocg){
+  if (!setName) return null;
+  const page = `Set Card Lists:${setName} (${ocg ? 'OCG-JP' : 'TCG-EN'})`;
+  return cached(`ysl:${page}`, async () => {
+    const r = await fetch(`https://yugipedia.com/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&redirects=1&format=json&origin=*`);
+    if (!r.ok) return null;
+    const j = await r.json(); if (!j.parse) return {};
+    const out = {};
+    (j.parse.wikitext['*'] || '').split('\n').forEach(line => {
+      const [main, desc = ''] = line.split('//');
+      const parts = main.split(';').map(s => s.trim());
+      if (parts.length < 3 || !/^[A-Z0-9]+-[A-Z]{2}\w+$/i.test(parts[0])) return;
+      const ea = /extended art/i.test(desc), e = out[parts[0]] = out[parts[0]] || { normal: [], ea: [] };
+      parts[2].split(',').map(s => s.trim()).filter(Boolean).forEach(rr => (ea ? e.ea : e.normal).push(norm(rr)));
+    });
+    return out;
+  }).catch(() => null);
+}
+// 'both' : les deux illustrations existent · 'ea' : seulement l'étendue · 'normal' : seulement la normale · null : inconnu
+async function artVariants(p){
+  const info = await setArtInfo(p.set, p.ocg); const e = info && info[p.code];
+  if (!e) return null;
+  const n = e.normal.some(r => sameRarity(r, p.rarity) || r === rnorm(p.rarity)), x = e.ea.some(r => sameRarity(r, p.rarity) || r === rnorm(p.rarity));
+  return n && x ? 'both' : x ? 'ea' : n ? 'normal' : null;
+}
+
 // Éditions TCG en « illustration étendue » (EA) : YGOPRODeck ne les distingue pas, Yugipedia oui
 async function tcgVariants(nameEn){
   const g = await ygoGallery(nameEn); if (!g) return [];
@@ -1310,13 +1337,26 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   let list = prints.slice();
   const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); drawEa(); };
   // Illustration normale / étendue (Ultra Rare, Starlight Rare, ou toute édition qui a une variante étendue)
-  const drawEa = () => {
+  let eaTok = 0;
+  const drawEa = async () => {
     const box = $('#eaRow'); if (!box) return;
-    const p = findPrint(list, $('#cprint').value);
-    const show = nameEn && p && !p.link && (/ultra rare|starlight rare/i.test(p.rarity) || p.ea || list.some(x => x.ea && x.code === p.code && sameRarity(x.rarity, p.rarity)));
-    box.innerHTML = show ? `<span class="hint">Illustration</span><div class="seg" id="eaSeg">
-      <button type="button" data-ea="0" class="${p.ea ? '' : 'on'}">Normale</button><button type="button" data-ea="1" class="${p.ea ? 'on' : ''}">Étendue</button></div>` : '';
+    const p = findPrint(list, $('#cprint').value), tok = ++eaTok;
+    box.innerHTML = '';
+    if (!nameEn || !p || p.link) return;
+    // D'après la liste officielle de l'extension ; à défaut, on propose le choix pour les Ultra / Starlight Rare
+    const kind = await artVariants(p).catch(() => null);
+    if (tok !== eaTok || !$('#eaRow')) return;
+    const twinKnown = list.some(x => x.ea && x.code === p.code && sameRarity(x.rarity, p.rarity));
+    const show = kind === 'both' || (kind === null && (/ultra rare|starlight rare/i.test(p.rarity) || p.ea || twinKnown));
+    // Une seule illustration existe : si une variante inventée était sélectionnée, on revient à la vraie version
+    if ((kind === 'ea' || kind === 'normal') && p.ea && !twinKnown){
+      const base = { code: p.code, set: p.set, rarity: p.rarity, ...(p.ocg ? { ocg:true } : {}) };
+      select(list.find(x => !x.ea && !x.link && x.code === p.code && sameRarity(x.rarity, p.rarity)) || base); return;
+    }
+    if (kind === 'ea'){ box.innerHTML = '<span class="hint">Illustration étendue : seule version de cette rareté dans cette extension.</span>'; return; }
     if (!show) return;
+    box.innerHTML = `<span class="hint">Illustration</span><div class="seg" id="eaSeg">
+      <button type="button" data-ea="0" class="${p.ea ? '' : 'on'}">Normale</button><button type="button" data-ea="1" class="${p.ea ? 'on' : ''}">Étendue</button></div>`;
     $('#eaSeg').onclick = async e => {
       const b = e.target.closest('button'); if (!b) return;
       const want = b.dataset.ea === '1'; if (want === !!p.ea) return;
