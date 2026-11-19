@@ -448,7 +448,7 @@ const API = {
     };
   },
   ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
-  ygoSearch(q, lang){ return cached(`ys3:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
+  ygoSearch(q, lang){ return cached(`ys4:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
   async _ygoSearch(q, lang){
     const get = (l, term = q) => this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(term)}&num=60&offset=0`, l)).then(r => r && Array.isArray(r.data) ? r.data : []);
     if (lang === 'en') return (await get('en')).map(c => this.ygoNorm(c, lang));
@@ -462,7 +462,18 @@ const API = {
       .sort((a, b) => a.length - b.length).slice(0, 3);
     const extra = (await Promise.all(enNames.map(n => get('en', n).catch(() => [])))).flat();
     const seen = new Set(loc.map(c => String(c.id)));
-    const more = [...en, ...extra].filter(c => { const k = String(c.id); if (seen.has(k)) return false; seen.add(k); return true; });
+    let more = [...en, ...extra].filter(c => { const k = String(c.id); if (seen.has(k)) return false; seen.add(k); return true; });
+    if (loc.length && more.length){
+      // Recherche en français : une carte qui a un nom français sans le texte cherché est une autre carte
+      // (ex. « Magicien Sombre » ≠ « Magicienne des Ténèbres » / Dark Magician Girl) → écartée, avec sa famille.
+      const ids = more.map(c => c.id), translated = new Set();
+      for (let i = 0; i < ids.length; i += 50){
+        const r = await this.getJSON(this.ygoUrl(`id=${ids.slice(i, i + 50).join(',')}`, lang)).catch(() => null);
+        ((r && r.data) || []).forEach(c => translated.add(String(c.id)));
+      }
+      const families = more.filter(c => translated.has(String(c.id))).map(c => norm(c.name));
+      more = more.filter(c => !translated.has(String(c.id)) && !families.some(f => norm(c.name).startsWith(f)));
+    }
     return loc.map(c => this.ygoNorm(c, lang)).concat(more.map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
   },
   // Carte pas encore traduite dans cette langue : on garde la version anglaise (nom anglais), avec la langue demandée
