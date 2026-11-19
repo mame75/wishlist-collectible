@@ -1379,13 +1379,38 @@ async function loadMore(market, tok){
 
 
 // Résultats Yu-Gi-Oh! : si une carte existe en illustration étendue (Yugipedia), on la montre en premier (Ultra Rare de préférence)
+// Illustration étendue d'une carte d'après le catalogue TCGplayer (fichiers du site : rapide, sans limite)
+// Version de base uniquement : Ultra Rare de préférence, jamais Starlight / Grand Master / Quarter Century…
+const EA_PREMIUM = /starlight|grandmaster|quartercentury|10000|platinumsecret|ghost/;
+async function tcgpEa(c, setName){
+  const prints = (c.prints || []).filter(p => p.code && (!setName || p.set === setName));
+  const found = [];
+  for (const pre of new Set(prints.map(p => String(p.code).split('-')[0].toUpperCase()))){
+    const map = await tcgpSet(pre);
+    Object.entries(map).forEach(([k, id]) => { const [code, r, ea] = k.split('|');
+      if (!ea || EA_PREMIUM.test(r)) return;
+      const pr = prints.find(p => String(p.code).toUpperCase() === code && sameRarity(p.rarity, r));
+      if (pr) found.push({ pr, r, id }); });
+  }
+  if (!found.length) return null;
+  const dates = await getYgoDates().catch(() => ({})) || {};
+  found.sort((a, b) => (+(b.r === 'ultrarare') - +(a.r === 'ultrarare')) || (dates[b.pr.set] || '').localeCompare(dates[a.pr.set] || ''));
+  const f = found[0];
+  return { print: { code: f.pr.code, set: f.pr.set, rarity: f.pr.rarity, ea: true }, img: `${TCGP}${f.id}_400w.jpg`, imgHi: `${TCGP}${f.id}_in_1000x1000.jpg` };
+}
 async function showExtendedArt(cards, tok, setName){
   const todo = cards.filter(c => c.game === 'ygo' && !c.eaChecked && (c.prints || []).length);
   if (!todo.length) return;
   search.eaLoading = true;
-  await mapLimit(todo, 3, async c => {
+  await mapLimit(todo, 2, async c => {
     if (tok !== search.token) return;
     c.eaChecked = true;
+    const t = await tcgpEa(c, setName).catch(() => null);
+    if (t && tok === search.token){
+      Object.assign(c, { eaPick: t.print, baseImg: c.baseImg || c.img, baseImgHi: c.baseImgHi || c.imgHi, img: t.img, imgHi: t.imgHi });
+      reRender(); return;
+    }
+    if (setName) return;   // page d'extension : le catalogue suffit (pas de rafale de requêtes vers Yugipedia)
     const nameEn = c.nameEn || c.name;
     const vars = await tcgVariants(nameEn).catch(() => []);
     if (!vars.length) return;
