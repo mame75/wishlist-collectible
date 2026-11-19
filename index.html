@@ -1306,7 +1306,7 @@ function viewOf(s){
   return s.groups.intl.cards.concat(s.groups.asia.cards);
 }
 // Carte Yu-Gi-Oh! ouverte depuis l'onglet OCG : édition japonaise la plus récente, en japonais
-const ygoOcgOpen = c => { const p = c.ocgPrints[0];   // ocgPrints : la plus récente en premier
+const ygoOcgOpen = c => { const p = c.ocgPrints.find(x => x.img) || c.ocgPrints[0];   // la plus récente qui a un scan
   return [{ ...c, lang:'ja', extraPrint: p, img: p.img || c.img, imgHi: p.img || c.imgHi }, { printKey: printKey(p), printCode: p.code }]; };
 
 // Les noms japonais ne ressemblent pas aux noms FR/EN : on passe par le numéro de Pokédex des cartes trouvées
@@ -1348,7 +1348,7 @@ function resultTiles(cards, mk){
   return `<div class="results" id="rgrid">${cards.map((c, i) => `
       <button class="tile" data-r="${i}">
         ${imgBox(mk === 'asia' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false, (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
-          + (c.game === 'ygo' && mk !== 'asia' && c.ocgPrints && c.ocgPrints.length ? `<span class="bdg">${(c.prints || []).length ? 'TCG + OCG' : 'OCG'}</span>` : '')
+          + (c.game === 'ygo' && mk !== 'asia' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : '')
           + (c.eaPick && mk !== 'asia' ? '<span class="bdg grade">Ill. étendue</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
