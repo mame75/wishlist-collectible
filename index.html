@@ -442,13 +442,15 @@ const API = {
       img: im.image_url_small || null, imgHi: im.image_url || null,
       set:'', num:'', rarity:'',
       prices: { normal: num(p.cardmarket_price) || null, reverse:null },
-      prints: (c.card_sets || []).map(s => ({code:s.set_code, set:s.set_name, rarity:s.set_rarity})),
+      // « New » / « Reprint » sont des mentions d'impression que YGOPRODeck a prises pour des raretés : écartées
+      prints: (c.card_sets || []).filter(s => !/^(new|reprint)$/i.test(String(s.set_rarity || '').trim()))
+        .map(s => ({code:s.set_code, set:s.set_name, rarity:s.set_rarity})),
       cmId: null, nameEn: c.name_en || c.name,
       priceDate: null
     };
   },
   ygoUrl(params, lang){ return `https://db.ygoprodeck.com/api/v7/cardinfo.php?${params}${lang && lang !== 'en' ? '&language=' + lang : ''}`; },
-  ygoSearch(q, lang){ return cached(`ys4:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
+  ygoSearch(q, lang){ return cached(`ys5:${lang}:${q.toLowerCase()}`, () => this._ygoSearch(q, lang)); },
   async _ygoSearch(q, lang){
     const get = (l, term = q) => this.getJSON(this.ygoUrl(`fname=${encodeURIComponent(term)}&num=60&offset=0`, l)).then(r => r && Array.isArray(r.data) ? r.data : []);
     if (lang === 'en') return (await get('en')).map(c => this.ygoNorm(c, lang));
@@ -477,7 +479,7 @@ const API = {
     return loc.map(c => this.ygoNorm(c, lang)).concat(more.map(c => ({ ...this.ygoNorm(c, lang), noLocalName: true })));
   },
   // Carte pas encore traduite dans cette langue : on garde la version anglaise (nom anglais), avec la langue demandée
-  ygoCard(id, lang){ return cached(`yc2:${lang}:${id}`, async () => (await this._ygoCard(id, lang))
+  ygoCard(id, lang){ return cached(`yc3:${lang}:${id}`, async () => (await this._ygoCard(id, lang))
     || (lang !== 'en' ? await this._ygoCard(id, 'en').then(c => c && { ...c, lang }) : null)); },
   async _ygoCard(id, lang){
     const r = await this.getJSON(this.ygoUrl(`id=${encodeURIComponent(id)}`, lang));
@@ -774,10 +776,19 @@ async function editionArt(c, p, lang){
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
+  // Rareté qui n'existe qu'en illustration étendue mais sans scan : on montre le scan étendu d'une autre rareté de la même édition
+  if (await artVariants(p).catch(() => null) === 'ea'){
+    const twins = (await tcgVariants(c.nameEn || c.name).catch(() => [])).filter(v => v.code === p.code);
+    const sc = twins.length ? await tcgScans(c.nameEn || c.name, twins, lang).catch(() => ({})) : {};
+    const t = twins.find(v => sc[printKey(v)]);
+    if (t) return { img: sc[printKey(t)], imgHi: sc[printKey(t)], substitute: t.rarity };
+  }
   const gen = await printArt(p.code);
   return gen ? { ...gen, generic: true } : null;
 }
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
+const artNote = a => !a ? '' : a.generic ? ART_NOTE
+  : a.substitute ? `Pas encore de scan de cette rareté : illustration étendue de la ${a.substitute} affichée (même dessin, reflet différent).` : '';
 
 // Liste officielle des cartes d'une extension (Yugipedia) : quelles raretés existent en illustration normale et/ou étendue
 async function setArtInfo(setName, ocg){
@@ -1501,6 +1512,13 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   const scans = nameEn ? await tcgScans(nameEn, tcg, lang).catch(() => ({})) : {};
   if (tok !== edToken) return;
   tcg.forEach(p => { if (scans[p.key] && !p.user) p.img = scans[p.key]; });
+  // Raretés uniquement en illustration étendue sans scan : scan étendu d'une autre rareté de la même édition
+  for (const p of tcg.filter(x => !x.img && !x.ea)){
+    if (await artVariants(p).catch(() => null) !== 'ea') continue;
+    const twin = all.find(x => x.ea && x.img && x.code === p.code);
+    if (twin) p.img = twin.img;
+  }
+  if (tok !== edToken) return;
   draw();
   const codes = [...new Set(tcg.filter(p => !p.img).map(p => p.code))];
   await mapLimit(codes, 4, async code => {
@@ -1574,7 +1592,7 @@ function renderConfigure(card, pre){
   const applyArt = async (key, p) => {
     p = p || findPrint(withExtra(card), key);
     const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
-    if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
+    if ($('#artNote')) $('#artNote').textContent = artNote(art);
     if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; card.userImg = art.user ? art.img : null; }
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
@@ -1684,7 +1702,7 @@ function openDetail(i){
         const lang = mk === 'asia' ? (wasAsia ? cur : 'ja') : (wasAsia ? 'fr' : cur);
         $('#dlang').innerHTML = langOptionsHTML(it.game, lang, mk); $('#dlang').disabled = false; }
       art = await editionArt(it, p, $('#dlang').value);
-      if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
+      if ($('#artNote')) $('#artNote').textContent = artNote(art);
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
     }, it.game === 'ygo' ? (it.nameEn || it.name) : null, () => $('#dlang').value, it);
     bindLinkField(it, () => $('#dlang').value, picker, () => {});
