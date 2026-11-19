@@ -100,7 +100,28 @@ select.field option{background:var(--surface)}
   background:linear-gradient(115deg,transparent 15%,rgba(255,60,160,.45) 27%,rgba(255,210,60,.45) 37%,rgba(80,255,170,.45) 47%,rgba(60,170,255,.45) 57%,rgba(190,90,255,.45) 67%,transparent 80%);
   background-size:300% 300%;mix-blend-mode:color-dodge;opacity:.9;animation:holo 7s linear infinite}
 @keyframes holo{0%{background-position:100% 100%}50%{background-position:0% 0%}100%{background-position:100% 100%}}
-@media (prefers-reduced-motion:reduce){.img.holo:has(img)::after{animation:none;background-position:50% 50%}}
+.img.holo:not(.fx-rb)::after{content:none}
+.img .fxl{display:none;position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.img.holo:has(img) .fxl{display:block}
+.fx-gold{background:rgba(214,160,40,.28);mix-blend-mode:overlay}
+.fx-silver{background:rgba(200,215,235,.22);mix-blend-mode:overlay}
+.fx-hg,.fx-25{font-family:'Noto Sans Egyptian Hieroglyphs',serif;font-size:15px;line-height:21px;letter-spacing:3px;word-break:break-all;padding:2px;
+  color:rgba(255,205,90,.55);mix-blend-mode:color-dodge;animation:fxGlow 5s ease-in-out infinite}
+.fx-25{font-family:inherit;font-weight:800;font-size:13px;line-height:20px;letter-spacing:6px;color:rgba(225,235,255,.45);transform:rotate(-20deg) scale(1.5)}
+.fx-sweep{background:linear-gradient(105deg,transparent 35%,rgba(255,215,110,.85) 50%,transparent 65%);background-size:300% 100%;
+  mix-blend-mode:color-dodge;animation:fxSweep 3.2s ease-in-out infinite}
+.fx-sweep-s{background-image:linear-gradient(105deg,transparent 35%,rgba(235,242,255,.8) 50%,transparent 65%)}
+.fx-frame{box-shadow:inset 0 0 0 3px rgba(230,180,60,.9)}
+.fx-frame-s{box-shadow:inset 0 0 0 3px rgba(215,225,240,.85)}
+.fx-stars{background:radial-gradient(circle,rgba(255,255,255,.95) 0 1px,transparent 1.6px) 0 0/17px 19px,
+  radial-gradient(circle,rgba(255,230,160,.9) 0 1.2px,transparent 2px) 8px 9px/23px 29px,
+  linear-gradient(115deg,transparent 20%,rgba(255,60,160,.3) 35%,rgba(80,200,255,.3) 55%,rgba(190,90,255,.3) 70%,transparent 85%) 0 0/300% 300%;
+  mix-blend-mode:color-dodge;animation:fxTwinkle 2.4s ease-in-out infinite, fxDrift 9s linear infinite}
+@keyframes fxGlow{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes fxSweep{0%{background-position:100% 0}60%,100%{background-position:0 0}}
+@keyframes fxTwinkle{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes fxDrift{0%{background-position:0 0,8px 9px,100% 100%}100%{background-position:17px 38px,31px -20px,0 0}}
+@media (prefers-reduced-motion:reduce){.img.holo:has(img)::after,.img .fxl{animation:none!important;background-position:50% 50%}}
 .img img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;display:block}
 /* Grand visuel (ajout, fiche) : l'image garde ses vraies proportions, sans recadrage ni bandes */
 .detail > .img{align-self:start}
@@ -214,6 +235,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Egyptian+Hieroglyphs&display=swap">
 </head>
 <body>
 <header>
@@ -785,7 +807,7 @@ async function setUserArt(c, key, d){
     if (!it.userImg) continue;
     it.userImg = null; it.printArt = false;   // retour au visuel automatique de cette version
     const a = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), key), it.lang).catch(() => null) : null;
-    if (a){ it.img = a.img; it.imgHi = a.imgHi; it.holo = a.holo || null; it.printArt = true; } else await refreshOne(it).catch(() => {});
+    if (a){ it.img = a.img; it.imgHi = a.imgHi; it.holo = a.holo || null; it.holoR = a.holoR || null; it.printArt = true; } else await refreshOne(it).catch(() => {});
   }
   save();
 }
@@ -794,7 +816,7 @@ async function editionArt(c, p, lang){
   if (!p) return null;
   const ua = getUserArt(c, printKey(p));
   if (ua) return { img: ua, imgHi: ua, user: true };
-  if (p.img && !p.user) return { img: p.img, imgHi: p.img, ...(p.holo ? { holo: p.holo, substitute: p.substitute } : {}) };
+  if (p.img && !p.user) return { img: p.img, imgHi: p.img, ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
@@ -803,14 +825,14 @@ async function editionArt(c, p, lang){
     const twins = (await tcgVariants(c.nameEn || c.name).catch(() => [])).filter(v => v.code === p.code);
     const sc = twins.length ? await tcgScans(c.nameEn || c.name, twins, lang).catch(() => ({})) : {};
     const t = twins.find(v => sc[printKey(v)]);
-    if (t) return { img: sc[printKey(t)], imgHi: sc[printKey(t)], substitute: t.rarity, holo: sc[printKey(t)] };
+    if (t) return { img: sc[printKey(t)], imgHi: sc[printKey(t)], substitute: t.rarity, holo: sc[printKey(t)], holoR: p.rarity };
   }
   const gen = await printArt(p.code);
   return gen ? { ...gen, generic: true } : null;
 }
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
 const artNote = a => !a ? '' : a.generic ? ART_NOTE
-  : a.substitute ? `Pas encore de scan de cette rareté : illustration étendue de la ${a.substitute} avec un effet holographique pour la distinguer.` : '';
+  : a.substitute ? `Pas encore de scan de cette rareté : illustration étendue de la ${a.substitute} avec un effet animé pour la distinguer.` : '';
 
 // Liste officielle des cartes d'une extension (Yugipedia) : quelles raretés existent en illustration normale et/ou étendue
 async function setArtInfo(setName, ocg){
@@ -900,7 +922,7 @@ function makeItem(card, opts){
   if (print && print.img && !card.cmImg && !ua){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
   return {
     uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
-    img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null, holo: ua ? null : (card.holo || null),
+    img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null, holo: ua ? null : (card.holo || null), holoR: ua ? null : (card.holoR || null),
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link && !p.ocg),
     extraPrint: print && (print.link || print.ocg || print.ea) ? print : null,
@@ -941,11 +963,22 @@ async function getYgoDates(){
 
 
 /* Visuel de carte, avec vignette de remplacement quand la base n'a pas d'image */
+// Effet animé selon la rareté remplacée : or + hiéroglyphes (Grand Master), argent « 25 » (Quarter Century),
+// étoiles scintillantes (10000 Secret), arc-en-ciel pour les autres (Starlight…)
+const holoKind = r => { const k = String(r || '').toLowerCase();
+  return /grand master/.test(k) ? 'gmr' : /quarter century/.test(k) ? 'qcr' : /10000/.test(k) ? 'tsr' : 'rb'; };
+const HIERO = '𓂀𓋹𓆣𓃭𓇳𓊽𓅓𓁹𓋴𓆓'.repeat(9);
+const HOLO_LAYERS = {
+  gmr: `<div class="fxl fx-gold"></div><div class="fxl fx-hg">${HIERO}</div><div class="fxl fx-sweep"></div><div class="fxl fx-frame"></div>`,
+  qcr: `<div class="fxl fx-silver"></div><div class="fxl fx-25">${'25 '.repeat(60)}</div><div class="fxl fx-sweep fx-sweep-s"></div><div class="fxl fx-frame fx-frame-s"></div>`,
+  tsr: `<div class="fxl fx-stars"></div><div class="fxl fx-sweep fx-sweep-s"></div>`
+};
 function imgBox(c, hi, badges){
   const src = hi ? c.imgHi : c.img;
   const fb = hi ? (c.baseImgHi || c.baseImg) : c.baseImg;   // image de secours si celle-ci ne s'affiche pas
   const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
-  return `<div class="img${src && c.holo && (c.holo === src || c.holo === c.img) ? ' holo' : ''}">
+  const fx = src && c.holo && (c.holo === src || c.holo === c.img) ? holoKind(c.holoR) : '';
+  return `<div class="img${fx ? ' holo fx-' + fx : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
       ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
@@ -1512,7 +1545,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
       .map((p, i) => [p, i]).sort(([a, i], [b, j]) => !!a.ocg - !!b.ocg || rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
-          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
+          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo, holoR: p.rarity }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div></div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
@@ -1623,7 +1656,7 @@ function renderConfigure(card, pre){
     p = p || findPrint(withExtra(card), key);
     const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
     if ($('#artNote')) $('#artNote').textContent = artNote(art);
-    card.holo = art && art.holo || null;
+    card.holo = art && art.holo || null; card.holoR = art && art.holoR || null;
     if (art){ card.img = art.img; card.imgHi = art.imgHi; card.printArt = true; card.userImg = art.user ? art.img : null; }
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
@@ -1760,7 +1793,7 @@ function openDetail(i){
         printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg || print.ea) ? print : null });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       if (art !== undefined){ it.cmImg = null; it.userImg = art && art.user ? art.img : null;
-        it.holo = art && art.holo || null;
+        it.holo = art && art.holo || null; it.holoR = art && art.holoR || null;
         if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
       if (lang !== it.lang){ it.lang = lang; it.cmLink = withLang(it.cmLink, lang); it.nameJa = null; }
       if (linkEdited) it.cmLink = chk.url;
@@ -1940,7 +1973,7 @@ if (m) openShared(m[1]); else {
     if (await canLoad(it.cmImg)) return;
     it.cmImg = null; it.printArt = false;
     const art = it.game === 'ygo' ? await editionArt(it, findPrint(withExtra(it), it.printKey || it.printCode), it.lang).catch(() => null) : null;
-    if (art){ it.img = art.img; it.imgHi = art.imgHi; it.holo = art.holo || null; it.printArt = true; } else await refreshOne(it).catch(() => {});
+    if (art){ it.img = art.img; it.imgHi = art.imgHi; it.holo = art.holo || null; it.holoR = art.holoR || null; it.printArt = true; } else await refreshOne(it).catch(() => {});
   }).then(() => { save(); render(); });
 }
 }
