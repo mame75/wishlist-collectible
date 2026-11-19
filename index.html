@@ -982,7 +982,7 @@ function trendHTML(t){
   if (t == null || !isFinite(t)) return '';
   const p = Math.round(t * 100);
   if (Math.abs(p) < 2) return '<span class="tr flat" title="Moyenne 7 jours ≈ moyenne 30 jours">= stable</span>';
-  return `<span class="tr ${p > 0 ? 'up' : 'down'}" title="Moyenne 7 jours par rapport à la moyenne 30 jours">${p > 0 ? '▲ +' : '▼ '}${p} %</span>`;
+  return `<span class="tr ${p > 0 ? 'pricier' : 'cheaper'}" title="Moyenne 7 jours par rapport à la moyenne 30 jours">${p > 0 ? '▲ +' : '▼ '}${p} %</span>`;
 }
 
 /* Illustration exacte d'une impression Yu-Gi-Oh! (YGOPRODeck indique l'illustration utilisée par chaque code) */
