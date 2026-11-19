@@ -782,7 +782,7 @@ const sameBase = (a, b) => !!a && !!b && a.code === b.code && sameRarity(a.rarit
 
 async function ocgPrints(nameEn){
   if (!nameEn) return [];
-  return cached(`yp3:${nameEn}`, async () => {
+  return cached(`yp4:${nameEn}`, async () => {
     const g = await ygoGallery(nameEn); if (!g) return null;
     const text = g.text, files = g.files;
     const out = [], seen = new Set();
@@ -791,7 +791,8 @@ async function ocgPrints(nameEn){
       if (!/^JP\|\s*\n/.test(block)) return;
       block.split('\n}}')[0].split('\n').slice(1).forEach(line => {
         const parts = line.split('//')[0].split(';').map(s => s.trim());
-        if (parts.length < 3 || !/-JP/i.test(parts[0]) || /^RD\//i.test(parts[0])) return;
+        // « ::OP » = cartes « Official Proxy » (démonstration), pas des cartes à collectionner
+        if (parts.length < 3 || !/-JP/i.test(parts[0]) || /^RD\//i.test(parts[0]) || /::/.test(line)) return;
         const [code, set, abbr] = parts, rarity = YP_RARITY[abbr] || abbr, key = `${code}|${rarity}`;
         if (seen.has(key)) return; seen.add(key);
         const prefix = code.split('-')[0];
