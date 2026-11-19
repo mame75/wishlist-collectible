@@ -578,7 +578,8 @@ const RARITY_ALIASES = { prismaticsecretrare: 'secretparallelrare' };
 const rnorm = r => { const n = norm(r); for (const [a, b] of Object.entries(RARITY_ALIASES)) if (n === b) return a; return n; };
 const sameRarity = (a, b) => rnorm(a) === rnorm(b);
 const CM_RARITY_NAME = { prismaticsecretrare: 'Secret Parallel Rare' };   // nom affiché par Cardmarket pour les éditions OCG
-const rarityLabel = p => p && p.ocg && CM_RARITY_NAME[norm(p.rarity)] ? `${p.rarity} (${CM_RARITY_NAME[norm(p.rarity)]} sur Cardmarket)` : (p ? p.rarity : '');
+const rarityLabel = p => !p ? '' : (p.ocg && CM_RARITY_NAME[norm(p.rarity)] ? `${p.rarity} (${CM_RARITY_NAME[norm(p.rarity)]} sur Cardmarket)` : p.rarity)
+  + (p.ea ? ' · illustration étendue' : '');
 
 // Extension + rareté d'après l'adresse Cardmarket (ex. …/Beyond-the-Brave/The-Great-Gallant-Bandit-V2-Ultra-Rare)
 function ygoSlugParts(slug){
@@ -599,6 +600,9 @@ async function printFromLink(c, url){
   const { rarity } = ygoSlugParts(L.slug);
   const { isOcg, exp } = expParts(L.expansion);
   const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0]; };
+  const known = linkedKey(url);
+  if (known){ const all = [...(c.prints || []), ...(await tcgVariants(c.nameEn || c.name)), ...(await ocgPrints(c.nameEn || c.name))];
+    const k = all.find(p => printKey(p) === known); if (k) return k; }
   return (!isOcg && pick(c.prints || [])) || pick(await ocgPrints(c.nameEn || c.name))
     || { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
 }
@@ -647,12 +651,18 @@ async function matchYgo(L, lang){
     const lp = { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
     return { card: { ...c, lang: ocg ? 'ja' : c.lang, extraPrint: lp }, printKey: printKey(lp) };
   }
-  return { card: await toCard(hit), printCode: print ? print.set_code : '', printKey: print ? `${print.set_code}|${print.set_rarity}` : '' };
+  const c = await toCard(hit);
+  const vars = await tcgVariants(hit.name);
+  const known = linkedKey(L.url), kv = known && vars.find(v => printKey(v) === known);
+  if (kv) return { card: { ...c, extraPrint: kv }, printCode: kv.code, printKey: printKey(kv) };
+  // La même rareté existe aussi en illustration étendue : le lien ne dit pas laquelle, l'utilisateur pourra corriger
+  const twin = vars.find(v => v.code === print.set_code && sameRarity(v.rarity, print.set_rarity));
+  return { card: c, printCode: print.set_code, printKey: `${print.set_code}|${print.set_rarity}`, ambiguous: !!twin };
 }
 
 /* Une impression = code + rareté (un même code peut exister en plusieurs raretés) */
 // Édition reprise d'un lien Cardmarket (absente de la base, ex. produit japonais OCG) : clé « @extension|rareté », sans code
-const printKey = p => !p ? '' : p.link ? `@${p.set}|${p.rarity}` : `${p.code}|${p.rarity}`;
+const printKey = p => !p ? '' : p.link ? `@${p.set}|${p.rarity}` : `${p.code}|${p.rarity}${p.ea ? '|EA' : ''}`;
 const keyCode = k => { k = String(k || ''); return k.startsWith('@') ? '' : k.split('|')[0]; };
 const findPrint = (prints, key) => {
   if (!key) return null;
@@ -700,10 +710,10 @@ const YP_REGION = { en:'EN', fr:'FR', de:'DE', it:'IT', pt:'PT', es:'SP', ja:'JP
 const RAR_ABBR = Object.assign(Object.fromEntries(Object.entries(YP_RARITY).map(([k, v]) => [v.toLowerCase(), k])), {
   'starlight rare':'StR', 'short print':'SP', 'super short print':'SSP', 'starfoil rare':'SFR', 'mosaic rare':'MSR', 'shatterfoil rare':'SHR',
   'ghost/gold rare':'GGR', 'gold rare':'GUR', 'secret rare':'ScR', 'ultra rare':'UR', 'super rare':'SR', 'rare':'R', 'common':'C' });
-function scanFile(files, code, rarity, region){
+function scanFile(files, code, rarity, region, ea){
   const prefix = String(code).split('-')[0], abbr = RAR_ABBR[String(rarity || '').toLowerCase()];
   if (!prefix || !abbr) return null;
-  return files.filter(f => f.includes(`-${prefix}-${region}-${abbr}`) && !/artwork|-NC\b/i.test(f))
+  return files.filter(f => f.includes(`-${prefix}-${region}-${abbr}`) && !/artwork|-NC\b/i.test(f) && (ea ? /-EA\b/.test(f) : !/-EA\b/.test(f)))
     .sort((a, b) => (/-1E\b/.test(b) - /-1E\b/.test(a)) || a.length - b.length)[0] || null;
 }
 async function tcgScans(nameEn, prints, lang){
@@ -711,7 +721,7 @@ async function tcgScans(nameEn, prints, lang){
   // Un fichier peut être cité dans la galerie sans avoir été mis en ligne : on essaie la langue de la carte, puis l'anglais
   const want = {};
   prints.forEach(p => { if (p.ocg || p.link || !p.code) return;
-    const fs = [...new Set([scanFile(g.files, p.code, p.rarity, YP_REGION[lang] || 'EN'), scanFile(g.files, p.code, p.rarity, 'EN')].filter(Boolean))];
+    const fs = [...new Set([scanFile(g.files, p.code, p.rarity, YP_REGION[lang] || 'EN', p.ea), scanFile(g.files, p.code, p.rarity, 'EN', p.ea)].filter(Boolean))];
     if (fs.length) want[printKey(p)] = fs; });
   const urls = await fileUrls([...new Set(Object.values(want).flat())]);
   return Object.fromEntries(Object.entries(want).map(([k, fs]) => [k, fs.map(f => urls[f]).find(Boolean)]).filter(([, u]) => u));
@@ -748,6 +758,27 @@ async function editionArt(c, p, lang){
   return gen ? { ...gen, generic: true } : null;
 }
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
+
+// Éditions TCG en « illustration étendue » (EA) : YGOPRODeck ne les distingue pas, Yugipedia oui
+async function tcgVariants(nameEn){
+  const g = await ygoGallery(nameEn); if (!g) return [];
+  const out = [], seen = new Set();
+  g.text.split('{{Card gallery|region=').slice(1).forEach(block => {
+    if (!/^EN\|\s*\n/.test(block)) return;
+    block.split('\n}}')[0].split('\n').slice(1).forEach(line => {
+      const parts = line.split('//')[0].split(';').map(s => s.trim());
+      if (parts.length < 4 || !parts.slice(3).includes('EA')) return;
+      const [code, set, abbr] = parts, p = { code, set, rarity: YP_RARITY[abbr] || abbr, ea: true };
+      if (!seen.has(printKey(p))){ seen.add(printKey(p)); out.push(p); }
+    });
+  });
+  return out;
+}
+// Le site retient quelle variante correspond à un lien Cardmarket quand l'utilisateur la corrige
+const linkId = url => { const L = parseCmLink(url || ''); return L ? `${L.game}/${L.expansion}/${L.slug}`.toLowerCase() : null; };
+function rememberLink(url, key){ const id = linkId(url); if (!id || !key) return; state.linkMap = state.linkMap || {}; state.linkMap[id] = key; save(); }
+const linkedKey = url => { const id = linkId(url); return id && state.linkMap ? state.linkMap[id] || null : null; };
+const sameBase = (a, b) => !!a && !!b && a.code === b.code && sameRarity(a.rarity, b.rarity) && !a.link && !b.link;
 
 async function ocgPrints(nameEn){
   if (!nameEn) return [];
@@ -786,7 +817,7 @@ function makeItem(card, opts){
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null,
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link && !p.ocg),
-    extraPrint: print && (print.link || print.ocg) ? print : null,
+    extraPrint: print && (print.link || print.ocg || print.ea) ? print : null,
     cmId: card.cmId || null, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     trend: card.trend ? (card.trend[variant] ?? null) : null, printArt: !!card.printArt,
@@ -844,7 +875,7 @@ const ICON_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 function tileHTML(it, i){
   const price = shownPrice(it);
-  const rarity = [it.rarity, it.num || it.printCode].filter(Boolean).join(' · ');
+  const rarity = [it.rarity + (it.extraPrint && it.extraPrint.ea ? ' (ill. étendue)' : ''), it.num || it.printCode].filter(Boolean).join(' · ');
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
@@ -1053,7 +1084,7 @@ async function importLink(raw){
   try { res = L.game === 'pkm' ? await matchPkm(L, lang) : await matchYgo(L, lang); }
   catch(e){ if (tok === s.token) renderResults('Impossible de joindre la base de cartes. Réessaie dans un instant.'); return; }
   if (tok !== s.token) return;
-  if (res.card){ renderConfigure(res.card, { cmLink: res.card.lang === 'ja' ? withLang(L.url, 'ja') : L.url, printCode: res.printCode || '', printKey: res.printKey || '' }); return; }
+  if (res.card){ renderConfigure(res.card, { cmLink: res.card.lang === 'ja' ? withLang(L.url, 'ja') : L.url, printCode: res.printCode || '', printKey: res.printKey || '', ambiguous: res.ambiguous }); return; }
   s.linkCards = res.candidates;
   if (!s.linkCards.length){ renderResults('Carte introuvable dans nos bases à partir de ce lien. Essaie la recherche par nom.'); return; }
   renderResults();
@@ -1341,6 +1372,14 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     all = all.concat(jp.filter(p => !have.has(printKey(p))).map(dec));
     ocgState = 'done'; draw();
   });
+  // Variantes « illustration étendue » placées juste après leur version normale
+  const eaList = nameEn ? await tcgVariants(nameEn).catch(() => []) : [];
+  if (tok !== edToken) return;
+  eaList.forEach(v => { if (all.some(p => p.key === printKey(v))) return;
+    const i = all.findIndex(p => p.code === v.code && sameRarity(p.rarity, v.rarity) && !p.ea);
+    const dv = dec({ ...v, set: (all[i] && all[i].set) || v.set });
+    if (i >= 0) all.splice(i + 1, 0, dv); else all.push(dv); });
+  draw();
   // Illustrations : d'abord le scan exact de chaque édition (Yugipedia, dans la langue de la carte), sinon l'illustration générique
   const tcg = all.filter(p => !p.ocg && !p.link && p.code);
   const scans = nameEn ? await tcgScans(nameEn, tcg, lang).catch(() => ({})) : {};
@@ -1410,7 +1449,7 @@ function renderConfigure(card, pre){
         <a class="btn" id="cfgCm" href="${esc(cmUrl({ ...card, printCode: o.printCode, cmLink: pre.cmLink }))}" target="_blank" rel="noopener">Voir sur Cardmarket</a>
         <button class="btn ghost" id="backBtn">← Retour aux résultats</button>
       </div>
-      ${hintHTML(cmHint(card, o.printKey || o.printCode, pre.cmLink))}
+      ${hintHTML(pre.ambiguous ? "Cette rareté existe aussi en illustration étendue et le lien Cardmarket ne dit pas laquelle. Si l'image ne correspond pas, choisis la bonne dans « Voir les éditions » : le site s'en souviendra pour ce lien." : cmHint(card, o.printKey || o.printCode, pre.cmLink))}
     </div></div>`;
   bindVersionFields();
   // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
@@ -1422,11 +1461,13 @@ function renderConfigure(card, pre){
     else { card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false; }
     swapImg('#addScrim', card);
   };
+  let curKey0 = o.printKey || '';
   const picker = bindPrintPicker(withExtra(card), (key, p, fromLink) => {
-    if (p && (p.ocg || p.link)) card.extraPrint = p;
+    const prev = findPrint(withExtra(card), curKey0); curKey0 = key;
+    if (p && (p.ocg || p.link || p.ea)) card.extraPrint = p;
     card.cmImg = null; card.userImg = null;   // autre édition : l'image affichée sera celle de la nouvelle (ta photo si tu en as collé une)
-    pre.cmLink = fromLink || null;
-    if (!fromLink && $('#ccm')) $('#ccm').value = '';   // l'ancien lien correspondait à une autre édition
+    if (!fromLink && pre.cmLink && sameBase(prev, p)){ rememberLink(pre.cmLink, key); }   // même version, autre variante : le lien reste valable, on retient
+    else { pre.cmLink = fromLink || null; if (!fromLink && $('#ccm')) $('#ccm').value = ''; }   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
     const want = p && p.ocg ? 'ja' : (p && card.lang === 'ja' && !p.link ? 'fr' : card.lang);
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
@@ -1543,9 +1584,11 @@ function openDetail(i){
       const linkEdited = o.cmLinkInput !== (it.cmLink || '');
       const btn = $('#saveDet'); btn.disabled = true; btn.textContent = 'Enregistrement…';
       const print = picked !== undefined ? picked : findPrint(withExtra(it), o.printKey);
-      if ((o.printKey || '') !== (it.printKey || printKey(findPrint(it.prints, it.printCode)))) it.cmLink = null;
+      const prevP = findPrint(withExtra(it), it.printKey || it.printCode);
+      if ((o.printKey || '') !== (it.printKey || printKey(prevP))){
+        if (it.cmLink && sameBase(prevP, print)) rememberLink(it.cmLink, printKey(print)); else it.cmLink = null; }
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note,
-        printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg) ? print : null });
+        printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg || print.ea) ? print : null });
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       if (art !== undefined){ it.cmImg = null; it.userImg = art && art.user ? art.img : null;
         if (art){ it.img = art.img; it.imgHi = art.imgHi; it.printArt = true; } else it.printArt = false; }
@@ -1633,10 +1676,10 @@ async function openShared(hash){
     if (x.i) card = { ...card, img: x.i, imgHi: x.i, printArt: true, cmImg: x.i };
     if (x.p) card = { ...card, prices: { ...card.prices, normal: x.p }, cmPrice: true };
     if (game === 'ygo' && printCode && !printCode.startsWith('@') && !findPrint(c.prints, printCode)){
-      const op = (await ocgPrints(c.nameEn || c.name)).find(p => printKey(p) === printCode);
-      if (op) card = { ...c, extraPrint: op };
+      const op = [...(await tcgVariants(c.nameEn || c.name)), ...(await ocgPrints(c.nameEn || c.name))].find(p => printKey(p) === printCode);
+      if (op) card = { ...card, extraPrint: op };
     }
-    const art = game === 'ygo' && printCode && !card.extraPrint && !card.cmImg ? await editionArt(c, findPrint(c.prints, printCode), lang) : null;
+    const art = game === 'ygo' && printCode && !card.cmImg && !(card.extraPrint && card.extraPrint.ocg) ? await editionArt(c, findPrint(withExtra(card), printCode), lang) : null;
     return makeItem(art ? { ...card, ...art, printArt: true } : card, { variant: rev ? 'reverse' : 'normal', printKey: printCode,
       graded: !!gr, grader: gr ? gr[0] : 'PSA', grade: gr ? gr[1] : '10', priceGraded: gr ? gr[2] : null, note, cmLink: cmLink || null });
   });
