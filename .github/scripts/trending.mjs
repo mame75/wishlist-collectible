@@ -51,19 +51,20 @@ async function recentNames(cat){
     const det = [];
     for (const s of sets.slice(-20)){ const d = await get(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(s.id)}`); if (d) det.push(d); }
     return det.filter(d => d.releaseDate && d.releaseDate <= now && (d.cardCount && d.cardCount.official) >= 60)
-      .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)).slice(0, 6).map(d => d.name);
+      .sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)).slice(0, 6).map(d => ({ name: d.name, tid: d.id }));
   }
   const ys = (await get('https://db.ygoprodeck.com/api/v7/cardsets.php')) || [];
   return ys.filter(s => s.tcg_date && s.tcg_date <= now && s.num_of_cards >= 20)
-    .sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 8).map(s => s.set_name);
+    .sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 8).map(s => ({ name: s.set_name }));
 }
 const stats = {};
 async function movers(cat){
   const groups = ((await get(`${TCG}/${cat}/groups`)) || {}).results || [];
   const names = await recentNames(cat);
   // « ME02: Phantasmal Flames » ↔ « Phantasmal Flames »
-  const recent = names.map(nm => groups.find(g => n(g.name) === n(nm)) || groups.find(g => n(g.name).endsWith(' ' + n(nm)))).filter(Boolean);
-  stats[cat] = { names, groups: recent.map(g => g.name), cards: 0 };
+  const recent = names.map(x => { const g = groups.find(g => n(g.name) === n(x.name)) || groups.find(g => n(g.name).endsWith(' ' + n(x.name)));
+    return g && { ...g, tid: x.tid }; }).filter(Boolean);
+  stats[cat] = { names: names.map(x => x.name), groups: recent.map(g => g.name), cards: 0 };
   const list = [];
   for (const g of recent){
     const [prods, pNow, pThen] = await Promise.all([get(`${TCG}/${cat}/${g.groupId}/products`), prices(now, cat, g.groupId), prices(then, cat, g.groupId)]);
@@ -79,7 +80,7 @@ async function movers(cat){
       }
       if (!best || best.price < MIN || best.change == null) continue;
       stats[cat].cards++;
-      list.push({ pid: p.productId, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
+      list.push({ pid: p.productId, tid: g.tid, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
     }
     console.log(cat, g.name);
   }
@@ -95,9 +96,11 @@ async function linkYgo(c){
 }
 async function linkPkm(c){
   const num = c.number.split('/')[0].replace(/^0+(?=\d)/, '');
-  const list = await get(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(clean(c.name))}&localId=eq:${encodeURIComponent(num)}`);
-  if (!Array.isArray(list) || !list.length) return null;
-  if (list.length === 1) return { id: list[0].id };
+  const all = await get(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(clean(c.name))}`);
+  const list = (Array.isArray(all) ? all : []).filter(b => Number(b.localId) === Number(num));
+  if (!list.length) return null;
+  const same = c.tid && list.find(b => b.id.startsWith(c.tid + '-'));   // même extension que chez TCGplayer
+  if (same || list.length === 1) return { id: (same || list[0]).id };
   // Plusieurs extensions : celle dont le nom ressemble à l'extension TCGplayer
   const words = s => new Set(String(s).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2));
   const gw = words(c.set);
