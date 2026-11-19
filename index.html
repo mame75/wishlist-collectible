@@ -200,7 +200,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .divider{border:0;border-top:1px solid var(--line);margin:20px 0 14px}
 .tr{font-size:12px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
-.tr.cheaper{color:#4ade80}.tr.pricier{color:#ff7b7b}
+.tr.cheaper{color:#ff7b7b}.tr.pricier{color:#4ade80}
 .tr.up{color:#4ade80}.tr.down{color:#ff7b7b}.tr.flat{color:var(--faint)}
 /* Impression choisie + page « éditions » (Yu-Gi-Oh!) */
 .ppsum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--inset)}
@@ -972,7 +972,7 @@ function makeItem(card, opts){
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
-// Évolution depuis le relevé précédent (au plus une fois par 24 h) : vert = moins cher, rouge = plus cher
+// Évolution depuis le relevé précédent (au plus une fois par 24 h) : vert = hausse, rouge = baisse
 function dayHTML(it){
   if (it.graded || it.prevPrice == null || it.priceRaw == null) return '';
   const d = it.priceRaw - it.prevPrice;
@@ -1572,15 +1572,16 @@ function trendingHTML(){
   if (!list.length) return '<div class="status">Les tendances arrivent bientôt.</div>';
   const day = trending.updated ? new Date(trending.updated).toLocaleDateString('fr-FR', { day:'numeric', month:'long' }) : '';
   return `<div class="gridhead"><h3 class="xh" style="margin:0">Cartes tendance</h3>
-      <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur Cardmarket ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
+      <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox({ name: c.name, img: c.img, set: c.set }, false, '')}
       <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div></div>
-      <div class="tprice"><b>${eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
+      <div class="tprice"><b>${c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : '<span>CM</span>'}</div>
     </button>`).join('')}</div>`;
 }
 async function openTrending(c){
+  if (!c.id){ search.q = c.q || c.name; runSearch(); return; }   // carte pas encore reliée à nos bases : on la cherche
   toast('Chargement de la carte…');
   const card = await (c.game === 'pkm' ? API.pkmCard(c.id, 'fr') : API.ygoCard(c.id, 'fr')).catch(() => null);
   if (!card){ toast('Carte indisponible pour le moment'); return; }

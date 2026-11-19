@@ -1,7 +1,9 @@
-// Construit data/trending.json : cartes Pokémon et Yu-Gi-Oh! des extensions récentes dont le prix Cardmarket monte.
-// Pokémon : TCGdex (moyenne 7 j vs 30 j de Cardmarket). Yu-Gi-Oh! : YGOPRODeck, comparé à notre propre historique
-// (data/history-ygo.json, un relevé par jour) ; tant qu'il manque une semaine d'historique, on prend les cartes les plus chères.
-import { writeFile, readFile, mkdir } from 'node:fs/promises';
+// Construit data/trending.json : cartes Pokémon et Yu-Gi-Oh! des extensions récentes dont le prix TCGplayer monte.
+// Source : tcgcsv.com (copie publique du catalogue TCGplayer) et ses archives de prix quotidiennes
+// (prix du marché aujourd'hui comparé à il y a 7 jours). Chaque carte est reliée à nos bases (TCGdex / YGOPRODeck)
+// pour ouvrir sa page sur le site.
+import { writeFile, readFile, mkdir, rm } from 'node:fs/promises';
+import { execSync } from 'node:child_process';
 const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function get(url){
@@ -11,69 +13,104 @@ async function get(url){
   }
   return null;
 }
-async function mapLimit(items, n, fn){
-  const out = new Array(items.length); let i = 0;
-  await Promise.all(Array.from({ length: n }, async () => { while (i < items.length){ const k = i++; out[k] = await fn(items[k]).catch(() => null); } }));
+const day = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
+const TCG = 'https://tcgcsv.com/tcgplayer';
+const MIN = 2;   // prix minimum ($) pour éviter le bruit des cartes communes
+
+// ---- Archives de prix : la plus récente disponible et celle d'une semaine avant
+async function archive(date){
+  const f = `/tmp/prices-${date}.7z`;
+  try {
+    const r = await fetch(`https://tcgcsv.com/archive/tcgplayer/prices-${date}.ppmd.7z`, { headers: UA });
+    if (!r.ok) return null;
+    await writeFile(f, Buffer.from(await r.arrayBuffer()));
+    execSync(`7z x -y -o/tmp/arch ${f}`, { stdio: "ignore" });
+    return date;
+  } catch { return null; }
+}
+let now = null, then = null;
+for (let d = 0; d < 4 && !now; d++) now = await archive(day(d));
+if (!now) throw new Error('aucune archive de prix récente');
+const nowDate = new Date(now + 'T00:00:00Z').getTime();
+for (let d = 7; d < 10 && !then; d++) then = await archive(new Date(nowDate - d * 864e5).toISOString().slice(0, 10));
+console.log('archives :', now, then);
+async function prices(date, cat, group){
+  if (!date) return {};
+  const j = JSON.parse(await readFile(`/tmp/arch/${date}/${cat}/${group}/prices`, 'utf8').catch(() => '{}'));
+  const out = {};
+  for (const p of j.results || []) if (p.marketPrice > 0) out[`${p.productId}|${p.subTypeName}`] = p.marketPrice;
   return out;
 }
-const today = new Date().toISOString().slice(0, 10);
-const daysAgo = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
-const MIN = 2;   // prix minimum (€) pour éviter le bruit des cartes communes
-// Les plus fortes hausses d'abord ; sans historique (Yu-Gi-Oh! la première semaine), les cartes les plus chères
-const rank = list => {
-  const ok = list.filter(c => c.price >= MIN);
-  const moving = ok.filter(c => c.change != null).sort((a, b) => b.change - a.change);
-  const rest = ok.filter(c => c.change == null).sort((a, b) => b.price - a.price);
-  return moving.length >= 12 ? moving : [...moving.filter(c => c.change > 0), ...rest, ...moving.filter(c => c.change <= 0)];
+
+// ---- Cartes des extensions récentes qui montent
+async function movers(cat){
+  const groups = ((await get(`${TCG}/${cat}/groups`)) || {}).results || [];
+  const recent = groups.filter(g => !g.isSupplemental && g.publishedOn && g.publishedOn.slice(0, 10) <= now)
+    .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn)).slice(0, 8);
+  const list = [];
+  for (const g of recent){
+    const [prods, pNow, pThen] = await Promise.all([get(`${TCG}/${cat}/${g.groupId}/products`), prices(now, cat, g.groupId), prices(then, cat, g.groupId)]);
+    for (const p of (prods && prods.results) || []){
+      const ex = Object.fromEntries((p.extendedData || []).map(e => [e.name, e.value]));
+      if (!ex.Number || !ex.Rarity) continue;   // pas une carte (booster, coffret…)
+      // Version la plus chère de la carte (normale, holo, 1re édition…)
+      let best = null;
+      for (const [k, v] of Object.entries(pNow)){
+        if (!k.startsWith(p.productId + '|')) continue;
+        const old = pThen[k];
+        if (!best || v > best.price) best = { price: v, change: old ? v / old - 1 : null };
+      }
+      if (!best || best.price < MIN || best.change == null) continue;
+      list.push({ pid: p.productId, name: p.cleanName || p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
+    }
+    console.log(cat, g.name);
+  }
+  return list.sort((a, b) => b.change - a.change).slice(0, 16);
+}
+
+// ---- Liens avec nos bases
+const clean = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+-\s+\d+\/\d+$/, '').trim();
+async function linkYgo(c){
+  const s = await get(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(c.number)}`);
+  return s && s.id ? { id: s.id } : null;
+}
+async function linkPkm(c){
+  const num = c.number.split('/')[0].replace(/^0+(?=\d)/, '');
+  const list = await get(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(clean(c.name))}&localId=eq:${encodeURIComponent(num)}`);
+  if (!Array.isArray(list) || !list.length) return null;
+  if (list.length === 1) return { id: list[0].id };
+  // Plusieurs extensions : celle dont le nom ressemble à l'extension TCGplayer
+  const words = s => new Set(String(s).toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2));
+  const gw = words(c.set);
+  let best = null, score = -1;
+  for (const b of list.slice(0, 8)){
+    const d = await get(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(b.id)}`);
+    const sw = words(d && d.set && d.set.name);
+    const sc = [...sw].filter(w => gw.has(w)).length;
+    if (sc > score){ score = sc; best = b.id; }
+  }
+  return best ? { id: best } : null;
+}
+
+const out = [];
+for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
+  for (const c of (await movers(cat)).slice(0, 12)){
+    const l = await link(c).catch(() => null);
+    out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number,
+      img: `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg`, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
+  }
+}
+// Noms français quand ils existent
+const fr = async c => {
+  if (!c.id) return;
+  if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`); if (d && d.name) c.name = d.name; }
+  else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`); if (d && d.data && d.data[0]) c.name = d.data[0].name; }
 };
-
-// ---- Pokémon
-const psets = (await get('https://api.tcgdex.net/v2/fr/sets')) || [];
-const pdet = (await mapLimit(psets.slice(-16), 4, s => get(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(s.id)}`))).filter(Boolean)
-  .filter(s => s.releaseDate && s.releaseDate <= today).sort((a, b) => b.releaseDate.localeCompare(a.releaseDate)).slice(0, 6);
-const pk = [];
-for (const s of pdet){
-  const cards = await mapLimit(s.cards || [], 8, c => get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`));
-  for (const c of cards){
-    if (!c || !c.image) continue;
-    const cm = (c.pricing && c.pricing.cardmarket) || {};
-    const n = k => { const v = Number(cm[k]); return v > 0 ? v : null; };
-    const a7 = n('avg7'), a30 = n('avg30'), price = n('low') ?? n('avg1') ?? a7;
-    if (!price) continue;
-    pk.push({ game: 'pkm', id: c.id, name: c.name, set: s.name, img: c.image + '/low.webp', price, change: a7 && a30 ? a7 / a30 - 1 : null });
-  }
-  console.log('Pokémon', s.name, cards.length);
-}
-
-// ---- Yu-Gi-Oh!
-const ysets = (await get('https://db.ygoprodeck.com/api/v7/cardsets.php')) || [];
-const yrec = ysets.filter(s => s.tcg_date && s.tcg_date <= today && s.num_of_cards >= 20)
-  .sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 6);
-const hist = JSON.parse(await readFile('data/history-ygo.json', 'utf8').catch(() => '{}'));
-const keep = {}, yg = [], seen = new Set();
-for (const s of yrec){
-  const [en, fr] = await Promise.all([
-    get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?cardset=${encodeURIComponent(s.set_name)}`),
-    get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?cardset=${encodeURIComponent(s.set_name)}&language=fr`)
-  ]);
-  const frName = Object.fromEntries(((fr && fr.data) || []).map(c => [c.id, c.name]));
-  for (const c of (en && en.data) || []){
-    if (seen.has(c.id)) continue; seen.add(c.id);
-    const price = Number(c.card_prices && c.card_prices[0] && c.card_prices[0].cardmarket_price) || null;
-    if (!price) continue;
-    const h = (hist[c.id] || []).filter(x => x[0] !== today);
-    h.push([today, price]); keep[c.id] = h.slice(-30);
-    const ref = h.filter(x => x[0] <= daysAgo(6)).pop();   // relevé d'il y a environ une semaine
-    yg.push({ game: 'ygo', id: c.id, name: frName[c.id] || c.name, set: s.set_name,
-      img: `https://images.ygoprodeck.com/images/cards_small/${c.id}.jpg`, price, change: ref ? price / ref[1] - 1 : null });
-  }
-  console.log('Yu-Gi-Oh!', s.set_name, (en && en.data || []).length);
-}
-
-// ---- Mélange des deux jeux (12 + 12, en alternance)
-const P = rank(pk).slice(0, 12), Y = rank(yg).slice(0, 12), cards = [];
+for (const c of out) await fr(c).catch(() => {});
+// Les deux jeux en alternance
+const P = out.filter(c => c.game === 'pkm'), Y = out.filter(c => c.game === 'ygo'), cards = [];
 for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i]); if (Y[i]) cards.push(Y[i]); }
 await mkdir('data', { recursive: true });
-await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), cards }));
-await writeFile('data/history-ygo.json', JSON.stringify(keep));
+await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, cards }));
+await rm('data/history-ygo.json', { force: true });
 console.log('tendances :', cards.length);
