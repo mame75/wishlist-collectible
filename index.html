@@ -1278,9 +1278,10 @@ function imgPasteHTML(has){
 }
 function bindImgPaste(onImg, onDel){
   pasteHandler = d => { onImg(d); if ($('#upDel')) $('#upDel').hidden = false; toast('Image ajoutée'); };
-  $('#upPick').onclick = () => $('#upFile').click();
-  $('#upFile').onchange = e => { const f = e.target.files[0]; if (f) toCardImage(f).then(pasteHandler).catch(() => toast("Impossible de lire cette image")); };
-  $('#upDel').onclick = () => { onDel(); $('#upDel').hidden = true; };
+  // Boutons retirés à la demande : seul le collage (Ctrl+V) reste
+  if ($('#upPick')) $('#upPick').onclick = () => $('#upFile').click();
+  if ($('#upFile')) $('#upFile').onchange = e => { const f = e.target.files[0]; if (f) toCardImage(f).then(pasteHandler).catch(() => toast("Impossible de lire cette image")); };
+  if ($('#upDel')) $('#upDel').onclick = () => { onDel(); $('#upDel').hidden = true; };
 }
 
 function versionFields(o, card){
@@ -1513,7 +1514,6 @@ function renderConfigure(card, pre){
         <div><label class="l" for="clang">Langue de la carte</label>
           <select class="field" id="clang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===card.lang?'selected':''}>${esc(langLabel(card.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...card, prints: withExtra(card) })}
-        ${imgPasteHTML(!!card.userImg)}
       </div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
@@ -1617,7 +1617,6 @@ function openDetail(i){
         <div><label class="l" for="dlang">Langue de la carte</label>
           <select class="field" id="dlang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===it.lang?'selected':''}>${esc(langLabel(it.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...it, prints: withExtra(it) })}
-        ${imgPasteHTML(!!it.userImg)}
       </div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
