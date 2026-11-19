@@ -1291,7 +1291,13 @@ async function findYgoOcg(tok){
   await mapLimit(all, 4, async c => {
     if (tok !== s.token) return;
     const jp = await ocgPrints(c.nameEn || c.name).catch(() => []);
-    c.ocgPrints = (jp || []).filter(p => !p.ea);
+    c.ocgPrints = jp || [];
+    // Carte uniquement OCG : son illustration étendue (Ultra Rare de préférence) passe en premier
+    if (!(c.prints || []).length && !c.eaPick){
+      const ea = c.ocgPrints.filter(p => p.ea && p.img);
+      const pick = ea.find(p => /^ultra rare$/i.test(p.rarity)) || ea[0];
+      if (pick) Object.assign(c, { eaChecked: true, eaPick: pick, baseImg: c.baseImg || c.img, baseImgHi: c.baseImgHi || c.imgHi, img: pick.img, imgHi: pick.img });
+    }
     if (tok === s.token && Date.now() - last > 1200){ last = Date.now(); g.cards = all.filter(x => x.ocgPrints && x.ocgPrints.length); g.briefs = g.cards; renderResults(); }
   });
   if (tok !== s.token) return;
@@ -1306,7 +1312,9 @@ function viewOf(s){
   return s.groups.intl.cards.concat(s.groups.asia.cards);
 }
 // Carte Yu-Gi-Oh! ouverte depuis l'onglet OCG : édition japonaise la plus récente, en japonais
-const ygoOcgOpen = c => { const p = c.ocgPrints.find(x => x.img) || c.ocgPrints[0];   // la plus récente qui a un scan
+const ygoOcgOpen = c => { const L = c.ocgPrints, ur = x => /^ultra rare$/i.test(x.rarity);
+  // Illustration étendue Ultra Rare d'abord, puis toute illustration étendue, puis la plus récente qui a un scan
+  const p = L.find(x => x.ea && x.img && ur(x)) || L.find(x => x.ea && x.img) || L.find(x => x.img) || L[0];
   return [{ ...c, lang:'ja', extraPrint: p, img: p.img || c.img, imgHi: p.img || c.imgHi }, { printKey: printKey(p), printCode: p.code }]; };
 
 // Les noms japonais ne ressemblent pas aux noms FR/EN : on passe par le numéro de Pokédex des cartes trouvées
@@ -1364,7 +1372,8 @@ async function showExtendedArt(g, tok){
     const nameEn = c.nameEn || c.name;
     const vars = await tcgVariants(nameEn).catch(() => []);
     if (!vars.length) return;
-    const pick = vars[vars.length - 1];   // la plus récente
+    // Illustration étendue de base : Ultra Rare la plus récente (pas une Starlight ou autre), sinon la plus récente
+    const pick = [...vars].reverse().find(v => /^ultra rare$/i.test(v.rarity)) || vars[vars.length - 1];
     const set = (c.prints || []).find(p => p.code === pick.code);
     const ea = { ...pick, set: set ? set.set : pick.set };
     const u = (await tcgScans(nameEn, [ea], c.lang).catch(() => ({})))[printKey(ea)];
@@ -1416,7 +1425,7 @@ function renderResults(msg){
   if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     if (s.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
-    renderConfigure(c.eaPick ? { ...c, extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c, c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
+    renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c, c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
   if (s.game === 'ygo' && s.market !== 'asia') showExtendedArt({ cards }, s.token);
   if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMore(moreMk, tok); if (tok === s.token) renderResults(); };
 }
