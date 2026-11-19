@@ -1273,6 +1273,8 @@ async function runSearch(){
   const s = search, tok = ++s.token;
   resetResults(s); s.mode = 'query'; s.label = `Résultats pour « ${s.q} »`;
   xf.set = ''; xf.rarity = '';
+  if (xf.autoGame){ xf.game = 'all'; xf.autoGame = false; }   // jeu choisi en ouvrant une extension : on revient aux deux jeux
+  if ($('#lurl')){ $('#lurl').value = ''; $('.xlink').open = false; }
   if (view !== 'explore') goView('explore'); else renderResults();
   await Promise.all([searchPkm(tok), searchYgo(tok)]);
 }
@@ -1455,7 +1457,7 @@ function bindXSide(){
   side.onclick = e => {
     const c = e.target.closest('.chip');
     if (c && c.id === 'xea'){ xf.ea = !xf.ea; renderResults(); return; }
-    if (c && c.parentElement.dataset.key){ xf[c.parentElement.dataset.key] = c.dataset.v; renderResults(); return; }
+    if (c && c.parentElement.dataset.key){ xf[c.parentElement.dataset.key] = c.dataset.v; if (c.parentElement.dataset.key === 'game') xf.autoGame = false; renderResults(); return; }
     if (e.target.id === 'xreset'){ xf = { game:'all', market:'all', set:'', rarity:'', min:'', max:'', ea:false }; renderResults(); }
   };
   if ($('#xset')) $('#xset').onchange = e => { xf.set = e.target.value; renderResults(); };
@@ -1516,7 +1518,7 @@ function homeHTML(){
 async function openSet(g, x){
   const s = search, tok = ++s.token;
   resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name;
-  xf = { ...xf, game: g, set: '', rarity: '' };
+  xf = { ...xf, game: g, set: '', rarity: '', autoGame: true };
   renderExplore();
   window.scrollTo(0, 0);
   if (g === 'pkm'){
