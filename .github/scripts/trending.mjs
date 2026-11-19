@@ -80,7 +80,7 @@ async function movers(cat){
       }
       if (!best || best.price < MIN || best.change == null) continue;
       stats[cat].cards++;
-      list.push({ pid: p.productId, tid: g.tid, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
+      list.push({ pid: p.productId, pimg: p.imageCount > 0, tid: g.tid, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
     }
     console.log(cat, g.name);
   }
@@ -124,17 +124,19 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
     if (seen.has(key)) continue;   // une seule fois par carte (la rareté qui monte le plus)
     seen.add(key); k++;
     out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number,
-      img: `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg`, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
+      img: c.pimg ? `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg` : null,
+      fb: game === 'ygo' && l ? `https://images.ygoprodeck.com/images/cards_small/${l.id}.jpg` : null, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
   }
 }
 // Noms français quand ils existent
 const fr = async c => {
   if (!c.id) return;
-  if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`); if (d && d.name) c.name = d.name; }
+  if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`);
+    if (d && d.name) c.name = d.name; if (d && d.image) c.fb = d.image + '/low.webp'; }
   else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`) || await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}`);
     if (d && d.data && d.data[0]) c.name = d.data[0].name; }
 };
-for (const c of out) await fr(c).catch(() => {});
+for (const c of out){ await fr(c).catch(() => {}); if (!c.img){ c.img = c.fb; c.fb = null; } }   // pas de photo TCGplayer : visuel de nos bases
 // Les deux jeux en alternance
 const P = out.filter(c => c.game === 'pkm'), Y = out.filter(c => c.game === 'ygo'), cards = [];
 for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i]); if (Y[i]) cards.push(Y[i]); }

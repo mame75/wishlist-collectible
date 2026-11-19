@@ -1574,7 +1574,7 @@ function trendingHTML(){
   return `<div class="gridhead"><h3 class="xh" style="margin:0">Cartes tendance</h3>
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
-      ${imgBox({ name: c.name, img: c.img, set: c.set }, false, '')}
+      ${imgBox({ name: c.name, img: c.img, baseImg: c.fb, set: c.set }, false, '')}
       <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div></div>
       <div class="tprice"><b>${c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : '<span>CM</span>'}</div>
