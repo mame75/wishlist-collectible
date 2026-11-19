@@ -19,10 +19,12 @@ async function mapLimit(items, n, fn){
 const today = new Date().toISOString().slice(0, 10);
 const daysAgo = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
 const MIN = 2;   // prix minimum (€) pour éviter le bruit des cartes communes
+// Les plus fortes hausses d'abord ; sans historique (Yu-Gi-Oh! la première semaine), les cartes les plus chères
 const rank = list => {
-  const up = list.filter(c => c.change != null && c.change >= 0.05 && c.price >= MIN).sort((a, b) => b.change - a.change);
-  const rest = list.filter(c => !up.includes(c) && c.price >= MIN).sort((a, b) => b.price - a.price);
-  return [...up, ...rest];
+  const ok = list.filter(c => c.price >= MIN);
+  const moving = ok.filter(c => c.change != null).sort((a, b) => b.change - a.change);
+  const rest = ok.filter(c => c.change == null).sort((a, b) => b.price - a.price);
+  return moving.length >= 12 ? moving : [...moving.filter(c => c.change > 0), ...rest, ...moving.filter(c => c.change <= 0)];
 };
 
 // ---- Pokémon
