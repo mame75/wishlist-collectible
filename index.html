@@ -573,6 +573,13 @@ async function matchPkm(L, lang){
 const YGO_RARITIES = ['Quarter-Century-Secret-Rare','Platinum-Secret-Rare','Prismatic-Secret-Rare','Starlight-Rare','Collectors-Rare','Ultimate-Rare',
   'Ghost-Rare','Secret-Rare','Ultra-Rare','Super-Rare','Gold-Rare','Premium-Gold-Rare','Parallel-Rare','Mosaic-Rare','Starfoil-Rare','Shatterfoil-Rare',
   'Short-Print','Super-Short-Print','Common','Rare'];
+// Même rareté, noms différents selon la source (nom officiel Konami / Yugipedia ↔ nom Cardmarket)
+const RARITY_ALIASES = { prismaticsecretrare: 'secretparallelrare' };
+const rnorm = r => { const n = norm(r); return Object.entries(RARITY_ALIASES).find(([a, b]) => n === b) ? Object.entries(RARITY_ALIASES).find(([a, b]) => n === b)[0] : n; };
+const sameRarity = (a, b) => rnorm(a) === rnorm(b);
+const CM_RARITY_NAME = { prismaticsecretrare: 'Secret Parallel Rare' };   // nom affiché par Cardmarket pour les éditions OCG
+const rarityLabel = p => p && p.ocg && CM_RARITY_NAME[norm(p.rarity)] ? `${p.rarity} (${CM_RARITY_NAME[norm(p.rarity)]} sur Cardmarket)` : (p ? p.rarity : '');
+
 // Extension + rareté d'après l'adresse Cardmarket (ex. …/Beyond-the-Brave/The-Great-Gallant-Bandit-V2-Ultra-Rare)
 function ygoSlugParts(slug){
   const m = slug.match(/^(.*?)-V\d+-(.+)$/);
@@ -586,7 +593,7 @@ async function printFromLink(c, url){
   if (!L || L.game !== 'ygo') return null;
   const { rarity } = ygoSlugParts(L.slug);
   const exp = norm(L.expansion), rr = rarity ? norm(unslug(rarity)) : null;
-  const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rr && norm(p.rarity) === rr) || cand[0]; };
+  const pick = list => { const cand = list.filter(p => norm(p.set) === exp); return cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0]; };
   return pick(c.prints || []) || pick(await ocgPrints(c.nameEn || c.name))
     || { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
 }
@@ -619,7 +626,7 @@ async function matchYgo(L, lang){
   }
   const exp = norm(L.expansion);
   const sets = hit.card_sets || [];
-  const print = sets.find(s => norm(s.set_name) === exp && (!rarity || norm(s.set_rarity) === norm(rarity))) || sets.find(s => norm(s.set_name) === exp);
+  const print = sets.find(s => norm(s.set_name) === exp && (!rarity || sameRarity(s.set_rarity, unslug(rarity)))) || sets.find(s => norm(s.set_name) === exp);
   if (!print){
     // Édition inconnue de YGOPRODeck : on la reprend du lien. Si elle n'est pas non plus dans la liste des éditions TCG,
     // c'est très probablement un produit japonais (OCG).
@@ -630,7 +637,7 @@ async function matchYgo(L, lang){
     // D'abord les éditions japonaises de Yugipedia (avec leur scan), sinon l'édition telle que décrite dans le lien
     const jp = await ocgPrints(hit.name);
     const cand = jp.filter(p => norm(p.set) === exp);
-    const op = cand.find(p => rarity && norm(p.rarity) === norm(unslug(rarity))) || cand[0];
+    const op = cand.find(p => rarity && sameRarity(p.rarity, unslug(rarity))) || cand[0];
     if (op) return { card: { ...c, lang:'ja', extraPrint: op }, printKey: printKey(op) };
     const lp = { code:'', set: unslug(L.expansion), rarity: rarity ? unslug(rarity) : '', link:true };
     return { card: { ...c, lang: ocg ? 'ja' : c.lang, extraPrint: lp }, printKey: printKey(lp) };
@@ -1252,7 +1259,7 @@ function printSummary(prints, key){
   const p = findPrint(prints, key);
   if (!p) return `<b>Peu importe l'impression</b><span>Choisis une édition pour avoir la bonne illustration</span>`;
   const yr = ((ygoDates || {})[p.set] || '').slice(0, 4);
-  const bits = p.link ? [p.rarity, 'édition reprise du lien Cardmarket (absente de la base)'] : [p.code, p.rarity, p.ocg ? 'OCG' : yr];
+  const bits = p.link ? [p.rarity, 'édition reprise du lien Cardmarket (absente de la base)'] : [p.code, rarityLabel(p), p.ocg ? 'OCG' : yr];
   return `<b>${esc(p.set)}</b><span>${esc(bits.filter(Boolean).join(' · '))}</span>`;
 }
 function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
