@@ -79,15 +79,16 @@ async function movers(cat){
       }
       if (!best || best.price < MIN || best.change == null) continue;
       stats[cat].cards++;
-      list.push({ pid: p.productId, name: p.cleanName || p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
+      list.push({ pid: p.productId, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
     }
     console.log(cat, g.name);
   }
-  return list.sort((a, b) => b.change - a.change).slice(0, 16);
+  return list.sort((a, b) => b.change - a.change).slice(0, 40);
 }
 
 // ---- Liens avec nos bases
-const clean = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+-\s+\d+\/\d+$/, '').trim();
+// « Mega Golurk ex - 137/103 », « Rainbow Bridge Bifrost (Starlight Rare) » → nom de la carte
+const clean = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+-\s+[A-Z]*\d+\/[A-Z]*\d+\s*$/i, '').replace(/\s+/g, ' ').trim();
 async function linkYgo(c){
   const s = await get(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(c.number)}`);
   return s && s.id ? { id: s.id } : null;
@@ -112,8 +113,13 @@ async function linkPkm(c){
 
 const out = [];
 for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
-  for (const c of (await movers(cat)).slice(0, 12)){
+  const seen = new Set(); let k = 0;
+  for (const c of await movers(cat)){
+    if (k >= 12) break;
     const l = await link(c).catch(() => null);
+    const key = l ? l.id : clean(c.name);
+    if (seen.has(key)) continue;   // une seule fois par carte (la rareté qui monte le plus)
+    seen.add(key); k++;
     out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number,
       img: `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg`, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
   }
@@ -122,7 +128,8 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
 const fr = async c => {
   if (!c.id) return;
   if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`); if (d && d.name) c.name = d.name; }
-  else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`); if (d && d.data && d.data[0]) c.name = d.data[0].name; }
+  else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`) || await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}`);
+    if (d && d.data && d.data[0]) c.name = d.data[0].name; }
 };
 for (const c of out) await fr(c).catch(() => {});
 // Les deux jeux en alternance
