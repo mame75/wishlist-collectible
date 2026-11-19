@@ -1343,7 +1343,7 @@ async function searchYgo(tok){
   if (tok !== s.token) return;
   s.ygoLoading = false; renderResults();
   findYgoOcg(tok);
-  showExtendedArt(s.ygoAll, tok);
+  showExtendedArt(s.ygoAll, tok).finally(() => loadYgoTrends(s.ygoAll, tok));
 }
 
 // Yu-Gi-Oh! OCG : cartes trouvées qui ont des éditions japonaises (Yugipedia), cherchées en arrière-plan
@@ -1456,6 +1456,40 @@ async function showExtendedArt(cards, tok, setName){
   if (tok === search.token){ search.eaLoading = false; reRender(); }
 }
 
+/* ---- Tendance des prix sur 7 jours (ventes réelles) ----
+   Pokémon : Cardmarket, moyenne des ventes 7 j vs 30 j (TCGdex). Yu-Gi-Oh! : TCGplayer, prix du marché aujourd'hui vs il y a 7 jours,
+   par impression exacte (data/tcgpx, compilé chaque jour). Hausse en vert, baisse en rouge. */
+const tcgpxSets = {};
+const tcgpxSet = pre => tcgpxSets[pre] ||= fetch(`data/tcgpx/${encodeURIComponent(pre)}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+async function tpTrend(p){
+  if (!p || p.ocg || p.link || !p.code) return null;
+  const code = String(p.code).toUpperCase(), m = await tcgpxSet(code.split('-')[0]);
+  const hits = Object.entries(m).filter(([k]) => { const [c, r] = k.split('|'); return c === code && sameRarity(r, p.rarity); });
+  const hit = hits.find(([k]) => k.endsWith('|EA') === !!p.ea) || (hits.length === 1 ? hits[0] : null);
+  return hit ? { usd: hit[1][0], change: hit[1][1] } : null;
+}
+function trendBadge(change, src){
+  if (change == null || !isFinite(change)) return '';
+  const pc = Math.round(change * 100);
+  if (Math.abs(pc) < 1) return `<span class="tr flat" title="${esc(src)}">= stable</span>`;
+  return `<span class="tr ${pc > 0 ? 'pricier' : 'cheaper'}" title="${esc(src)}">${pc > 0 ? '▲ +' : '▼ '}${pc} %</span>`;
+}
+const usd = v => v == null ? '—' : v.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' });
+function tileTrend(c){
+  if (c.game === 'pkm') return trendBadge(c.trend && c.trend.normal, 'Cardmarket : moyenne des ventes sur 7 jours comparée à 30 jours');
+  return c.tp ? trendBadge(c.tp.change, `TCGplayer : ${c.tp.p.code} · ${c.tp.p.rarity}${c.tp.p.ea ? ' (ill. étendue)' : ''}, ${usd(c.tp.usd)}, évolution sur 7 jours`) : '';
+}
+// Yu-Gi-Oh! : tendance de l'édition affichée (illustration étendue) ou de l'impression la plus récente qui a des ventes
+async function loadYgoTrends(cards, tok){
+  const dates = await getYgoDates().catch(() => ({})) || {};
+  await mapLimit((cards || []).filter(c => c.game === 'ygo' && c.tp === undefined), 6, async c => {
+    const ps = c.eaPick ? [c.eaPick] : [...(c.prints || [])].sort((a, b) => (dates[b.set] || '').localeCompare(dates[a.set] || ''));
+    c.tp = null;
+    for (const p of ps.slice(0, 6)){ const t = await tpTrend(p).catch(() => null); if (t && t.change != null){ c.tp = { ...t, p }; break; } }
+  });
+  if (tok === search.token) reRender();
+}
+
 /* ---- Filtres d'Explore ---- */
 const allCards = s => [...s.groups.intl.cards, ...s.groups.asia.cards, ...(s.ygoAll || [])];
 const inTcg = c => c.game === 'pkm' ? marketOf('pkm', c.lang) === 'intl' : (c.prints || []).length > 0;
@@ -1530,7 +1564,7 @@ function resultTiles(cards, mk){
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>${c.game === 'pkm' ? 'plus bas' : 'CM'}</span></div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.game === 'pkm' ? 'plus bas' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
 }
@@ -1640,7 +1674,7 @@ async function openSet(g, x){
     s.ygoAll = cards || [];
     s.ygoLoading = false;
     renderResults();
-    showExtendedArt(s.ygoAll, tok, x.name);   // illustrations étendues de l'extension en premier
+    showExtendedArt(s.ygoAll, tok, x.name).finally(() => loadYgoTrends(s.ygoAll, tok));   // illustrations étendues de l'extension en premier
     return;
   }
   renderResults();
@@ -2045,7 +2079,8 @@ function renderConfigure(card, pre){
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
-        ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">7 j vs 30 j</span></dd>` : ''}
+        ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
+        ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
       </dl>
       <div class="form">
         <div><label class="l" for="clang">Langue de la carte</label>
@@ -2078,8 +2113,14 @@ function renderConfigure(card, pre){
     });
   }
   // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
+  const showTp = async p => { const el = $('#tpTrend'); if (!el) return;
+    const t = p ? await tpTrend(p).catch(() => null) : null;
+    if ($('#tpTrend') !== el) return;
+    el.innerHTML = t ? `${trendBadge(t.change, 'TCGplayer, évolution sur 7 jours') || '<span class="hint">pas assez de ventes</span>'} <span class="hint">TCGplayer · ${usd(t.usd)} · 7 j</span>`
+      : `<span class="hint">${p ? 'pas de ventes TCGplayer pour cette édition' : 'choisis une édition'}</span>`; };
   const applyArt = async (key, p) => {
     p = p || findPrint(withExtra(card), key);
+    showTp(p);
     const art = await editionArt(card, p, $('#clang') ? $('#clang').value : card.lang);
     if ($('#artNote')) $('#artNote').textContent = artNote(art);
     card.holo = art && art.holo || null; card.holoR = art && art.holoR || null;
@@ -2107,6 +2148,7 @@ function renderConfigure(card, pre){
     $('#cmHint').textContent = cmHint(card, $('#cprint') ? $('#cprint').value : '', url);
   });
   if (card.game === 'ygo' && o.printKey && !card.cmImg && !card.userImg) applyArt(o.printKey);   // impression déjà connue (import par lien, changement de langue)
+  if (card.game === 'ygo'){ if (o.printKey) showTp(findPrint(withExtra(card), o.printKey)); else if (card.tp) showTp(card.tp.p); }
   // Changer de langue : on recharge le nom (et le visuel s'il diffère) dans cette langue, en gardant les choix déjà faits
   $('#clang').onchange = async e => {
     const lang = e.target.value; readVersionFields(o);

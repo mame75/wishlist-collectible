@@ -2,7 +2,7 @@
 // Source : tcgcsv.com (copie publique du catalogue TCGplayer) et ses archives de prix quotidiennes
 // (prix du marché aujourd'hui comparé à il y a 7 jours). Chaque carte est reliée à nos bases (TCGdex / YGOPRODeck)
 // pour ouvrir sa page sur le site.
-import { writeFile, readFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, readFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -149,4 +149,32 @@ for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i
 await mkdir('data', { recursive: true });
 await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, stats, cards }));
 await rm('data/history-ygo.json', { force: true });
+
+// ---- Prix TCGplayer de toutes les impressions Yu-Gi-Oh! : data/tcgpx/<PRÉFIXE>.json
+// « CODE|rareté[|EA] » → [prix du marché ($), évolution sur 7 jours] — même clé que data/tcgp (photos)
+const pidMap = {};
+for (const f of await readdir('data/tcgp').catch(() => [])){
+  const m = JSON.parse(await readFile('data/tcgp/' + f, 'utf8').catch(() => '{}'));
+  for (const [k, pid] of Object.entries(m)) pidMap[pid] = [f.replace(/\.json$/, ''), k];
+}
+async function readAll(date){
+  const out = {}; if (!date) return out;
+  const base = `/tmp/arch/${date}/2`;
+  for (const g of await readdir(base).catch(() => [])){
+    const j = JSON.parse(await readFile(`${base}/${g}/prices`, 'utf8').catch(() => '{}'));
+    for (const p of j.results || []) if (p.marketPrice > 0) (out[p.productId] ||= {})[p.subTypeName] = p.marketPrice;
+  }
+  return out;
+}
+const A = await readAll(now), B = await readAll(then), px = {};
+for (const [pid, subs] of Object.entries(A)){
+  const m = pidMap[pid]; if (!m) continue;
+  const [sub, v] = Object.entries(subs).sort((a, b) => b[1] - a[1])[0];   // version la plus chère (1re édition…)
+  const old = B[pid] && B[pid][sub];
+  (px[m[0]] ||= {})[m[1]] = [Math.round(v * 100) / 100, old ? Math.round((v / old - 1) * 1000) / 1000 : null];
+}
+await rm('data/tcgpx', { recursive: true, force: true });
+await mkdir('data/tcgpx', { recursive: true });
+for (const [pre, m] of Object.entries(px)) await writeFile(`data/tcgpx/${pre}.json`, JSON.stringify(m));
+console.log('prix Yu-Gi-Oh! :', Object.keys(px).length, 'extensions');
 console.log('tendances :', cards.length);
