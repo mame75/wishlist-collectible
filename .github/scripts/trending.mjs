@@ -76,11 +76,11 @@ async function movers(cat){
       for (const [k, v] of Object.entries(pNow)){
         if (!k.startsWith(p.productId + '|')) continue;
         const old = pThen[k];
-        if (!best || v > best.price) best = { price: v, change: old ? v / old - 1 : null };
+        if (!best || v > best.price) best = { price: v, change: old ? v / old - 1 : null, sub: k.split('|')[1] };
       }
       if (!best || best.price < MIN || best.change == null) continue;
       stats[cat].cards++;
-      list.push({ pid: p.productId, pimg: p.imageCount > 0, tid: g.tid, name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
+      list.push({ pid: p.productId, pimg: p.imageCount > 0, tid: g.tid, ea: /extended art/i.test(p.name), name: p.name, number: String(ex.Number), rarity: ex.Rarity, set: g.name, ...best });
     }
     console.log(cat, g.name);
   }
@@ -123,7 +123,7 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
     const key = l ? l.id : clean(c.name);
     if (seen.has(key)) continue;   // une seule fois par carte (la rareté qui monte le plus)
     seen.add(key); k++;
-    out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number,
+    out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number, ea: c.ea, sub: c.sub,
       img: c.pimg ? `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg` : null,
       fb: game === 'ygo' && l ? `https://images.ygoprodeck.com/images/cards_small/${l.id}.jpg` : null, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
   }

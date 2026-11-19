@@ -1575,7 +1575,8 @@ function trendingHTML(){
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox({ name: c.name, img: c.img, baseImg: c.fb, set: c.set }, false, '')}
-      <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div></div>
+      <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div>
+        <div class="tsub faint">${esc([c.number, c.rarity + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : '')].filter(Boolean).join(' · '))}</div></div>
       <div class="tprice"><b>${c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : '<span>CM</span>'}</div>
     </button>`).join('')}</div>`;
@@ -1585,7 +1586,14 @@ async function openTrending(c){
   toast('Chargement de la carte…');
   const card = await (c.game === 'pkm' ? API.pkmCard(c.id, 'fr') : API.ygoCard(c.id, 'fr')).catch(() => null);
   if (!card){ toast('Carte indisponible pour le moment'); return; }
-  renderConfigure(card);
+  // Ouvre la page sur l'édition exacte qui monte (code, rareté, illustration étendue, reverse)
+  if (c.game === 'ygo' && c.number){
+    const base = (card.prints || []).find(p => p.code === c.number && sameRarity(p.rarity, c.rarity));
+    const p = base ? (c.ea ? { ...base, ea: true } : base) : { code: c.number, set: c.set, rarity: c.rarity, ...(c.ea ? { ea: true } : {}) };
+    renderConfigure(p.ea || !base ? { ...card, extraPrint: p } : card, { printKey: printKey(p), printCode: p.code });
+    return;
+  }
+  renderConfigure(card, /reverse/i.test(c.sub || '') && card.prices.reverse != null ? { variant: 'reverse' } : null);
 }
 
 // Ouvrir une extension : toutes ses cartes dans les résultats d'Explore
