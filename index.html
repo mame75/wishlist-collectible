@@ -1231,11 +1231,30 @@ async function loadMore(market, tok){
 function resultTiles(cards){
   return `<div class="results" id="rgrid">${cards.map((c, i) => `
       <button class="tile" data-r="${i}">
-        ${imgBox(c, false, marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')}
+        ${imgBox(c, false, (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '') + (c.eaPick ? '<span class="bdg grade">Ill. étendue</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
       </button>`).join('')}
     </div>`;
+}
+
+// Résultats Yu-Gi-Oh! : si une carte existe en illustration étendue (Yugipedia), on la montre en premier
+async function showExtendedArt(g, tok){
+  const todo = g.cards.slice(0, 30).filter(c => c.game === 'ygo' && !c.eaChecked);
+  await mapLimit(todo, 3, async c => {
+    c.eaChecked = true;
+    const nameEn = c.nameEn || c.name;
+    const vars = await tcgVariants(nameEn).catch(() => []);
+    if (!vars.length) return;
+    const pick = vars[vars.length - 1];   // la plus récente
+    const set = (c.prints || []).find(p => p.code === pick.code);
+    const ea = { ...pick, set: set ? set.set : pick.set };
+    const u = (await tcgScans(nameEn, [ea], c.lang).catch(() => ({})))[printKey(ea)];
+    if (!u || tok !== search.token) return;
+    Object.assign(c, { eaPick: ea, baseImg: c.baseImg || c.img, baseImgHi: c.baseImgHi || c.imgHi, img: u, imgHi: u });
+    const i = g.cards.indexOf(c), tile = document.querySelector(`#rgrid .tile[data-r="${i}"]`);
+    if (tile) tile.outerHTML = resultTiles([c]).replace(/^<div class="results" id="rgrid">\s*/, '').replace(/<\/div>\s*$/, '').replace('data-r="0"', `data-r="${i}"`);
+  });
 }
 
 function renderResults(msg){
@@ -1270,7 +1289,10 @@ function renderResults(msg){
     s.market = b.dataset.m; const x = s.groups[s.market];
     if (s.game === 'pkm' && !x.cards.length && x.briefs.length){ x.loaded = false; renderResults(); const tok = s.token; await loadMore(s.market, tok); }
     renderResults(); };
-  if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) renderConfigure(g.cards[+t.dataset.r]); };
+  if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return; const c = g.cards[+t.dataset.r];
+    // Carte montrée en illustration étendue : on ouvre directement cette édition
+    renderConfigure(c.eaPick ? { ...c, extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c, c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
+  if (s.game === 'ygo' && s.market === 'intl') showExtendedArt(g, s.token);
   if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMore(s.market, tok); if (tok === s.token) renderResults(); };
 }
 
