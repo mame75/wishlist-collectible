@@ -1493,7 +1493,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     <div class="edgrid" id="edgrid"></div>`;
   const chips = () => {
     const n = m => all.filter(p => m === 'all' || (m === 'ocg') === !!p.ocg).length;
-    $('#edm').innerHTML = [['all','Toutes'],['tcg','TCG'],['ocg','OCG (Japon)']].map(([m, l]) =>
+    $('#edm').innerHTML = [['all','Toutes'],['tcg','TCG'],['ocg','OCG']].map(([m, l]) =>
       `<button class="chip ${mkt===m?'on':''}" data-m="${m}">${l}<span>${m === 'ocg' && ocgState === 'loading' ? '…' : n(m)}</span></button>`).join('');
     $('#edinfo').textContent = ocgState === 'loading' ? 'Recherche des éditions japonaises sur Yugipedia…'
       : mkt === 'ocg' ? 'Éditions japonaises et scans : Yugipedia' : 'De la plus rare à la moins rare';
@@ -1501,12 +1501,12 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   const draw = () => {
     chips();
     const q = ($('#edq').value || '').trim().toLowerCase();
-    // Du plus rare au moins rare ; à rareté égale : version normale puis étendue, et la plus récente d'abord
+    // TCG d'abord puis OCG ; dans chaque bloc du plus rare au moins rare ; à rareté égale : version normale puis étendue, et la plus récente d'abord
     const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)))
-      .map((p, i) => [p, i]).sort(([a, i], [b, j]) => rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
+      .map((p, i) => [p, i]).sort(([a, i], [b, j]) => !!a.ocg - !!b.ocg || rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
     $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
-          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo }, false, (p.ocg ? '<span class="bdg">JP</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
+          ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div></div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
