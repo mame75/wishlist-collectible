@@ -1500,8 +1500,7 @@ function resultTiles(cards, mk){
       <button class="tile" data-r="${i}">
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
-          + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : '')
-          + (c.eaPick && mk !== 'asia' ? '<span class="bdg grade">Ill. étendue</span>' : ''))}
+          + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
       </button>`).join('')}
