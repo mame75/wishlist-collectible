@@ -267,8 +267,8 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 {
 /* ========= Config ========= */
 const GAMES = {
-  pkm: {label:'Pokémon', langs:[['fr','FR'],['en','EN'],['ja','JP'],['de','DE'],['it','IT'],['es','ES']]},
-  ygo: {label:'Yu-Gi-Oh!', langs:[['fr','FR'],['en','EN'],['de','DE'],['it','IT'],['pt','PT'],['ja','JP']]}
+  pkm: {label:'Pokémon', langs:[['fr','FR'],['en','EN'],['ja','JP'],['de','DE'],['it','IT'],['es','ES'],['ko','KR'],['zh','CN']]},
+  ygo: {label:'Yu-Gi-Oh!', langs:[['fr','FR'],['en','EN'],['de','DE'],['it','IT'],['pt','PT'],['es','ES'],['ja','JP'],['ko','KR'],['zh','CN']]}
 };
 const GRADERS = ['PSA','CGC','BGS','PCA','Collect Aura','SGC'];
 const GRADES = ['10','9.5','9','8.5','8','7.5','7','6','5','4','3','2','1'];
@@ -471,7 +471,7 @@ const API = {
 
 /* ========= Liens marchands ========= */
 // Identifiants de langue Cardmarket (filtre des offres sur la fiche produit)
-const CM_LANG = { en:1, fr:2, de:3, es:4, it:5, ja:7, pt:8 };
+const CM_LANG = { en:1, fr:2, de:3, es:4, it:5, ja:7, pt:8, ko:10 };   // chinois : pas de filtre (simplifié et traditionnel séparés chez Cardmarket)
 // Pokémon : fiche exacte via l'identifiant Cardmarket fourni par TCGdex.
 // Yu-Gi-Oh! : recherche par code d'impression (ex. CT13-EN003) qui mène à la bonne carte, sinon par nom anglais.
 function cmUrl(it){
@@ -1037,8 +1037,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { const open
 /* ---- Ajout : étape 1, recherche ---- */
 // Marchés : International (mêmes cartes, mêmes visuels en FR/EN/DE…) et Asie / OCG (cartes et impressions différentes)
 const MARKETS = {
-  pkm: { intl:['fr','en','de','it','es'], asia:['ja'] },
-  ygo: { intl:['fr','en','de','it','pt'], asia:['ja'] }
+  pkm: { intl:['fr','en','de','it','es'], asia:['ja','ko','zh'] },
+  ygo: { intl:['fr','en','de','it','pt','es'], asia:['ja','ko','zh'] }
 };
 const marketOf = (game, lang) => MARKETS[game].asia.includes(lang) ? 'asia' : 'intl';
 const MARKET_LABEL = { intl:'TCG', asia:'OCG' };
@@ -1427,10 +1427,13 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
 function swapImg(scope, c){ const box = $(scope + ' .detail > .img'); if (box) box.outerHTML = imgBox(c, true); }
 
 // Pokémon : les langues du même marché (une carte OCG est une autre carte). Yu-Gi-Oh! : toutes, la base ne sépare pas TCG / OCG.
-function langChoices(game, lang){
-  const m = MARKETS[game], list = game === 'ygo' ? [...m.intl, ...m.asia] : m[marketOf(game, lang)];
+// Langues proposées : celles du marché de la carte (TCG : FR, EN, DE… ; OCG : JP, KR, CN)
+function langChoices(game, lang, market){
+  const list = MARKETS[game][market || marketOf(game, lang)];
   return list.includes(lang) ? list : [lang, ...list];
 }
+const langOptionsHTML = (game, lang, market) => langChoices(game, lang, market)
+  .map(l => `<option value="${l}" ${l === lang ? 'selected' : ''}>${esc(langLabel(game, l))}</option>`).join('');
 
 function withLang(link, lang){
   if (!link) return link;
@@ -1456,7 +1459,7 @@ function renderConfigure(card, pre){
       <div class="hint" id="artNote"></div>
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
-        <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Japon)' : 'TCG (international)'}</dd>
+        <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Asie)' : 'TCG (international)'}</dd>
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
@@ -1494,7 +1497,8 @@ function renderConfigure(card, pre){
     if (!fromLink && pre.cmLink && sameBase(prev, p)){ rememberLink(pre.cmLink, key); }   // même version, autre variante : le lien reste valable, on retient
     else { pre.cmLink = fromLink || null; if (!fromLink && $('#ccm')) $('#ccm').value = ''; }   // l'ancien lien correspondait à une autre édition
     // Une édition japonaise passe la carte en japonais (et inversement), comme sur Cardmarket
-    const want = p && p.ocg ? 'ja' : (p && card.lang === 'ja' && !p.link ? 'fr' : card.lang);
+    const isAsia = marketOf(card.game, card.lang) === 'asia';
+    const want = p && p.ocg ? (isAsia ? card.lang : 'ja') : (p && isAsia && !p.link ? 'fr' : card.lang);
     if (want !== card.lang){ readVersionFields(o); o.printKey = key; $('#clang').value = want; $('#clang').onchange({ target: { value: want } }); return; }
     $('#cfgCm').href = cmUrl({ ...card, printCode: p ? p.code : '', cmLink: pre.cmLink }); applyArt(key, p);
     $('#cmHint').textContent = cmHint(card, key, pre.cmLink);
@@ -1586,8 +1590,10 @@ function openDetail(i){
     const picker = bindPrintPicker(withExtra(it), async (key, p, fromLink) => {
       picked = p; userImg = undefined;   // autre édition : on affiche sa propre image (ta photo si tu en as collé une)
       if (!fromLink && $('#ccm')) $('#ccm').value = '';
-      if (p && p.ocg) $('#dlang').value = 'ja';
-      else if (p && !p.link && it.lang === 'ja' && $('#dlang').value === 'ja') $('#dlang').value = 'fr';
+      { const cur = $('#dlang').value, wasAsia = marketOf(it.game, cur) === 'asia';
+        const mk = p && p.ocg ? 'asia' : (p && !p.link ? 'intl' : marketOf(it.game, cur));
+        const lang = mk === 'asia' ? (wasAsia ? cur : 'ja') : (wasAsia ? 'fr' : cur);
+        $('#dlang').innerHTML = langOptionsHTML(it.game, lang, mk); $('#dlang').disabled = false; }
       art = await editionArt(it, p, $('#dlang').value);
       if ($('#artNote')) $('#artNote').textContent = art && art.generic ? ART_NOTE : '';
       swapImg('#detScrim', art ? { ...it, ...art } : { ...it, img: it.printArt ? null : it.img, imgHi: it.printArt ? null : it.imgHi });
