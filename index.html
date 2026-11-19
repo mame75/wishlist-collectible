@@ -199,10 +199,10 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 .hint{font-size:12.5px;color:var(--muted)}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .splitbtn{display:inline-flex;gap:2px}
-.splitbtn .pen{border-radius:999px 0 0 999px;padding:0 13px;color:var(--muted)}
+.splitbtn .pen{border-radius:0 999px 999px 0;padding:0 13px;color:var(--muted)}
 .splitbtn .pen:hover{color:var(--ink)}
 .splitbtn .pen.has{color:var(--accent)}
-.splitbtn > a{border-radius:0 999px 999px 0}
+.splitbtn > a{border-radius:999px 0 0 999px}
 .cmpanel{margin-top:12px;padding:12px 14px;border:1px solid var(--line2);border-radius:14px;background:var(--inset)}
 .divider{border:0;border-top:1px solid var(--line);margin:20px 0 14px}
 .tr{font-size:12px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -564,8 +564,8 @@ const savedLink = (c, key) => ((state.printLinks || {})[cmKey(c, key)]) || null;
 function setSavedLink(c, key, url){ state.printLinks = state.printLinks || {};
   if (url) state.printLinks[cmKey(c, key)] = url; else delete state.printLinks[cmKey(c, key)]; save(); }
 const ICON_PEN = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-// Bouton double : crayon (lien exact) + « Voir sur Cardmarket »
-const cmButtonHTML = (href, has, primary) => `<span class="splitbtn"><button type="button" class="btn pen ${has ? 'has' : ''}" id="cmPen" title="Lien exact de la fiche Cardmarket" aria-label="Modifier le lien Cardmarket">${ICON_PEN}</button><a class="btn ${primary ? 'primary' : ''}" id="cfgCm" href="${esc(href)}" target="_blank" rel="noopener">Voir sur Cardmarket</a></span>`;
+// Bouton double : « Voir sur Cardmarket » + crayon à droite (lien exact)
+const cmButtonHTML = (href, has, primary) => `<span class="splitbtn"><a class="btn ${primary ? 'primary' : ''}" id="cfgCm" href="${esc(href)}" target="_blank" rel="noopener">Voir sur Cardmarket</a><button type="button" class="btn pen ${has ? 'has' : ''}" id="cmPen" title="Lien exact de la fiche Cardmarket" aria-label="Modifier le lien Cardmarket">${ICON_PEN}</button></span>`;
 const cmPanelHTML = val => `<div class="cmpanel" id="cmPanel" hidden>
     <label class="l" for="ccm">Lien exact de la fiche Cardmarket de cette édition</label>
     <div class="row"><input class="field grow" id="ccm" type="url" placeholder="https://www.cardmarket.com/fr/…" value="${esc(val || '')}" autocomplete="off">
