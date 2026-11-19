@@ -685,7 +685,7 @@ const YP_RARITY = { C:'Common', R:'Rare', SR:'Super Rare', UR:'Ultra Rare', ScR:
   HGR:'Holographic Parallel Rare', GScR:'Gold Secret Rare', GUR:'Gold Rare', PGR:'Premium Gold Rare', PlR:'Platinum Rare',
   PlScR:'Platinum Secret Rare', MLR:'Millennium Rare', MLSR:'Millennium Super Rare', MLUR:'Millennium Ultra Rare',
   MLScR:'Millennium Secret Rare', MLGR:'Millennium Gold Rare', KCR:'Kaiba Corporation Rare', KCUR:'Kaiba Corporation Ultra Rare',
-  EScR:'Extra Secret Rare', GMR:'Grandmaster Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
+  EScR:'Extra Secret Rare', GMR:'Grand Master Rare', '20ScR':'20th Secret Rare', '10000ScR':'10000 Secret Rare', SE:'Secret Rare', P:'Parallel Rare' };
 // Galerie Yugipedia d'une carte : texte (liste des éditions) + noms des fichiers de scans
 async function ygoGallery(nameEn){
   if (!nameEn) return null;
@@ -766,17 +766,20 @@ const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté
 async function setArtInfo(setName, ocg){
   if (!setName) return null;
   const page = `Set Card Lists:${setName} (${ocg ? 'OCG-JP' : 'TCG-EN'})`;
-  return cached(`ysl:${page}`, async () => {
+  return cached(`ysl2:${page}`, async () => {
     const r = await fetch(`https://yugipedia.com/api.php?action=parse&page=${encodeURIComponent(page)}&prop=wikitext&redirects=1&format=json&origin=*`);
     if (!r.ok) return null;
     const j = await r.json(); if (!j.parse) return {};
-    const out = {};
+    const out = {}; let defaults = [];
     (j.parse.wikitext['*'] || '').split('\n').forEach(line => {
+      // En-tête d'une liste : raretés par défaut des lignes qui n'en précisent pas (« Code; Nom;; … »)
+      if (/^\{\{Set list/i.test(line)){ const m = line.match(/rarities=([^|]*)/); defaults = m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : []; return; }
       const [main, desc = ''] = line.split('//');
       const parts = main.split(';').map(s => s.trim());
       if (parts.length < 3 || !/^[A-Z0-9]+-[A-Z]{2}\w+$/i.test(parts[0])) return;
       const ea = /extended art/i.test(desc), e = out[parts[0]] = out[parts[0]] || { normal: [], ea: [] };
-      parts[2].split(',').map(s => s.trim()).filter(Boolean).forEach(rr => (ea ? e.ea : e.normal).push(norm(rr)));
+      const rr = parts[2] ? parts[2].split(',').map(s => s.trim()).filter(Boolean) : defaults;
+      rr.forEach(r => (ea ? e.ea : e.normal).push(norm(r)));
     });
     return out;
   }).catch(() => null);
