@@ -461,11 +461,23 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc6:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc7:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
+    // TCGdex donne parfois à une version Full Art / alternative le produit Cardmarket (et donc le prix) de la version normale
+    // de la même extension : dans ce cas, pas de lien exact ni de prix pour cette version plutôt qu'un prix faux
+    if (card.cmId && c.set && c.set.id){
+      const sibs = ((await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(c.name)}`).catch(() => [])) || [])
+        .filter(b => b.id !== c.id && b.id.startsWith(c.set.id + '-') && Number(b.localId) < Number(c.localId));
+      for (const b of sibs){
+        const d = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(b.id)}`).catch(() => null);
+        if (d && d.pricing && d.pricing.cardmarket && d.pricing.cardmarket.idProduct === card.cmId){
+          Object.assign(card, { cmId: null, cmShared: true, prices: { normal: null, reverse: null }, trend: null }); break;
+        }
+      }
+    }
     if (lang === 'ja'){
       const fr = await translateJa(card.name, card.dexId).catch(() => null);
       if (fr){ card.nameJa = card.name; card.name = fr; }
@@ -552,6 +564,8 @@ function cmUrl(it){
 }
 // Quand le lien Cardmarket ne peut pas tomber pile sur l'édition, on dit quoi faire une fois sur place
 function cmHint(c, key, link){
+  if (!link && c.game === 'pkm' && c.cmShared)
+    return `Notre base ne distingue pas cette version (n° ${c.num}) de la version normale sur Cardmarket : le lien ouvre la recherche par nom, choisis la carte n° ${c.num} — ou colle son lien exact dans « Lien Cardmarket exact ». Prix indisponible pour cette version.`;
   if (link || c.game !== 'ygo') return '';
   const p = findPrint(withExtra(c), key);
   if (!p) return '';
@@ -960,7 +974,7 @@ function makeItem(card, opts){
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link && !p.ocg),
     extraPrint: print && (print.link || print.ocg || print.ea) ? print : null,
-    cmId: card.cmId || null, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
+    cmId: card.cmId || null, cmShared: !!card.cmShared, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     trend: card.trend ? (card.trend[variant] ?? null) : null, printArt: !!card.printArt,
     hasReverse: card.prices.reverse != null,
@@ -1929,6 +1943,29 @@ function withLang(link, lang){
   catch(e){ return link; }
 }
 
+// Pokémon : toutes les versions d'une carte (même nom), de l'extension la plus récente à la plus ancienne
+async function pkmVersions(card){
+  const name = card.nameJa || card.name, lang = card.lang;
+  const [list, sets] = await Promise.all([
+    cached(`pv:${lang}:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []),
+    cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => [])]);
+  const order = Object.fromEntries((sets || []).map((s, i) => [s.id, { i, name: s.name }]));
+  return (list || []).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = order[sid] || { i: -1, name: sid };
+      return { id: b.id, localId: b.localId, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i }; })
+    .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true }));
+}
+async function openPkmVersions(card, onPick){
+  $('#edBody').innerHTML = '<div class="status">Recherche des versions…</div>';
+  openModal('#edScrim');
+  const vs = await pkmVersions(card);
+  if (!$('#edScrim').classList.contains('open')) return;
+  $('#edBody').innerHTML = `<div class="hint">${vs.length} version${vs.length > 1 ? 's' : ''} de « ${esc(card.name)} », de la plus récente à la plus ancienne</div>
+    <div class="edgrid" id="pvgrid">${vs.map((v, i) => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${i}">
+      ${imgBox({ name: card.name, img: v.img, set: v.set }, false, '')}
+      <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}</div></div></button>`).join('')}</div>`;
+  $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+}
+
 // Page carte : remplace l'écran d'Explore (le bouton Retour ramène aux résultats, à la même position)
 function openCardPage(){
   if (view === 'card' && $('#cardBody')) return;
@@ -1979,6 +2016,19 @@ function renderConfigure(card, pre){
       ${hintHTML(pre.ambiguous ? "Cette rareté existe aussi en illustration étendue et le lien Cardmarket ne dit pas laquelle. Si l'image ne correspond pas, choisis la bonne dans « Voir les éditions » : le site s'en souviendra pour ce lien." : cmHint(card, o.printKey || o.printCode, pre.cmLink))}
     </div></div>`;
   bindVersionFields();
+  // Pokémon : version de la carte (extension, numéro) et accès aux autres versions
+  if (card.game === 'pkm' && $('#clang')){
+    $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
+      <div class="ppsum"><div class="t"><b>${esc(card.set || '—')}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + esc(card.rarity) : ''}</span></div>
+        <button type="button" class="btn sm" id="pvOpen">Voir les versions</button></div></div>`);
+    pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les versions (${vs.length})`; }).catch(() => {});
+    $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
+      const opts = readVersionFields(o);
+      const c2 = (await API.pkmCard(v.id, card.lang).catch(() => null)) || (card.lang !== 'en' ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
+      if (c2) renderConfigure(card.lang !== 'en' && c2.lang === 'en' ? { ...c2, lang: card.lang } : c2, { variant: opts.variant, graded: opts.graded, grader: opts.grader, grade: opts.grade, priceGraded: opts.priceGraded, note: opts.note });
+      else toast('Version indisponible pour le moment');
+    });
+  }
   // Choix de l'impression (Yu-Gi-Oh!) : lien Cardmarket et illustration suivent
   const applyArt = async (key, p) => {
     p = p || findPrint(withExtra(card), key);
@@ -2158,6 +2208,7 @@ async function refreshOne(it, full){
   }
   if (c.prints) it.prints = c.prints;
   if (c.cmId) it.cmId = c.cmId;
+  if (c.cmShared){ it.cmId = null; it.cmShared = true; }
   if (c.nameEn) it.nameEn = c.nameEn;
   if (c.nameJa){ it.nameJa = c.nameJa; it.name = c.name; }
   it.refreshedAt = Date.now();
