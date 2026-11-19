@@ -60,7 +60,8 @@ async function recentNames(cat){
 const stats = {};
 async function movers(cat){
   const groups = ((await get(`${TCG}/${cat}/groups`)) || {}).results || [];
-  const names = await recentNames(cat);
+  let names = await recentNames(cat);
+  if (!names.length){ await sleep(5000); names = await recentNames(cat); }   // base momentanément injoignable : on réessaie
   // « ME02: Phantasmal Flames » ↔ « Phantasmal Flames »
   const recent = names.map(x => { const g = groups.find(g => n(g.name) === n(x.name)) || groups.find(g => n(g.name).endsWith(' ' + n(x.name)));
     return g && { ...g, tid: x.tid }; }).filter(Boolean);
@@ -138,7 +139,12 @@ const fr = async c => {
 };
 for (const c of out){ await fr(c).catch(() => {}); if (!c.img){ c.img = c.fb; c.fb = null; } }   // pas de photo TCGplayer : visuel de nos bases
 // Les deux jeux en alternance
-const P = out.filter(c => c.game === 'pkm'), Y = out.filter(c => c.game === 'ygo'), cards = [];
+// Si un jeu n'a rien donné aujourd'hui (base injoignable), on garde ses tendances de la veille
+const prev = JSON.parse(await readFile('data/trending.json', 'utf8').catch(() => '{}')).cards || [];
+let P = out.filter(c => c.game === 'pkm'), Y = out.filter(c => c.game === 'ygo');
+if (!P.length) P = prev.filter(c => c.game === 'pkm');
+if (!Y.length) Y = prev.filter(c => c.game === 'ygo');
+const cards = [];
 for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i]); if (Y[i]) cards.push(Y[i]); }
 await mkdir('data', { recursive: true });
 await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, stats, cards }));
