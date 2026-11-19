@@ -200,6 +200,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 .divider{border:0;border-top:1px solid var(--line);margin:20px 0 14px}
 .tr{font-size:12px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tr.cheaper{color:#4ade80}.tr.pricier{color:#ff7b7b}
 .tr.up{color:#4ade80}.tr.down{color:#ff7b7b}.tr.flat{color:var(--faint)}
 /* Impression choisie + page « éditions » (Yu-Gi-Oh!) */
 .ppsum{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--inset)}
@@ -444,7 +445,8 @@ const API = {
       imgHi: c.image ? c.image + '/high.webp' : (CUSTOM_IMG[c.id] || null),
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
-      prices: { normal: pick('avg30','avg','trend'), reverse: pick('avg30-holo','avg-holo','trend-holo') },
+      // Prix affiché : le plus bas de Cardmarket (toutes langues) ; à défaut la moyenne
+      prices: { normal: pick('low','avg1','avg7','avg30','avg','trend'), reverse: pick('low-holo','avg1-holo','avg7-holo','avg30-holo','avg-holo','trend-holo') },
       trend: { normal: ratio(cm.avg7, cm.avg30), reverse: ratio(cm['avg7-holo'], cm['avg30-holo']) },
       prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
@@ -458,7 +460,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc5:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc6:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -963,12 +965,19 @@ function makeItem(card, opts){
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
-    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(),
+    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 2, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
+// Évolution depuis le relevé précédent (au plus une fois par 24 h) : vert = moins cher, rouge = plus cher
+function dayHTML(it){
+  if (it.graded || it.prevPrice == null || it.priceRaw == null) return '';
+  const d = it.priceRaw - it.prevPrice;
+  if (Math.abs(d) < 0.005) return '';
+  return `<span class="tr ${d < 0 ? 'cheaper' : 'pricier'}" title="Depuis le relevé précédent : ${eur(it.prevPrice)}">${d < 0 ? '▼' : '▲'} ${eur(Math.abs(d))}</span>`;
+}
 function trendHTML(t){
   if (t == null || !isFinite(t)) return '';
   const p = Math.round(t * 100);
@@ -1035,7 +1044,7 @@ function tileHTML(it, i){
       <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${(!it.graded && trendHTML(it.trend)) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Moy. 30 j'}</span>`}</div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Plus bas'}</span>`}</div>
   </button>`;
 }
 
@@ -1502,7 +1511,7 @@ function resultTiles(cards, mk){
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>moy.</span></div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b><span>${c.game === 'pkm' ? 'plus bas' : 'CM'}</span></div>
       </button>`).join('')}
     </div>`;
 }
@@ -1908,7 +1917,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">7 j vs 30 j</span></dd>` : ''}
       </dl>
       <div class="form">
@@ -1997,8 +2006,8 @@ function openDetail(i){
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
       <div class="hint" id="artNote"></div>
-      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen Cardmarket'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
-      ${!it.graded && it.trend != null ? `<div style="margin-top:4px">${trendHTML(it.trend)} <span class="hint">moyenne 7 jours vs 30 jours</span></div>` : ''}
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas Cardmarket (toutes langues)'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      ${dayHTML(it) ? `<div style="margin-top:4px">${dayHTML(it)} <span class="hint">depuis le relevé précédent (${eur(it.prevPrice)})</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
@@ -2084,10 +2093,15 @@ function openDetail(i){
 
 /* ========= Actualisation des prix ========= */
 async function refreshOne(it, full){
-  if (it.manual) return;   // carte créée depuis Cardmarket, absente de nos bases
+  if (it.manual){ it.pv = 2; it.priceAt = Date.now(); return; }   // carte créée depuis Cardmarket, absente de nos bases
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
-  if (!it.cmPrice) it.priceRaw = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
+  if (!it.cmPrice){
+    const p = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
+    if (it.pv !== 2){ it.prevPrice = null; it.priceAt = Date.now(); it.pv = 2; }   // ancien prix (moyenne) : pas de comparaison
+    else if (!it.priceAt || Date.now() - it.priceAt > 20 * 3600e3){ if (it.priceRaw != null) it.prevPrice = it.priceRaw; it.priceAt = Date.now(); }
+    it.priceRaw = p;
+  } else { it.pv = 2; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
   it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
@@ -2240,6 +2254,10 @@ if (m) openShared(m[1]); else {
   view = state.items.length ? 'wishlist' : 'explore';
   render();
   if (cmh){ history.replaceState(null, '', location.pathname); let d = null; try { d = JSON.parse(b64d(cmh[1])); } catch(e){} importFromCm(d); }
+  // Prix relevés il y a plus de 24 h (ou ancien mode de prix) : actualisation automatique en arrière-plan
+  const stale = state.items.filter(it => it.pv !== 2 || Date.now() - (it.priceAt || 0) > 24 * 3600e3);
+  if (stale.length){ forceFresh = true;
+    mapLimit(stale, 3, it => refreshOne(it).catch(() => {})).finally(() => { forceFresh = false; save(); render(); }); }
   // Complète les cartes ajoutées avant la V1.1 (identifiant Cardmarket, nom anglais)
   const old = state.items.filter(it => it.game === 'pkm' ? !it.cmId : !it.nameEn);
   if (old.length) mapLimit(old, 4, refreshOne).then(() => { save(); render(); });
