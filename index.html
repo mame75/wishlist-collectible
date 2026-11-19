@@ -1271,7 +1271,7 @@ function mergeIntl(fr, en){
 
 async function runSearch(){
   const s = search, tok = ++s.token;
-  resetResults(s); s.mode = 'query'; s.label = `Résultats pour « ${s.q} »`;
+  resetResults(s); s.mode = 'query'; s.label = `Résultats pour « ${s.q} »`; s.isSet = false;
   xf.set = ''; xf.rarity = '';
   if (xf.autoGame){ xf.game = 'all'; xf.autoGame = false; }   // jeu choisi en ouvrant une extension : on revient aux deux jeux
   if ($('#lurl')){ $('#lurl').value = ''; $('.xlink').open = false; }
@@ -1379,7 +1379,7 @@ async function loadMore(market, tok){
 
 
 // Résultats Yu-Gi-Oh! : si une carte existe en illustration étendue (Yugipedia), on la montre en premier (Ultra Rare de préférence)
-async function showExtendedArt(cards, tok){
+async function showExtendedArt(cards, tok, setName){
   const todo = cards.filter(c => c.game === 'ygo' && !c.eaChecked && (c.prints || []).length);
   if (!todo.length) return;
   search.eaLoading = true;
@@ -1389,7 +1389,10 @@ async function showExtendedArt(cards, tok){
     const nameEn = c.nameEn || c.name;
     const vars = await tcgVariants(nameEn).catch(() => []);
     if (!vars.length) return;
-    const pick = [...vars].reverse().find(v => /^ultra rare$/i.test(v.rarity)) || vars[vars.length - 1];
+    // Page d'une extension : seulement l'illustration étendue de cette extension
+    const inSet = setName ? vars.filter(v => (c.prints || []).some(p => p.code === v.code && p.set === setName)) : vars;
+    if (!inSet.length) return;
+    const pick = [...inSet].reverse().find(v => /^ultra rare$/i.test(v.rarity)) || inSet[inSet.length - 1];
     const set = (c.prints || []).find(p => p.code === pick.code);
     const ea = { ...pick, set: set ? set.set : pick.set };
     const u = (await tcgScans(nameEn, [ea], c.lang).catch(() => ({})))[printKey(ea)];
@@ -1471,8 +1474,7 @@ function resultTiles(cards, mk){
   return `<div class="results" id="rgrid">${cards.map((c, i) => `
       <button class="tile" data-r="${i}">
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
-          `<span class="bdg">${c.game === 'pkm' ? 'Pokémon' : 'Yu-Gi-Oh!'}</span>`
-          + (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
+          (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : '')
           + (c.eaPick && mk !== 'asia' ? '<span class="bdg grade">Ill. étendue</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
@@ -1517,7 +1519,7 @@ function homeHTML(){
 // Ouvrir une extension : toutes ses cartes dans les résultats
 async function openSet(g, x){
   const s = search, tok = ++s.token;
-  resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name;
+  resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name; s.isSet = true;
   xf = { ...xf, game: g, set: '', rarity: '', autoGame: true };
   renderExplore();
   window.scrollTo(0, 0);
@@ -1540,6 +1542,9 @@ async function openSet(g, x){
     if (tok !== s.token) return;
     s.ygoAll = cards || [];
     s.ygoLoading = false;
+    renderResults();
+    showExtendedArt(s.ygoAll, tok, x.name);   // illustrations étendues de l'extension en premier
+    return;
   }
   renderResults();
 }
@@ -1568,7 +1573,7 @@ function renderResults(msg){
   const moreMk = xf.game === 'ygo' ? null : xf.market !== 'all' ? (s.groups[xf.market].shown < s.groups[xf.market].briefs.length ? xf.market : null)
     : ['intl','asia'].find(m => s.groups[m].shown < s.groups[m].briefs.length) || null;
   const busy = [s.pkmBusy && 'Pokémon', s.ygoLoading && 'Yu-Gi-Oh!', s.ocgLoading && 'éditions OCG', s.eaLoading && 'illustrations étendues'].filter(Boolean);
-  const head = `<div class="gridhead"><h3 class="xh" style="margin:0">${esc(s.label)}</h3>
+  const head = `<div class="gridhead">${s.isSet ? '<button class="btn ghost sm" id="setBack">← Extensions</button>' : ''}<h3 class="xh" style="margin:0">${esc(s.label)}</h3>
       <span class="count">${cards.length} carte${cards.length > 1 ? 's' : ''}</span>
       ${busy.length ? `<span class="hint">Recherche : ${busy.join(', ')}…</span>` : ''}</div>`;
   let body;
@@ -1585,6 +1590,8 @@ function renderResults(msg){
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
       c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
   if ($('#moreBtn')) $('#moreBtn').onclick = async () => { $('#moreBtn').textContent = 'Chargement…'; const tok = s.token; await loadMore(moreMk, tok); if (tok === s.token) renderResults(); };
+  if ($('#setBack')) $('#setBack').onclick = () => { s.token++; resetResults(s); s.mode = 'home'; s.isSet = false;
+    if (xf.autoGame){ xf.game = 'all'; xf.autoGame = false; } xf.set = xf.rarity = ''; renderResults(); window.scrollTo(0, 0); };
   if (focusId && $('#' + focusId)){ const el = $('#' + focusId); el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch(e){} }
 }
 
