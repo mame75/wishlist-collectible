@@ -2126,7 +2126,7 @@ async function openPkmVersions(card, onPick){
   const tok = ++edToken;
   let mk = marketOf('pkm', card.lang) === 'asia' ? 'ocg' : 'all';
   $('#edBody').innerHTML = `<div class="edhead">
-      <div class="search">${ICON_SEARCH}<input class="field" id="pvq" type="search" placeholder="Filtrer : extension, numéro, rareté…" autocomplete="off"></div>
+      <div class="search">${ICON_SEARCH}<input class="field" id="pvq" type="search" placeholder="Filtrer : extension, rareté…" autocomplete="off"></div>
       <div class="chips" id="pvm"></div></div>
     <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
     <div class="edgrid" id="pvgrid"></div>`;
@@ -2138,7 +2138,7 @@ async function openPkmVersions(card, onPick){
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm" }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg && !v.tcgpj ? ' · ' + esc(v.name) : ''}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div></div></button>`).join('')
+        <div><div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div></div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
