@@ -177,4 +177,21 @@ await rm('data/tcgpx', { recursive: true, force: true });
 await mkdir('data/tcgpx', { recursive: true });
 for (const [pre, m] of Object.entries(px)) await writeFile(`data/tcgpx/${pre}.json`, JSON.stringify(m));
 console.log('prix Yu-Gi-Oh! :', Object.keys(px).length, 'extensions');
+
+// ---- Guide des prix Cardmarket (fichier publié chaque jour) : data/cmpg/<jeu>-<tranche>.json
+// n° de produit Cardmarket → [moyenne 7 j, moyenne 30 j, plus bas, tendance, moyenne 7 j foil/holo, moyenne 30 j foil/holo]
+await rm('data/cmpg', { recursive: true, force: true });
+await mkdir('data/cmpg', { recursive: true });
+for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
+  const j = await get(`https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_${id}.json`);
+  const list = (j && j.priceGuides) || [];
+  const r2 = v => v == null ? null : Math.round(v * 100) / 100;
+  const buckets = {};
+  for (const g of list){
+    const f = g['avg7-foil'] ?? g['avg7-holo'], f30 = g['avg30-foil'] ?? g['avg30-holo'];
+    (buckets[Math.floor(g.idProduct / 20000)] ||= {})[g.idProduct] = [r2(g.avg7), r2(g.avg30), r2(g.low), r2(g.trend), r2(f), r2(f30)];
+  }
+  for (const [b, m] of Object.entries(buckets)) await writeFile(`data/cmpg/${game}-${b}.json`, JSON.stringify(m));
+  console.log('guide Cardmarket', game, list.length);
+}
 console.log('tendances :', cards.length);

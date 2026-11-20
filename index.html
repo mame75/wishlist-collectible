@@ -1097,7 +1097,7 @@ function tileHTML(it, i){
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Moy. 7 j'}</span>`}</div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : it.priceSrc === 'cm7' || (it.game === 'pkm' && !it.cmPrice) ? 'Moy. 7 j' : 'Prix CM'}</span>`}</div>
   </button>`;
 }
 
@@ -2236,7 +2236,7 @@ function openDetail(i){
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
       <div class="hint" id="artNote"></div>
-      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Moyenne des ventes Cardmarket sur 7 jours'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.priceSrc === 'cm7' ? 'Moyenne des ventes Cardmarket sur 7 jours (cette édition)' : it.game === 'ygo' ? 'Prix Cardmarket' : 'Moyenne des ventes Cardmarket sur 7 jours'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
       ${dayHTML(it) ? `<div style="margin-top:4px">${dayHTML(it)} <span class="hint">depuis le relevé précédent (${eur(it.prevPrice)})</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
@@ -2331,16 +2331,18 @@ function openDetail(i){
 
 /* ========= Actualisation des prix ========= */
 async function refreshOne(it, full){
-  if (it.manual){ it.pv = 3; it.priceAt = Date.now(); return; }   // carte créée depuis Cardmarket, absente de nos bases
+  if (it.manual){ if (!(await applyCmGuide(it).catch(() => false))){ it.pv = 3; it.priceAt = Date.now(); } return; }   // carte créée depuis Cardmarket, absente de nos bases
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
-  if (!it.cmPrice){
+  const viaGuide = await applyCmGuide(it).catch(() => false);   // produit Cardmarket exact connu : son guide des prix
+  if (viaGuide){}
+  else if (!it.cmPrice){
     const p = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
     if (it.pv !== 3){ it.prevPrice = null; it.priceAt = Date.now(); it.pv = 3; }   // ancien mode de prix : pas de comparaison
     else if (!it.priceAt || Date.now() - it.priceAt > 20 * 3600e3){ if (it.priceRaw != null) it.prevPrice = it.priceRaw; it.priceAt = Date.now(); }
     it.priceRaw = p;
   } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
-  it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
+  if (!viaGuide) it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
   if (full){   // après un changement de langue : nom et infos dans la nouvelle langue
@@ -2445,7 +2447,11 @@ function bmkSource(){
   var p = price(/30 jours|30-day|30 days/); if (p == null) p = price(/tendance|trend/); if (p == null) p = price(/partir|from/);
   var from = price(/partir|^from|^de$/);   // « À partir de » / « De » : la première offre (filtres de la page appliqués)
   var lg = (location.search.match(/[?&]language=(\d+)/) || [])[1] || '';
-  var d = { u: location.href, img: img, name: title.replace(/\s*\(V\.[^)]*\)\s*$/, '').trim(), price: p, from: from, lg: lg, num: nk ? info[nk] : '', rar: rar || (rm ? rm[1].trim() : '') };
+  // Numéro de produit Cardmarket de la fiche (champ caché des formulaires, sinon première mention dans la page)
+  var pidEl = q('input[name="idProduct"]') || q('[data-id-product]') || q('[data-product-id]');
+  var pid = pidEl ? (pidEl.value || pidEl.getAttribute('data-id-product') || pidEl.getAttribute('data-product-id')) : '';
+  if (!pid){ var mm = document.documentElement.innerHTML.match(/idProduct["'=:\s]+(\d{4,})/); pid = mm ? mm[1] : ''; }
+  var d = { u: location.href, img: img, name: title.replace(/\s*\(V\.[^)]*\)\s*$/, '').trim(), price: p, from: from, lg: lg, pid: pid, num: nk ? info[nk] : '', rar: rar || (rm ? rm[1].trim() : '') };
   var s = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   window.open(SITE + '#cm=' + s, '_blank');
 }
@@ -2459,6 +2465,25 @@ const canLoad = (src, ms = 5000) => new Promise(res => {
   i.referrerPolicy = 'no-referrer'; i.src = src;
 });
 // Arrivée depuis le favori : on retrouve la carte dans nos bases ; l'image, le prix et le lien viennent de Cardmarket
+// Guide des prix Cardmarket (data/cmpg, compilé chaque jour) : moyenne des ventes 7 j / 30 j du produit exact
+const cmpgSets = {};
+const cmpgOf = async (game, pid) => { pid = Number(pid); if (!pid) return null;
+  const f = `${game}-${Math.floor(pid / 20000)}`;
+  const m = await (cmpgSets[f] ||= fetch(`data/cmpg/${f}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})));
+  return m[pid] || null; };
+// Carte reliée à son produit Cardmarket : prix = moyenne des ventes 7 j de ce produit, tendance 7 j vs 30 j
+async function applyCmGuide(it){
+  if (!it.cmPid) return false;
+  const g = await cmpgOf(it.game, it.cmPid).catch(() => null); if (!g) return false;
+  const rev = it.variant === 'reverse' && (g[4] != null || g[5] != null);
+  const avg7 = rev ? g[4] : g[0], avg30 = rev ? g[5] : g[1];
+  const p = avg7 ?? avg30 ?? g[3] ?? g[2]; if (p == null) return false;
+  if (it.priceSrc !== 'cm7'){ it.prevPrice = null; it.priceAt = Date.now(); }   // nouvelle source : pas de comparaison
+  else if (!it.priceAt || Date.now() - it.priceAt > 20 * 3600e3){ if (it.priceRaw != null) it.prevPrice = it.priceRaw; it.priceAt = Date.now(); }
+  Object.assign(it, { priceRaw: p, priceSrc: 'cm7', cmPrice: false, pv: 3, trend: avg7 && avg30 ? avg7 / avg30 - 1 : null });
+  return true;
+}
+
 // Prix « De » de Cardmarket (première offre dans la langue filtrée), relevé par le favori « + Wishlist »
 const CM_LANG_CODE = Object.fromEntries(Object.entries(CM_LANG).map(([k, v]) => [String(v), k]));
 function cmFromOf(d){ const v = num(d && d.from); return v == null ? null : { v, lang: CM_LANG_CODE[d.lg] || '', at: Date.now() }; }
@@ -2469,8 +2494,9 @@ function setCmFrom(it, f){
 }
 // Cartes de la wishlist qui correspondent à une fiche Cardmarket (lien enregistré, lien exact, ou n° de produit Pokémon)
 function itemsForCm(url){
-  const id = linkId(url), pid = (String(url).match(/idProduct=(\d+)/) || [])[1];
-  return state.items.filter(it => (id && [it.cmLink, savedLink(it, itemKey(it))].some(u => u && linkId(u) === id)) || (pid && String(it.cmId) === pid));
+  const id = linkId(url), pid = (String(url).match(/idProduct=(\d+)/) || [])[1] || (cmPidHint || '');
+  return state.items.filter(it => (id && [it.cmLink, savedLink(it, itemKey(it))].some(u => u && linkId(u) === id))
+    || (pid && (String(it.cmId) === String(pid) || String(it.cmPid) === String(pid))));
 }
 const agoText = t => { const d = Math.floor((Date.now() - t) / 864e5); return d <= 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d} jours`; };
 function fromHTML(c, long){
@@ -2481,13 +2507,16 @@ function fromHTML(c, long){
     : `<div class="tfrom" title="Prix à partir de (Cardmarket), ${agoText(f.at)}">À partir de <b>${eur(f.v)}</b> <span>· ${agoText(f.at)}</span> ${arrow}</div>`;
 }
 
+let cmPidHint = '';
 async function importFromCm(d){
   const L = parseCmLink((d && d.u) || '');
+  cmPidHint = (d && /^\d{4,}$/.test(String(d.pid || '')) && String(d.pid)) || '';
   // Carte déjà dans la wishlist : on met seulement à jour son prix « De »
   const known = L ? itemsForCm(L.url) : [];
   const f = cmFromOf(d);
   if (known.length && f){
-    known.forEach(it => setCmFrom(it, f)); save();
+    for (const it of known){ setCmFrom(it, f); if (cmPidHint){ it.cmPid = cmPidHint; await applyCmGuide(it).catch(() => {}); } }
+    save();
     filters = { ...filters, q: '' }; goView('wishlist');
     toast(`${known[0].name} : prix à partir de mis à jour, ${eur(f.v)}${f.lang ? ' (' + langLabel(known[0].game, f.lang) + ')' : ''}`);
     return;
@@ -2518,7 +2547,9 @@ async function importFromCm(d){
     const art = await editionArt(card, findPrint(withExtra(card), key), lang).catch(() => null);
     if (art) card = { ...card, img: art.img, imgHi: art.imgHi, printArt: true, holo: art.holo || null, holoR: art.holoR || null, userImg: art.user ? art.img : null };
   }
-  state.items.push(makeItem(card, { printKey: key, printCode: (res && res.printCode) || '', cmLink: url })); save();
+  const added = makeItem(card, { printKey: key, printCode: (res && res.printCode) || '', cmLink: url });
+  if (cmPidHint){ added.cmPid = cmPidHint; await applyCmGuide(added).catch(() => {}); }
+  state.items.push(added); save();
   filters = { ...filters, q: '' }; goView('wishlist');
   toast(`${card.name} ajoutée à ta wishlist${res && res.ambiguous ? ' · vérifie l\'édition sur sa fiche' : ''}`);
 }
