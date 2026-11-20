@@ -498,11 +498,16 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc10:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc11:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
+    // Sigle officiel de l'extension (OBF, PAF…) pour l'afficher devant son nom
+    if (c.set && c.set.id){
+      card.setAb = await cached(`psab2:${lang}:${c.set.id}`, () => this.getJSON(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(c.set.id)}`)
+        .then(d => d && d.abbreviation ? (d.abbreviation.official || d.abbreviation.localized || '') : '')).catch(() => '');
+    }
     // TCGdex donne parfois à une version Full Art / alternative le produit Cardmarket (et donc le prix) de la version normale
     // de la même extension : dans ce cas, pas de lien exact ni de prix pour cette version plutôt qu'un prix faux
     if (card.cmId && c.set && c.set.id){
@@ -1651,7 +1656,7 @@ function resultTiles(cards, mk){
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.game === 'pkm' ? (c.set || '') : (c.set || (c.prints ? c.prints.length + ' impression(s)' : '')))}</div></div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.game === 'pkm' ? (c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) : (c.set || (c.prints ? c.prints.length + ' impression(s)' : '')))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;

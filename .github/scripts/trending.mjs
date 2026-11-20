@@ -142,7 +142,12 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
 const fr = async c => {
   if (!c.id) return;
   if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`);
-    if (d && d.name) c.name = d.name; if (d && d.image) c.fb = d.image + '/low.webp'; }
+    if (d && d.name) c.name = d.name; if (d && d.image) c.fb = d.image + '/low.webp';
+    // Extension en français avec son sigle officiel (« OBF: Flammes Obsidiennes »)
+    if (d && d.set && d.set.id){ const s = await get(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(d.set.id)}`);
+      const ab = s && s.abbreviation ? (s.abbreviation.official || s.abbreviation.localized || '') : '';
+      const nm = (s && s.name) || d.set.name;
+      if (nm) c.set = ab && !nm.startsWith(ab) ? `${ab}: ${nm}` : nm; } }
   else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`) || await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}`);
     if (d && d.data && d.data[0]) c.name = d.data[0].name; }
 };
