@@ -5,5 +5,113 @@
  "exact": 43218,
  "paired": 8100,
  "skipped": 36571,
- "sample": {}
+ "debug": [
+  {
+   "n": "darkmagicianthepharaohsservant",
+   "set": "Magnificent Monsters",
+   "products": [
+    [
+     904532,
+     2.19
+    ],
+    [
+     904534,
+     130.79
+    ],
+    [
+     904535,
+     451.35
+    ],
+    [
+     904536,
+     24175
+    ]
+   ],
+   "prints": [
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN001",
+     "rarity": "Grand Master Rare"
+    },
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN001",
+     "rarity": "Starlight Rare"
+    },
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN001",
+     "rarity": "Ultra Rare"
+    }
+   ],
+   "tpKeys": [
+    [
+     "MAMO-EN001|starlightrare|EA",
+     1043.86
+    ],
+    [
+     "MAMO-EN001|ultrarare",
+     2.56
+    ],
+    [
+     "MAMO-EN001|ultrarare|EA",
+     119.16
+    ]
+   ]
+  },
+  {
+   "n": "kuribohmultiply",
+   "set": "Magnificent Monsters",
+   "products": [
+    [
+     904537,
+     4.33
+    ],
+    [
+     904538,
+     53.54
+    ],
+    [
+     904539,
+     150.68
+    ],
+    [
+     904540,
+     3318.48
+    ]
+   ],
+   "prints": [
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN002",
+     "rarity": "Grand Master Rare"
+    },
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN002",
+     "rarity": "Starlight Rare"
+    },
+    {
+     "set": "Magnificent Monsters",
+     "code": "MAMO-EN002",
+     "rarity": "Ultra Rare"
+    }
+   ],
+   "tpKeys": [
+    [
+     "MAMO-EN002|starlightrare|EA",
+     332.89
+    ],
+    [
+     "MAMO-EN002|ultrarare",
+     5.05
+    ],
+    [
+     "MAMO-EN002|ultrarare|EA",
+     67.6
+    ]
+   ]
+  }
+ ],
+ "sample0": {}
 }
