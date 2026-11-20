@@ -172,11 +172,18 @@ select.field option{background:var(--surface)}
 .settile:hover{transform:translateY(-3px);border-color:var(--line2)}
 .settile .lg{height:72px;display:flex;align-items:center;justify-content:center;background:var(--inset);border-radius:10px;overflow:hidden;margin-bottom:4px}
 .settile .lg img{max-height:62px;max-width:90%;object-fit:contain}
-.cardpage{padding:22px 0 80px}
-.cphead{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.cphead h2{margin:0;font-size:15px;color:var(--muted);font-weight:700}
-.cardpage .detail{grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:36px}
-.cardpage .detail .img{max-width:360px}
+/* Overlay fiche carte */
+.modal.xl{width:min(1180px,100%)}
+#cardPage .mhead h2,#detScrim .mhead h2{font-size:15px;color:var(--muted);font-weight:700}
+#cardPage .detail,#detScrim .detail{grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:36px}
+#cardPage .detail .img,#detScrim .detail .img{max-width:380px}
+.navbtn{position:fixed;top:50%;transform:translateY(-50%);z-index:55;width:52px;height:52px;border-radius:999px;border:1px solid var(--line2);
+  background:rgba(13,15,19,.9);color:var(--ink);font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.navbtn:hover{border-color:var(--accent);color:var(--accent)}
+.navbtn.prev{left:18px}.navbtn.next{right:18px}
+.navbtn[hidden]{display:none}
+body.noscroll{overflow:hidden}
+@media(max-width:900px){.navbtn{top:auto;bottom:16px;transform:none}}
 
 /* Modales */
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(6px);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto}
@@ -294,12 +301,22 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 
 <main class="wrap" id="main"></main>
 
-<!-- Modale : détail d'une carte -->
+<!-- Overlay : fiche d'une carte (Explore, Sets) -->
+<div class="scrim" id="cardScrim">
+  <div class="modal xl" role="dialog" aria-modal="true" aria-labelledby="cardTitle"><section id="cardPage">
+    <div class="mhead"><h2 id="cardTitle">Carte</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div id="cardBody"></div>
+  </section></div>
+  <button class="navbtn prev" data-nav="-1" aria-label="Carte précédente" hidden>‹</button><button class="navbtn next" data-nav="1" aria-label="Carte suivante" hidden>›</button>
+</div>
+
+<!-- Overlay : fiche d'une carte de la wishlist -->
 <div class="scrim" id="detScrim">
-  <div class="modal sm" role="dialog" aria-modal="true">
+  <div class="modal xl" role="dialog" aria-modal="true">
     <div class="mhead"><h2 id="detTitle">Carte</h2><button class="x" data-close aria-label="Fermer">×</button></div>
     <div id="detBody"></div>
   </div>
+  <button class="navbtn prev" data-nav="-1" aria-label="Carte précédente" hidden>‹</button><button class="navbtn next" data-nav="1" aria-label="Carte suivante" hidden>›</button>
 </div>
 
 <!-- Modale : éditions d'une carte (au-dessus des autres) -->
@@ -1238,7 +1255,9 @@ function render(){
     if (e.target.id === 'resetF'){ Object.assign(filters, { game:'all', market:'all', cond:'all', min:'', max:'' }); render(); }
   };
   $('#filtersToggle').onclick = () => { sideOpen = !sideOpen; render(); };
-  $('#grid').onclick = e => { const t = e.target.closest('.tile'); if (t) openDetail(+t.dataset.i); };
+  $('#grid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return;
+    const pos = rows.findIndex(r => r.i === +t.dataset.i);
+    setNav(rows.length, pos, j => openDetail(rows[j].i)); openDetail(+t.dataset.i); };
   if ($('#emptyAdd')) $('#emptyAdd').onclick = () => $('#addBtn').click();
   if ($('#refreshBtn')) $('#refreshBtn').onclick = refreshPrices;
   if ($('#leaveShared')) $('#leaveShared').onclick = () => { shared = null; history.replaceState(null, '', location.pathname); render(); };
@@ -1249,15 +1268,27 @@ function render(){
 }
 
 /* ========= Modales ========= */
-function openModal(id){ $(id).classList.add('open'); }
+function openModal(id){ $(id).classList.add('open'); document.body.classList.add('noscroll'); }
 // Fermer une fenêtre vide aussi son contenu (évite que deux formulaires partagent les mêmes champs)
 function closeModal(id){ const s = typeof id === 'string' ? $(id) : id; s.classList.remove('open');
-  if (s.id === 'addScrim' || s.id === 'detScrim') pasteHandler = null;
-  const b = s.querySelector('#addBody, #detBody, #edBody'); if (b) b.innerHTML = ''; if (s.id === 'edScrim') edToken++; }
+  if (s.id === 'cardScrim' || s.id === 'detScrim'){ pasteHandler = null; cardNav = null; }
+  const b = s.querySelector('#cardBody, #detBody, #edBody'); if (b) b.innerHTML = ''; if (s.id === 'edScrim') edToken++;
+  if (!document.querySelector('.scrim.open')) document.body.classList.remove('noscroll'); }
+// Navigation carte précédente / suivante dans l'overlay (résultats, tendances, wishlist)
+let cardNav = null;   // { n, i, go(i) }
+function setNav(n, i, go){ cardNav = n > 1 ? { n, i, go } : null; updateNav(); }
+function updateNav(){ document.querySelectorAll('.navbtn').forEach(b => { const j = cardNav ? cardNav.i + Number(b.dataset.nav) : -1;
+  b.hidden = !cardNav || j < 0 || j >= cardNav.n; }); }
+function navStep(d){ if (!cardNav) return; const j = cardNav.i + d; if (j < 0 || j >= cardNav.n) return; cardNav.i = j; updateNav(); cardNav.go(j); }
 document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', e => {
+  const nb = e.target.closest('[data-nav]'); if (nb){ navStep(Number(nb.dataset.nav)); return; }
   if (e.target === s || e.target.closest('[data-close]')) closeModal(s);
 }));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { const open = [...document.querySelectorAll('.scrim.open')]; if (open.length) closeModal(open.find(s => s.id === 'edScrim') || open[open.length - 1]); } });
+document.addEventListener('keydown', e => {
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && cardNav && !$('#edScrim').classList.contains('open')
+      && ($('#cardScrim').classList.contains('open') || $('#detScrim').classList.contains('open'))
+      && !/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '')){ e.preventDefault(); navStep(e.key === 'ArrowLeft' ? -1 : 1); return; }
+  if (e.key === 'Escape') { const open = [...document.querySelectorAll('.scrim.open')]; if (open.length) closeModal(open.find(s => s.id === 'edScrim') || open[open.length - 1]); } });
 
 /* ---- Ajout : étape 1, recherche ---- */
 // Marchés : International (mêmes cartes, mêmes visuels en FR/EN/DE…) et Asie / OCG (cartes et impressions différentes)
@@ -1749,7 +1780,9 @@ function renderResults(msg){
   if (s.mode === 'home'){
     side.innerHTML = xSideHTML(s, [], true); bindXSide();
     box.innerHTML = trendingHTML();
-    if ($('#tgrid')) $('#tgrid').onclick = e => { const t = e.target.closest('.tile'); if (t) openTrending((trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game)[+t.dataset.t]); };
+    if ($('#tgrid')) $('#tgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return;
+      const list = (trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game);
+      setNav(list.length, +t.dataset.t, j => openTrending(list[j])); openTrending(list[+t.dataset.t]); };
     return;
   }
   const list = allCards(s), cards = list.filter(c => xMatch(c));
@@ -1769,7 +1802,12 @@ function renderResults(msg){
       + ((s.ygoAll || []).length >= 60 && s.q ? '<div class="hint" style="margin-top:10px">Yu-Gi-Oh! : 60 premiers résultats, précise ta recherche.</div>' : '');
   }
   box.innerHTML = head + body;
+  const openResult = c => {
+    if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
+    renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
+      c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
   if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
+    setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
@@ -2097,16 +2135,11 @@ async function openPkmVersions(card, onPick){
 }
 
 // Page carte : remplace l'écran d'Explore (le bouton Retour ramène aux résultats, à la même position)
+// Fiche d'une carte : overlay par-dessus la page (la page reste en place derrière)
 function openCardPage(){
-  if (view === 'card' && $('#cardBody')) return;
-  if (view === 'explore') xScroll = window.scrollY;
-  view = 'card';
-  $('#main').innerHTML = `<section class="cardpage" id="cardPage">
-      <div class="cphead"><button class="btn ghost sm" id="cpBack">← Retour</button><h2 id="cardTitle"></h2></div>
-      <div id="cardBody"></div></section>`;
-  render();   // met à jour la barre d'onglets (la page carte reste affichée)
-  $('#cpBack').onclick = () => goView('explore');
-  window.scrollTo(0, 0);
+  const s = $('#cardScrim');
+  if (!s.classList.contains('open')){ openModal('#cardScrim'); s.scrollTop = 0; }
+  updateNav();
 }
 function renderConfigure(card, pre){
   pre = pre || {};
@@ -2233,7 +2266,8 @@ function renderConfigure(card, pre){
     if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
     state.items.push(makeItem(card, { ...opts, cmLink: chk.url })); save();
     filters = { ...filters, q:'' };
-    goView('explore');
+    closeModal('#cardScrim');
+    if (view === 'wishlist') render();
     toast(`${card.name} ajoutée à ta wishlist`);
   };
 }
