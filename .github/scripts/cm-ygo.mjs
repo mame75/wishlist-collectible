@@ -46,6 +46,7 @@ for (const [id, list] of Object.entries(byExp)){
     const tpKeys = prints.flatMap(x => Object.keys(tp).filter(k => k.startsWith(x.code + '|') && k.split('|')[1] === norm(x.rarity)).map(k => ({ ...x, key: k, usd: tp[k] })));
     if (ps.length === 1 && prints.length === 1){ put(prints[0].code, `${prints[0].code}|${norm(prints[0].rarity)}`, ps[0]); stats.exact++; continue; }
     const cands = tpKeys.length === ps.length ? tpKeys : null;
+    if (/pharaohsservant|kuribohmultiply/.test(n)) (stats.debug ||= []).push({ n, set, products: ps.map(p => [p.idProduct, (price[p.idProduct] || {}).trend]), prints, tpKeys: tpKeys.map(x => [x.key, x.usd]) });
     if (!cands){ stats.skipped += ps.length; continue; }
     const byCm = [...ps].sort((a, b) => ((price[b.idProduct] || {}).trend || 0) - ((price[a.idProduct] || {}).trend || 0));
     const byTp = [...cands].sort((a, b) => b.usd - a.usd);
@@ -56,5 +57,5 @@ await rm('data/cmy', { recursive: true, force: true });
 await mkdir('data/cmy', { recursive: true });
 for (const [pre, m] of Object.entries(out)) await writeFile(`data/cmy/${pre}.json`, JSON.stringify(m));
 await mkdir('data/probe', { recursive: true });
-await writeFile('data/probe/cmy-stats.json', JSON.stringify({ ...stats, sample: out.MAMO && Object.fromEntries(Object.entries(out.MAMO).filter(([k]) => /EN00[12]\|/.test(k))) }, null, 1));
+await writeFile('data/probe/cmy-stats.json', JSON.stringify({ ...stats, sample0: out.MAMO && Object.fromEntries(Object.entries(out.MAMO).filter(([k]) => /EN00[12]\|/.test(k))) }, null, 1));
 console.log(stats);
