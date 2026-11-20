@@ -2513,7 +2513,15 @@ async function importFromCm(d){
   if (d.img && !/product-images\.s3\.cardmarket\.com/.test(d.img) && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
   if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
   if (f) card = { ...card, cmFrom: f };
-  renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
+  // Ajout direct à la wishlist (sans passer par la page de la carte), avec l'illustration de l'édition
+  const key = (res && res.printKey) || '';
+  if (card.game === 'ygo' && key && !card.cmImg){
+    const art = await editionArt(card, findPrint(withExtra(card), key), lang).catch(() => null);
+    if (art) card = { ...card, img: art.img, imgHi: art.imgHi, printArt: true, holo: art.holo || null, holoR: art.holoR || null, userImg: art.user ? art.img : null };
+  }
+  state.items.push(makeItem(card, { printKey: key, printCode: (res && res.printCode) || '', cmLink: url })); save();
+  filters = { ...filters, q: '' }; goView('wishlist');
+  toast(`${card.name} ajoutée à ta wishlist${res && res.ambiguous ? ' · vérifie l\'édition sur sa fiche' : ''}`);
 }
 
 /* ========= Navigation & démarrage ========= */
