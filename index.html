@@ -2114,7 +2114,7 @@ function renderConfigure(card, pre){
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
-        ${card.cmFrom ? `<dt>Prix « De »</dt><dd>${fromHTML(card, true)}</dd>` : ''}
+        ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
       </dl>
       <div class="form">
@@ -2241,7 +2241,7 @@ function openDetail(i){
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
-        <dt>Prix « De »</dt><dd>${it.cmFrom ? fromHTML(it, true) : '<span class="hint">sur la fiche Cardmarket (filtrée dans ta langue), clique sur ton favori « + Wishlist » pour relever le premier prix</span>'}</dd>
+        <dt>Prix à partir de</dt><dd>${it.cmFrom ? fromHTML(it, true) : '<span class="hint">sur la fiche Cardmarket (filtrée dans ta langue), clique sur ton favori « + Wishlist » pour relever le premier prix</span>'}</dd>
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
         ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
@@ -2472,14 +2472,13 @@ function itemsForCm(url){
   const id = linkId(url), pid = (String(url).match(/idProduct=(\d+)/) || [])[1];
   return state.items.filter(it => (id && [it.cmLink, savedLink(it, itemKey(it))].some(u => u && linkId(u) === id)) || (pid && String(it.cmId) === pid));
 }
-const agoText = t => { const d = Math.floor((Date.now() - t) / 864e5); return d <= 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d} j`; };
+const agoText = t => { const d = Math.floor((Date.now() - t) / 864e5); return d <= 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d} jours`; };
 function fromHTML(c, long){
   const f = c.cmFrom; if (!f) return '';
-  const lg = f.lang ? ` ${esc(langLabel(c.game, f.lang))}` : '';
   const d = c.cmFromPrev != null ? f.v - c.cmFromPrev : 0;
   const arrow = Math.abs(d) >= 0.005 ? `<span class="tr ${d > 0 ? 'pricier' : 'cheaper'}" title="Relevé précédent : ${eur(c.cmFromPrev)}">${d > 0 ? '▲' : '▼'} ${eur(Math.abs(d))}</span>` : '';
-  return long ? `<b>${eur(f.v)}</b>${lg} ${arrow} <span class="hint">relevé ${agoText(f.at)} avec « + Wishlist »</span>`
-    : `<div class="tfrom" title="Prix « De » Cardmarket, relevé ${agoText(f.at)}">De <b>${eur(f.v)}</b>${lg} <span>· ${agoText(f.at)}</span> ${arrow}</div>`;
+  return long ? `<b>${eur(f.v)}</b> ${arrow} <span class="hint">${agoText(f.at)}</span>`
+    : `<div class="tfrom" title="Prix à partir de (Cardmarket), ${agoText(f.at)}">À partir de <b>${eur(f.v)}</b> <span>· ${agoText(f.at)}</span> ${arrow}</div>`;
 }
 
 async function importFromCm(d){
@@ -2490,7 +2489,7 @@ async function importFromCm(d){
   if (known.length && f){
     known.forEach(it => setCmFrom(it, f)); save();
     filters = { ...filters, q: '' }; goView('wishlist');
-    toast(`${known[0].name} : prix « De » mis à jour, ${eur(f.v)}${f.lang ? ' (' + langLabel(known[0].game, f.lang) + ')' : ''}`);
+    toast(`${known[0].name} : prix à partir de mis à jour, ${eur(f.v)}${f.lang ? ' (' + langLabel(known[0].game, f.lang) + ')' : ''}`);
     return;
   }
   const s = search; resetResults(s); s.mode = 'link'; s.link = { url: (d && d.u) || '' };
