@@ -607,13 +607,13 @@ function cmUrl(it){
 // Quand le lien Cardmarket ne peut pas tomber pile sur l'édition, on dit quoi faire une fois sur place
 function cmHint(c, key, link){
   if (!link && c.game === 'pkm' && c.cmShared)
-    return `Notre base ne distingue pas cette version (n° ${c.num}) de la version normale sur Cardmarket : le lien ouvre la recherche par nom, choisis la carte n° ${c.num} — ou colle son lien exact dans « Lien Cardmarket exact ». Prix affiché : TCGplayer (marché américain, converti en euros).`;
+    return `Notre base ne distingue pas cette version (n° ${c.num}) de la version normale sur Cardmarket : le lien ouvre la recherche par nom, choisis la carte n° ${c.num} — ou enregistre son lien exact avec le crayon à côté de « Voir sur Cardmarket ». Prix affiché : TCGplayer (marché américain, converti en euros).`;
   if (link || c.game !== 'ygo') return '';
   const p = findPrint(withExtra(c), key);
   if (!p) return '';
-  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats — ou colle le lien exact dans « Lien Cardmarket exact ».`;
+  if (p.ocg || p.link) return `Cardmarket ne reconnaît pas les codes japonais : le lien ouvre la recherche par nom. Choisis « ${p.set} » dans les résultats — ou enregistre le lien exact avec le crayon à côté de « Voir sur Cardmarket ».`;
   if ((c.prints || []).filter(x => x.code === p.code).length > 1)
-    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions — ou colle le lien exact de cette version dans « Lien Cardmarket exact ».`;
+    return `Ce code existe en plusieurs raretés : Cardmarket ouvre la première version. Sur la fiche, choisis la ${p.rarity} dans les versions — ou enregistre le lien exact de cette version avec le crayon à côté de « Voir sur Cardmarket ».`;
   return '';
 }
 // Lien collé par l'utilisateur : doit être une fiche de carte Cardmarket ; on aligne le filtre de langue sur la carte
