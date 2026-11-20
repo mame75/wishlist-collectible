@@ -2101,10 +2101,17 @@ async function pkmVersions(card){
     setsOf(tl), setsOf('ja')]);
   const map = (list, sets, ocg) => { const seen = new Set();
     return (list || []).filter(b => b && !isPocketCard(b.id) && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
-      return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
+      return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, sid, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
     .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true })); };
   const tcg = map(tcgL, tSets, false);
   let ocg = map(ocgL, oSets, true);
+  // Sigle de l'extension devant son nom, comme pour les éditions japonaises (« DDP: Destinées de Paldea », « SV6: 変幻の仮面 »)
+  await Promise.all([...new Set(tcg.map(v => v.sid))].map(async sid => {
+    const ab = await cached(`psab:${tl}:${sid}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/sets/${encodeURIComponent(sid)}`)
+      .then(d => d && d.abbreviation ? (d.abbreviation.localized || d.abbreviation.official || '') : '')).catch(() => '');
+    if (ab) tcg.filter(v => v.sid === sid).forEach(v => { v.set = `${ab}: ${v.set}`; });
+  }));
+  ocg.forEach(v => { if (v.sid && !String(v.set).startsWith(v.sid)) v.set = `${v.sid}: ${v.set}`; });
   // Pas d'édition japonaise dans TCGdex (Dresseurs, Objets… sans n° de Pokédex) : catalogue japonais de TCGplayer, par nom anglais
   if (!ocg.length && intl){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
