@@ -457,8 +457,8 @@ const API = {
       imgHi: c.image ? c.image + '/high.webp' : (CUSTOM_IMG[c.id] || null),
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
-      // Prix affiché : le plus bas de Cardmarket (toutes langues) ; à défaut la moyenne
-      prices: { normal: pick('low','avg1','avg7','avg30','avg','trend'), reverse: pick('low-holo','avg1-holo','avg7-holo','avg30-holo','avg-holo','trend-holo') },
+      // Prix affiché : moyenne des ventes Cardmarket sur 7 jours (le « plus bas » mélange les langues : une copie étrangère isolée le fausse)
+      prices: { normal: pick('avg7','avg1','avg30','avg','trend','low'), reverse: pick('avg7-holo','avg1-holo','avg30-holo','avg-holo','trend-holo','low-holo') },
       trend: { normal: ratio(cm.avg7, cm.avg30), reverse: ratio(cm['avg7-holo'], cm['avg30-holo']) },
       prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
@@ -472,7 +472,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc7:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc8:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -1016,7 +1016,7 @@ function makeItem(card, opts){
     hasReverse: card.prices.reverse != null,
     graded: !!opts.graded, grader: opts.grader || 'PSA', grade: opts.grade || '10',
     priceGraded: opts.priceGraded ?? null,
-    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 2, prevPrice: null,
+    note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 3, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     cmFrom: card.cmFrom || null, cmFromPrev: null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
@@ -1097,7 +1097,7 @@ function tileHTML(it, i){
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Plus bas'}</span>`}</div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Moy. 7 j'}</span>`}</div>
   </button>`;
 }
 
@@ -1599,7 +1599,7 @@ function resultTiles(cards, mk){
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.game === 'pkm' ? 'plus bas' : 'CM'}</span>`}</div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
 }
@@ -2112,7 +2112,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen (7 j)'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
         ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
@@ -2236,7 +2236,7 @@ function openDetail(i){
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
       <div class="hint" id="artNote"></div>
-      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas Cardmarket (toutes langues)'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.game === 'ygo' ? 'Prix Cardmarket' : 'Moyenne des ventes Cardmarket sur 7 jours'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
       ${dayHTML(it) ? `<div style="margin-top:4px">${dayHTML(it)} <span class="hint">depuis le relevé précédent (${eur(it.prevPrice)})</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
@@ -2331,15 +2331,15 @@ function openDetail(i){
 
 /* ========= Actualisation des prix ========= */
 async function refreshOne(it, full){
-  if (it.manual){ it.pv = 2; it.priceAt = Date.now(); return; }   // carte créée depuis Cardmarket, absente de nos bases
+  if (it.manual){ it.pv = 3; it.priceAt = Date.now(); return; }   // carte créée depuis Cardmarket, absente de nos bases
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
   if (!it.cmPrice){
     const p = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
-    if (it.pv !== 2){ it.prevPrice = null; it.priceAt = Date.now(); it.pv = 2; }   // ancien prix (moyenne) : pas de comparaison
+    if (it.pv !== 3){ it.prevPrice = null; it.priceAt = Date.now(); it.pv = 3; }   // ancien mode de prix : pas de comparaison
     else if (!it.priceAt || Date.now() - it.priceAt > 20 * 3600e3){ if (it.priceRaw != null) it.prevPrice = it.priceRaw; it.priceAt = Date.now(); }
     it.priceRaw = p;
-  } else { it.pv = 2; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
+  } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
   it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
@@ -2536,7 +2536,7 @@ if (m) openShared(m[1]); else {
   render();
   if (cmh){ history.replaceState(null, '', location.pathname); let d = null; try { d = JSON.parse(b64d(cmh[1])); } catch(e){} importFromCm(d); }
   // Prix relevés il y a plus de 24 h (ou ancien mode de prix) : actualisation automatique en arrière-plan
-  const stale = state.items.filter(it => it.pv !== 2 || Date.now() - (it.priceAt || 0) > 24 * 3600e3);
+  const stale = state.items.filter(it => it.pv !== 3 || Date.now() - (it.priceAt || 0) > 24 * 3600e3);
   if (stale.length){ forceFresh = true;
     mapLimit(stale, 3, it => refreshOne(it).catch(() => {})).finally(() => { forceFresh = false; save(); render(); }); }
   // Complète les cartes ajoutées avant la V1.1 (identifiant Cardmarket, nom anglais)
