@@ -2,116 +2,65 @@
  "products": 87889,
  "expansions": 1185,
  "mappedExp": 985,
- "exact": 43218,
- "paired": 8100,
- "skipped": 36571,
- "debug": [
-  {
-   "n": "darkmagicianthepharaohsservant",
-   "set": "Magnificent Monsters",
-   "products": [
-    [
-     904532,
-     2.19
-    ],
-    [
-     904534,
-     130.79
-    ],
-    [
-     904535,
-     451.35
-    ],
-    [
-     904536,
-     24175
-    ]
-   ],
-   "prints": [
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN001",
-     "rarity": "Grand Master Rare"
-    },
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN001",
-     "rarity": "Starlight Rare"
-    },
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN001",
-     "rarity": "Ultra Rare"
-    }
-   ],
-   "tpKeys": [
-    [
-     "MAMO-EN001|starlightrare|EA",
-     1043.86
-    ],
-    [
-     "MAMO-EN001|ultrarare",
-     2.56
-    ],
-    [
-     "MAMO-EN001|ultrarare|EA",
-     119.16
-    ]
-   ]
-  },
-  {
-   "n": "kuribohmultiply",
-   "set": "Magnificent Monsters",
-   "products": [
-    [
-     904537,
-     4.33
-    ],
-    [
-     904538,
-     53.54
-    ],
-    [
-     904539,
-     150.68
-    ],
-    [
-     904540,
-     3318.48
-    ]
-   ],
-   "prints": [
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN002",
-     "rarity": "Grand Master Rare"
-    },
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN002",
-     "rarity": "Starlight Rare"
-    },
-    {
-     "set": "Magnificent Monsters",
-     "code": "MAMO-EN002",
-     "rarity": "Ultra Rare"
-    }
-   ],
-   "tpKeys": [
-    [
-     "MAMO-EN002|starlightrare|EA",
-     332.89
-    ],
-    [
-     "MAMO-EN002|ultrarare",
-     5.05
-    ],
-    [
-     "MAMO-EN002|ultrarare|EA",
-     67.6
-    ]
-   ]
-  }
- ],
- "sample0": {}
+ "exact": 44458,
+ "paired": 6947,
+ "skipped": 36484,
+ "sample": {
+  "MAMO-EN001|grandmasterrare": [
+   19587.5,
+   19587.5,
+   18499,
+   24175,
+   904536
+  ],
+  "MAMO-EN001|starlightrare|EA": [
+   513.75,
+   593.34,
+   548.7,
+   451.35,
+   904535
+  ],
+  "MAMO-EN001|ultrarare|EA": [
+   129.02,
+   128.18,
+   118,
+   130.79,
+   904534
+  ],
+  "MAMO-EN001|ultrarare": [
+   2.14,
+   2.23,
+   0.89,
+   2.19,
+   904532
+  ],
+  "MAMO-EN002|grandmasterrare": [
+   2887.5,
+   2887.5,
+   2799,
+   3318.48,
+   904540
+  ],
+  "MAMO-EN002|starlightrare|EA": [
+   218.68,
+   261.67,
+   160,
+   150.68,
+   904539
+  ],
+  "MAMO-EN002|ultrarare|EA": [
+   51.53,
+   52.68,
+   39.89,
+   53.54,
+   904538
+  ],
+  "MAMO-EN002|ultrarare": [
+   4.48,
+   4.99,
+   2.8,
+   4.33,
+   904537
+  ]
+ }
 }
