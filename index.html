@@ -2004,7 +2004,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     // TCG d'abord puis OCG ; dans chaque bloc du plus rare au moins rare ; à rareté égale : version normale puis étendue, et la plus récente d'abord
     const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)))
       .map((p, i) => [p, i]).sort(([a, i], [b, j]) => !!a.ocg - !!b.ocg || rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
-    $('#edgrid').innerHTML = (q ? '' : `<button class="ed any ${!selKey ? 'on' : ''}" data-k="">Peu importe l'impression</button>`)
+    $('#edgrid').innerHTML = ''
       + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo, holoR: p.rarity }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div></div>
@@ -2123,21 +2123,37 @@ async function openPkmVersions(card, onPick){
   openModal('#edScrim');
   const vs = await pkmVersions(card);
   if (!$('#edScrim').classList.contains('open')) return;
+  const tok = ++edToken;
   let mk = marketOf('pkm', card.lang) === 'asia' ? 'ocg' : 'all';
+  $('#edBody').innerHTML = `<div class="edhead">
+      <div class="search">${ICON_SEARCH}<input class="field" id="pvq" type="search" placeholder="Filtrer : extension, numéro, rareté…" autocomplete="off"></div>
+      <div class="chips" id="pvm"></div></div>
+    <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
+    <div class="edgrid" id="pvgrid"></div>`;
   const draw = () => {
+    const q = ($('#pvq').value || '').trim().toLowerCase();
     const n = m => vs.filter(v => m === 'all' || (m === 'ocg') === v.ocg).length;
-    const rows = vs.filter(v => mk === 'all' || (mk === 'ocg') === v.ocg);
-    $('#edBody').innerHTML = `<div class="edhead"><div class="chips" id="pvm">${[['all','Toutes'],['tcg','TCG'],['ocg','OCG']].map(([m, l]) =>
-        `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('')}</div></div>
-      <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
-      <div class="edgrid" id="pvgrid">${rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
+    $('#pvm').innerHTML = [['all','Toutes'],['tcg','TCG'],['ocg','OCG']].map(([m, l]) =>
+      `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('');
+    const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
+    $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm" }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg && !v.tcgpj ? ' · ' + esc(v.name) : ''}</div>${v.rarity ? `<div class="rr">${esc(v.rarity)}</div>` : ''}</div></button>`).join('')
-        || '<div class="status" style="grid-column:1/-1">Aucune édition trouvée.</div>'}</div>`;
-    $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
-    $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+        <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg && !v.tcgpj ? ' · ' + esc(v.name) : ''}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div></div></button>`).join('')
+      || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
+  $('#pvq').oninput = draw;
+  $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
+  $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+  // Raretés : la liste de TCGdex ne les donne pas, on les complète carte par carte (mémorisées)
+  await mapLimit(vs.filter(v => !v.rarity && !v.tcgpj), 6, async v => {
+    if (tok !== edToken) return;
+    const r = await cached(`prr:${v.lang}:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/${v.lang}/cards/${encodeURIComponent(v.id)}`)
+      .then(d => d && !/^(none|sans raret[ée])$/i.test(d.rarity || '') ? (d.rarity || '') : '')).catch(() => '');
+    if (tok !== edToken || !r) return;
+    v.rarity = r;
+    const el = document.querySelector(`#pvgrid [data-rr="${CSS.escape(v.id)}"]`); if (el) el.textContent = r;
+  });
 }
 
 // Page carte : remplace l'écran d'Explore (le bouton Retour ramène aux résultats, à la même position)
@@ -2152,7 +2168,7 @@ function renderConfigure(card, pre){
   openCardPage();
   card = { ...card, baseImg: card.baseImg || card.img, baseImgHi: card.baseImgHi || card.imgHi };
   { const ua = getUserArt(card, pre.printKey || ''); if (ua) card = { ...card, img: ua, imgHi: ua, userImg: ua, printArt: true }; }
-  $('#cardTitle').textContent = card.game === 'pkm' ? 'Carte Pokémon' : 'Carte Yu-Gi-Oh!';
+  $('#cardTitle').textContent = '';
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '',
               cmLinkInput: pre.cmLink || '' };
