@@ -1,0 +1,252 @@
+{
+ "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_3.json": {
+  "status": 200,
+  "size": 17657545,
+  "head": "{\"version\":1,\"createdAt\":\"2026-11-20T02:44:07+0100\",\"priceGuides\":[{\"idProduct\":101788,\"idCategory\":5,\"avg\":0.13,\"low\":0.02,\"trend\":0.12,\"avg1\":0.03,\"avg7\":0.17,\"avg30\":0.12,\"avg-foil\":null,\"low-foil\":null,\"trend-foil\":0.1,\"avg1-foil\":0.11,\"avg7-foil\":0.15,\"avg30-foil\":0.15},{\"idProduct\":101789,\"idCategory\":5,\"avg\":0.14,\"low\":0.02,\"trend\":0.15,\"avg1\":0.02,\"avg7\":0.07,\"avg30\":0.11,\"avg-foil\":null,\"low-foil\":null,\"trend-foil\":0.03,\"avg1-foil\":0.02,\"avg7-foil\":0.03,\"avg30-foil\":0.07},{\"idProduct\":101790,\"idCategory\":5,\"avg\":0.14,\"low\":0.02,\"trend\":0.13,\"avg1\":0.13,\"avg7\":0.13,\"avg30\":0.15,\"avg-foil\":null,\"low-foil\":null,\"trend-foil\":0.02,\"avg1-foil\":0.05,\"avg7-foil\":0.08,\"avg30-foil\":0.3},{\"idP",
+  "keys": [
+   "version",
+   "createdAt",
+   "priceGuides"
+  ],
+  "count": 90310,
+  "first": [
+   {
+    "idProduct": 101788,
+    "idCategory": 5,
+    "avg": 0.13,
+    "low": 0.02,
+    "trend": 0.12,
+    "avg1": 0.03,
+    "avg7": 0.17,
+    "avg30": 0.12,
+    "avg-foil": null,
+    "low-foil": null,
+    "trend-foil": 0.1,
+    "avg1-foil": 0.11,
+    "avg7-foil": 0.15,
+    "avg30-foil": 0.15
+   },
+   {
+    "idProduct": 101789,
+    "idCategory": 5,
+    "avg": 0.14,
+    "low": 0.02,
+    "trend": 0.15,
+    "avg1": 0.02,
+    "avg7": 0.07,
+    "avg30": 0.11,
+    "avg-foil": null,
+    "low-foil": null,
+    "trend-foil": 0.03,
+    "avg1-foil": 0.02,
+    "avg7-foil": 0.03,
+    "avg30-foil": 0.07
+   }
+  ],
+  "sample": []
+ },
+ "https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_3.json": {
+  "status": 200,
+  "size": 14848909,
+  "head": "{\"version\":1,\"createdAt\":\"2026-11-19T13:50:00+0100\",\"products\":[{\"idProduct\":101788,\"name\":\"\\\"\\\"A\\\"\\\" Cell Breeding Device\",\"idCategory\":5,\"categoryName\":\"Yugioh Single\",\"idExpansion\":1011,\"idMetacard\":101779,\"dateAdded\":\"2007-01-01 00:00:00\"},{\"idProduct\":101789,\"name\":\"3-Hump Lacooda\",\"idCategory\":5,\"categoryName\":\"Yugioh Single\",\"idExpansion\":1012,\"idMetacard\":101780,\"dateAdded\":\"2007-01-01 00:00:00\"},{\"idProduct\":101790,\"name\":\"3-Hump Lacooda\",\"idCategory\":5,\"categoryName\":\"Yugioh Single\",\"idExpansion\":1013,\"idMetacard\":101780,\"dateAdded\":\"2007-01-01 00:00:00\"},{\"idProduct\":101791,\"name\":\"4-Starred Ladybug of Doom\",\"idCategory\":5,\"categoryName\":\"Yugioh Single\",\"idExpansion\":1014,\"idMetac",
+  "keys": [
+   "version",
+   "createdAt",
+   "products"
+  ],
+  "count": 87889,
+  "first": [
+   {
+    "idProduct": 101788,
+    "name": "\"\"A\"\" Cell Breeding Device",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 1011,
+    "idMetacard": 101779,
+    "dateAdded": "2007-01-01 00:00:00"
+   },
+   {
+    "idProduct": 101789,
+    "name": "3-Hump Lacooda",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 1012,
+    "idMetacard": 101780,
+    "dateAdded": "2007-01-01 00:00:00"
+   }
+  ],
+  "sample": [
+   {
+    "idProduct": 104984,
+    "name": "Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 1012,
+    "idMetacard": 103680,
+    "dateAdded": "2007-01-01 00:00:00"
+   },
+   {
+    "idProduct": 104985,
+    "name": "Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 1013,
+    "idMetacard": 103680,
+    "dateAdded": "2007-01-01 00:00:00"
+   },
+   {
+    "idProduct": 702733,
+    "name": "Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5180,
+    "idMetacard": 103680,
+    "dateAdded": "2023-03-21 10:15:34"
+   },
+   {
+    "idProduct": 708696,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5326,
+    "idMetacard": 419363,
+    "dateAdded": "2023-04-24 12:46:57"
+   },
+   {
+    "idProduct": 708697,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5326,
+    "idMetacard": 419363,
+    "dateAdded": "2023-04-24 12:47:18"
+   },
+   {
+    "idProduct": 708698,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5326,
+    "idMetacard": 419363,
+    "dateAdded": "2023-04-24 12:47:36"
+   },
+   {
+    "idProduct": 720708,
+    "name": "Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 4863,
+    "idMetacard": 103680,
+    "dateAdded": "2023-06-29 16:16:38"
+   },
+   {
+    "idProduct": 722422,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5319,
+    "idMetacard": 419363,
+    "dateAdded": "2023-07-17 10:38:27"
+   },
+   {
+    "idProduct": 722489,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5319,
+    "idMetacard": 419363,
+    "dateAdded": "2023-07-17 11:11:09"
+   },
+   {
+    "idProduct": 726333,
+    "name": "Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 4885,
+    "idMetacard": 103680,
+    "dateAdded": "2023-08-08 09:29:47"
+   },
+   {
+    "idProduct": 788519,
+    "name": "Unchained Soul Lord of Yama",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 5735,
+    "idMetacard": 419363,
+    "dateAdded": "2024-09-16 10:57:36"
+   },
+   {
+    "idProduct": 875184,
+    "name": "Dark Magician, the Pharaoh's Servant",
+    "idCategory": 5,
+    "categoryName": "Yugioh Single",
+    "idExpansion": 6508,
+    "idMetacard": 460457,
+    "dateAdded": "2026-03-03 13:39:30"
+   }
+  ]
+ },
+ "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_6.json": {
+  "status": 200,
+  "size": 15894567,
+  "head": "{\"version\":1,\"createdAt\":\"2026-11-20T02:43:56+0100\",\"priceGuides\":[{\"idProduct\":271439,\"idCategory\":52,\"avg\":153.5,\"low\":150,\"trend\":199.31,\"avg1\":null,\"avg7\":null,\"avg30\":null,\"avg-holo\":null,\"low-holo\":null,\"trend-holo\":3.93,\"avg1-holo\":null,\"avg7-holo\":null,\"avg30-holo\":null},{\"idProduct\":271440,\"idCategory\":53,\"avg\":2103,\"low\":100000,\"trend\":2239.24,\"avg1\":null,\"avg7\":null,\"avg30\":null,\"avg-holo\":null,\"low-holo\":null,\"trend-holo\":178.28,\"avg1-holo\":null,\"avg7-holo\":null,\"avg30-holo\":null},{\"idProduct\":271823,\"idCategory\":52,\"avg\":797,\"low\":333.33,\"trend\":926.07,\"avg1\":null,\"avg7\":null,\"avg30\":null,\"avg-holo\":null,\"low-holo\":null,\"trend-holo\":90.03,\"avg1-holo\":null,\"avg7-holo\":null,\"avg30",
+  "keys": [
+   "version",
+   "createdAt",
+   "priceGuides"
+  ],
+  "count": 80926,
+  "first": [
+   {
+    "idProduct": 271439,
+    "idCategory": 52,
+    "avg": 153.5,
+    "low": 150,
+    "trend": 199.31,
+    "avg1": null,
+    "avg7": null,
+    "avg30": null,
+    "avg-holo": null,
+    "low-holo": null,
+    "trend-holo": 3.93,
+    "avg1-holo": null,
+    "avg7-holo": null,
+    "avg30-holo": null
+   },
+   {
+    "idProduct": 271440,
+    "idCategory": 53,
+    "avg": 2103,
+    "low": 100000,
+    "trend": 2239.24,
+    "avg1": null,
+    "avg7": null,
+    "avg30": null,
+    "avg-holo": null,
+    "low-holo": null,
+    "trend-holo": 178.28,
+    "avg1-holo": null,
+    "avg7-holo": null,
+    "avg30-holo": null
+   }
+  ],
+  "sample": [
+   {
+    "idProduct": 886496,
+    "idCategory": 51,
+    "avg": 2.83,
+    "low": 1.3,
+    "trend": 2.68,
+    "avg1": 2.42,
+    "avg7": 2.66,
+    "avg30": 2.76,
+    "avg-holo": null,
+    "low-holo": null,
+    "trend-holo": 0,
+    "avg1-holo": null,
+    "avg7-holo": null,
+    "avg30-holo": null
+   }
+  ]
+ }
+}
