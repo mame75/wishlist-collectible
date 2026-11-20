@@ -2109,7 +2109,7 @@ async function pkmVersions(card){
   await Promise.all([...new Set(tcg.map(v => v.sid))].map(async sid => {
     const ab = await cached(`psab:${tl}:${sid}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/sets/${encodeURIComponent(sid)}`)
       .then(d => d && d.abbreviation ? (d.abbreviation.localized || d.abbreviation.official || '') : '')).catch(() => '');
-    if (ab) tcg.filter(v => v.sid === sid).forEach(v => { v.set = `${ab}: ${v.set}`; });
+    if (ab) tcg.filter(v => v.sid === sid && !String(v.set).startsWith(ab)).forEach(v => { v.set = `${ab}: ${v.set}`; });   // pas de doublon (« 151 », « SVP Black Star Promos »)
   }));
   ocg.forEach(v => { if (v.sid && !String(v.set).startsWith(v.sid)) v.set = `${v.sid}: ${v.set}`; });
   // Pas d'édition japonaise dans TCGdex (Dresseurs, Objets… sans n° de Pokédex) : catalogue japonais de TCGplayer, par nom anglais
