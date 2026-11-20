@@ -190,6 +190,7 @@ console.log('prix Yu-Gi-Oh! :', Object.keys(px).length, 'extensions');
 
 // ---- Guide des prix Cardmarket (fichier publié chaque jour) : data/cmpg/<jeu>-<tranche>.json
 // n° de produit Cardmarket → [moyenne 7 j, moyenne 30 j, plus bas, tendance, moyenne 7 j foil/holo, moyenne 30 j foil/holo]
+const guideMap = {};
 await rm('data/cmpg', { recursive: true, force: true });
 await mkdir('data/cmpg', { recursive: true });
 for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
@@ -202,6 +203,64 @@ for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
     (buckets[Math.floor(g.idProduct / 20000)] ||= {})[g.idProduct] = [r2(g.avg7), r2(g.avg30), r2(g.low), r2(g.trend), r2(f), r2(f30)];
   }
   for (const [b, m] of Object.entries(buckets)) await writeFile(`data/cmpg/${game}-${b}.json`, JSON.stringify(m));
+  guideMap[game] = new Map(list.map(g => [g.idProduct, g]));
   console.log('guide Cardmarket', game, list.length);
 }
-console.log('tendances :', cards.length);
+
+// ---- Prix Cardmarket (moyenne des ventes 7 j) des cartes tendance
+const nn = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+// Pokémon : produit Cardmarket donné par TCGdex (sauf s'il est partagé à tort avec une autre version de la même extension)
+for (const c of cards.filter(c => c.game === 'pkm' && c.id)){
+  try {
+    const d = await get(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(c.id)}`);
+    const cm = d && d.pricing && d.pricing.cardmarket; if (!cm || !cm.idProduct) continue;
+    const setId = c.id.slice(0, c.id.lastIndexOf('-'));
+    const sibs = ((await get(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(d.name)}`)) || [])
+      .filter(b => b.id !== c.id && b.id.startsWith(setId + '-') && Number(b.localId) < Number(d.localId));
+    let shared = false;
+    for (const b of sibs){ const e = await get(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(b.id)}`);
+      if (e && e.pricing && e.pricing.cardmarket && e.pricing.cardmarket.idProduct === cm.idProduct){ shared = true; break; } }
+    if (shared) continue;
+    const g = guideMap.pkm && guideMap.pkm.get(cm.idProduct), rev = /reverse/i.test(c.sub || '');
+    const a7 = rev ? g && g['avg7-holo'] : (g ? g.avg7 : cm.avg7), a30 = rev ? g && g['avg30-holo'] : (g ? g.avg30 : cm.avg30);
+    if (a7) Object.assign(c, { cm7: a7, cm30: a30 ?? null, cmPid: cm.idProduct });
+  } catch {}
+}
+// Yu-Gi-Oh! : produit Cardmarket retrouvé par le nom de la carte, l'extension (cartes en commun avec la liste de l'extension)
+// et, s'il y a plusieurs versions, leur rang de prix comparé à celui des raretés chez TCGplayer
+try {
+  const prodsY = ((await get('https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_3.json')) || {}).products || [];
+  const byName = new Map(), byExp = new Map();
+  for (const p of prodsY){ const k = nn(p.name);
+    if (!byName.has(k)) byName.set(k, []); byName.get(k).push(p);
+    if (!byExp.has(p.idExpansion)) byExp.set(p.idExpansion, new Set()); byExp.get(p.idExpansion).add(k); }
+  const setNames = {};
+  for (const c of cards.filter(c => c.game === 'ygo' && c.id)){
+    const en = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}`); const card = en && en.data && en.data[0]; if (!card) continue;
+    const cands = byName.get(nn(card.name)) || []; if (!cands.length) continue;
+    if (!setNames[c.set]){ const r = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?cardset=${encodeURIComponent(c.set)}`);
+      setNames[c.set] = new Set(((r && r.data) || []).map(x => nn(x.name))); }
+    const sn = setNames[c.set]; if (!sn.size) continue;
+    let best = null, bs = 0;
+    for (const exp of new Set(cands.map(p => p.idExpansion))){
+      const names = byExp.get(exp); let inter = 0; for (const k of sn) if (names.has(k)) inter++;
+      const sc = inter / sn.size, date = cands.filter(p => p.idExpansion === exp).map(p => p.dateAdded).sort().pop();
+      if (sc > bs + 0.02 || (best && Math.abs(sc - bs) <= 0.02 && date > best.date)){ bs = Math.max(bs, sc); best = { exp, date }; }
+    }
+    if (!best || bs < 0.5) continue;
+    const vers = cands.filter(p => p.idExpansion === best.exp).map(p => ({ p, g: guideMap.ygo && guideMap.ygo.get(p.idProduct) })).filter(v => v.g);
+    let pick = vers.length === 1 ? vers[0] : null;
+    if (!pick && vers.length > 1){
+      const code = String(c.number || '').toUpperCase(), m = px[code.split('-')[0]] || {};
+      const tp = Object.entries(m).filter(([k]) => k.split('|')[0] === code).sort((a, b) => a[1][0] - b[1][0]);
+      if (tp.length === vers.length){
+        const cmS = [...vers].sort((a, b) => (a.g.avg30 ?? a.g.trend ?? 0) - (b.g.avg30 ?? b.g.trend ?? 0));
+        const i = tp.findIndex(([k]) => k === `${code}|${nn(c.rarity)}${c.ea ? '|EA' : ''}`);
+        if (i >= 0) pick = cmS[i];
+      }
+    }
+    if (pick && pick.g.avg7) Object.assign(c, { cm7: pick.g.avg7, cm30: pick.g.avg30 ?? null, cmPid: pick.p.idProduct });
+  }
+} catch (e) { console.log('Cardmarket Yu-Gi-Oh! :', e); }
+await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, stats, cards }));
+console.log('tendances :', cards.length, '— avec prix Cardmarket :', cards.filter(c => c.cm7).length);
