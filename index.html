@@ -474,7 +474,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc8:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc9:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -487,7 +487,11 @@ const API = {
       for (const b of sibs){
         const d = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(b.id)}`).catch(() => null);
         if (d && d.pricing && d.pricing.cardmarket && d.pricing.cardmarket.idProduct === card.cmId){
-          Object.assign(card, { cmId: null, cmShared: true, prices: { normal: null, reverse: null }, trend: null }); break;
+          // Prix de secours : prix du marché TCGplayer de cette version exacte (donné aussi par TCGdex), converti en euros
+          const tp = c.pricing && c.pricing.tcgplayer || {};
+          const mk = k => { const v = tp[k] && Number(tp[k].marketPrice); return v > 0 ? Math.round(v * FX * 100) / 100 : null; };
+          const normal = mk('holofoil') ?? mk('normal') ?? mk('1stEditionHolofoil') ?? mk('unlimitedHolofoil'), reverse = mk('reverseHolofoil');
+          Object.assign(card, { cmId: null, cmShared: true, prices: { normal, reverse }, trend: null, priceSrc: normal != null ? 'tcgp' : null }); break;
         }
       }
     }
@@ -603,7 +607,7 @@ function cmUrl(it){
 // Quand le lien Cardmarket ne peut pas tomber pile sur l'édition, on dit quoi faire une fois sur place
 function cmHint(c, key, link){
   if (!link && c.game === 'pkm' && c.cmShared)
-    return `Notre base ne distingue pas cette version (n° ${c.num}) de la version normale sur Cardmarket : le lien ouvre la recherche par nom, choisis la carte n° ${c.num} — ou colle son lien exact dans « Lien Cardmarket exact ». Prix indisponible pour cette version.`;
+    return `Notre base ne distingue pas cette version (n° ${c.num}) de la version normale sur Cardmarket : le lien ouvre la recherche par nom, choisis la carte n° ${c.num} — ou colle son lien exact dans « Lien Cardmarket exact ». Prix affiché : TCGplayer (marché américain, converti en euros).`;
   if (link || c.game !== 'ygo') return '';
   const p = findPrint(withExtra(c), key);
   if (!p) return '';
@@ -1020,7 +1024,7 @@ function makeItem(card, opts){
     priceGraded: opts.priceGraded ?? null,
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 3, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
-    cmFrom: card.cmFrom || null, cmFromPrev: null,
+    cmFrom: card.cmFrom || null, cmFromPrev: null, priceSrc: card.priceSrc || null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
@@ -1099,7 +1103,7 @@ function tileHTML(it, i){
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
-    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : it.priceSrc === 'cm7' || (it.game === 'pkm' && !it.cmPrice) ? 'Moy. 7 j' : 'Prix CM'}</span>`}</div>
+    <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : it.priceSrc === 'tcgp' ? 'TCGplayer' : it.priceSrc === 'cm7' || (it.game === 'pkm' && !it.cmPrice) ? 'Moy. 7 j' : 'Prix CM'}</span>`}</div>
   </button>`;
 }
 
@@ -1604,7 +1608,7 @@ function resultTiles(cards, mk){
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.game === 'pkm' ? (c.set || '') : (c.set || (c.prints ? c.prints.length + ' impression(s)' : '')))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
+        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
 }
@@ -2117,7 +2121,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix moyen (7 j)'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
         ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
@@ -2241,7 +2245,7 @@ function openDetail(i){
     <div>
       <div class="big">${eur(shownPrice(it))}</div>
       <div class="hint" id="artNote"></div>
-      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.priceSrc === 'cm7' ? 'Moyenne des ventes Cardmarket sur 7 jours (cette édition)' : it.game === 'ygo' ? 'Prix Cardmarket' : 'Moyenne des ventes Cardmarket sur 7 jours'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
+      <div class="hint">${it.graded ? `Prix gradé ${esc(it.grader)} ${esc(it.grade)} (saisi manuellement)` : `${it.priceSrc === 'tcgp' ? 'Prix du marché TCGplayer (converti en euros)' : it.priceSrc === 'cm7' ? 'Moyenne des ventes Cardmarket sur 7 jours (cette édition)' : it.game === 'ygo' ? 'Prix Cardmarket' : 'Moyenne des ventes Cardmarket sur 7 jours'}${it.variant==='reverse' ? ' — reverse' : ''}`}${it.graded && it.priceRaw != null ? ` · raw : ${eur(it.priceRaw)}` : ''}</div>
       ${dayHTML(it) ? `<div style="margin-top:4px">${dayHTML(it)} <span class="hint">depuis le relevé précédent (${eur(it.prevPrice)})</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
@@ -2347,7 +2351,7 @@ async function refreshOne(it, full){
     else if (!it.priceAt || Date.now() - it.priceAt > 20 * 3600e3){ if (it.priceRaw != null) it.prevPrice = it.priceRaw; it.priceAt = Date.now(); }
     it.priceRaw = p;
   } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
-  if (!viaGuide) it.trend = c.trend ? (c.trend[it.variant] ?? null) : null;
+  if (!viaGuide){ it.trend = c.trend ? (c.trend[it.variant] ?? null) : null; if (!it.cmPrice) it.priceSrc = c.priceSrc || null; }
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
   if (full){   // après un changement de langue : nom et infos dans la nouvelle langue
