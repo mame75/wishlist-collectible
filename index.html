@@ -2158,6 +2158,17 @@ async function openPkmVersions(card, onPick){
   $('#pvq').oninput = draw;
   $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
   $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
+  // Visuels manquants dans cette langue (cartes anciennes sans image française) : visuel anglais de la même carte
+  const noImg = vs.filter(v => !v.img && !v.tcgpj);
+  mapLimit(noImg, 6, async v => {
+    if (tok !== edToken) return;
+    const img = await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
+      .then(d => d && d.image ? d.image + '/low.webp' : '')).catch(() => '');
+    if (tok !== edToken || !img) return;
+    v.img = img;
+    const b = document.querySelector(`#pvgrid .ed[data-i="${vs.indexOf(v)}"] .img`);
+    if (b && !b.querySelector('img')) b.insertAdjacentHTML('afterbegin', `<img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`);
+  });
   // Raretés : la liste de TCGdex ne les donne pas, on les complète carte par carte (mémorisées)
   await mapLimit(vs.filter(v => !v.rarity && !v.tcgpj), 6, async v => {
     if (tok !== edToken) return;
