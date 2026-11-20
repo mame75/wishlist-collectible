@@ -474,7 +474,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc9:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc10:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -490,7 +490,13 @@ const API = {
           // Prix de secours : prix du marché TCGplayer de cette version exacte (donné aussi par TCGdex), converti en euros
           const tp = c.pricing && c.pricing.tcgplayer || {};
           const mk = k => { const v = tp[k] && Number(tp[k].marketPrice); return v > 0 ? Math.round(v * FX * 100) / 100 : null; };
-          const normal = mk('holofoil') ?? mk('normal') ?? mk('1stEditionHolofoil') ?? mk('unlimitedHolofoil'), reverse = mk('reverseHolofoil');
+          // Prix TCGplayer du relevé quotidien (même calcul que les tuiles tendance), sinon celui transmis par TCGdex
+          const tpid = Object.values(tp).map(x => x && x.productId).find(Boolean);
+          let daily = null;
+          if (tpid){ const f = Math.floor(tpid / 20000);
+            const m = await fetch(`data/tcgpp/${f}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+            if (m[tpid]) daily = Math.round(m[tpid][0] * FX * 100) / 100; }
+          const normal = daily ?? mk('holofoil') ?? mk('normal') ?? mk('1stEditionHolofoil') ?? mk('unlimitedHolofoil'), reverse = mk('reverseHolofoil');
           Object.assign(card, { cmId: null, cmShared: true, prices: { normal, reverse }, trend: null, priceSrc: normal != null ? 'tcgp' : null }); break;
         }
       }

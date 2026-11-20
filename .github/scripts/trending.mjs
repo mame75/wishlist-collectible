@@ -188,6 +188,29 @@ await mkdir('data/tcgpx', { recursive: true });
 for (const [pre, m] of Object.entries(px)) await writeFile(`data/tcgpx/${pre}.json`, JSON.stringify(m));
 console.log('prix Yu-Gi-Oh! :', Object.keys(px).length, 'extensions');
 
+// ---- Prix TCGplayer de tous les produits Pokémon : data/tcgpp/<tranche>.json (n° de produit → [prix ($), évolution 7 j])
+// Même calcul que les tuiles tendance (version la plus chère du produit) : la fiche d'une carte affiche le même prix
+async function readCat(date, cat){
+  const out = {}; if (!date) return out;
+  const base = `/tmp/arch/${date}/${cat}`;
+  for (const g of await readdir(base).catch(() => [])){
+    const j = JSON.parse(await readFile(`${base}/${g}/prices`, 'utf8').catch(() => '{}'));
+    for (const p of j.results || []) if (p.marketPrice > 0) (out[p.productId] ||= {})[p.subTypeName] = p.marketPrice;
+  }
+  return out;
+}
+{
+  const PA = await readCat(now, 3), PB = await readCat(then, 3), pp = {};
+  for (const [pid, subs] of Object.entries(PA)){
+    const [sub, v] = Object.entries(subs).sort((a, b) => b[1] - a[1])[0];
+    const old = PB[pid] && PB[pid][sub];
+    (pp[Math.floor(pid / 20000)] ||= {})[pid] = [Math.round(v * 100) / 100, old ? Math.round((v / old - 1) * 1000) / 1000 : null];
+  }
+  await rm('data/tcgpp', { recursive: true, force: true });
+  await mkdir('data/tcgpp', { recursive: true });
+  for (const [b, m] of Object.entries(pp)) await writeFile(`data/tcgpp/${b}.json`, JSON.stringify(m));
+}
+
 // ---- Guide des prix Cardmarket (fichier publié chaque jour) : data/cmpg/<jeu>-<tranche>.json
 // n° de produit Cardmarket → [moyenne 7 j, moyenne 30 j, plus bas, tendance, moyenne 7 j foil/holo, moyenne 30 j foil/holo]
 const guideMap = {};
