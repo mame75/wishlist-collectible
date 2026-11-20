@@ -198,6 +198,8 @@ select.field option{background:var(--surface)}
 label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-bottom:6px}
 .hint{font-size:12.5px;color:var(--muted)}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.tfrom{font-size:12px;color:var(--muted);padding:6px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tfrom b{color:var(--ink)}.tfrom span{color:var(--faint)}
 .splitbtn{display:inline-flex;gap:2px}
 .splitbtn .pen{border-radius:0 999px 999px 0;padding:0 13px;color:var(--muted)}
 .splitbtn .pen:hover{color:var(--ink)}
@@ -1016,6 +1018,7 @@ function makeItem(card, opts){
     priceGraded: opts.priceGraded ?? null,
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 2, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
+    cmFrom: card.cmFrom || null, cmFromPrev: null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
@@ -1093,6 +1096,7 @@ function tileHTML(it, i){
       <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
+    ${fromHTML(it)}
     <div class="tprice"><b>${price == null ? '—' : eur(price)}</b>${dayHTML(it) || `<span>${it.graded ? 'Gradée' : (it.game === 'ygo' || it.cmPrice) ? 'Prix CM' : 'Plus bas'}</span>`}</div>
   </button>`;
 }
@@ -2110,6 +2114,7 @@ function renderConfigure(card, pre){
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : 'Prix le plus bas'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(Cardmarket)</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
+        ${card.cmFrom ? `<dt>Prix « De »</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
       </dl>
       <div class="form">
@@ -2236,6 +2241,7 @@ function openDetail(i){
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
+        <dt>Prix « De »</dt><dd>${it.cmFrom ? fromHTML(it, true) : '<span class="hint">sur la fiche Cardmarket (filtrée dans ta langue), clique sur ton favori « + Wishlist » pour relever le premier prix</span>'}</dd>
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
         ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
@@ -2437,7 +2443,9 @@ function bmkSource(){
     rar = t ? (t.getAttribute('data-bs-original-title') || t.getAttribute('data-original-title') || t.getAttribute('aria-label') || t.getAttribute('title')) : info[rk]; }
   var nk = key(/num[ée]ro|number/);
   var p = price(/30 jours|30-day|30 days/); if (p == null) p = price(/tendance|trend/); if (p == null) p = price(/partir|from/);
-  var d = { u: location.href, img: img, name: title.replace(/\s*\(V\.[^)]*\)\s*$/, '').trim(), price: p, num: nk ? info[nk] : '', rar: rar || (rm ? rm[1].trim() : '') };
+  var from = price(/partir|^from|^de$/);   // « À partir de » / « De » : la première offre (filtres de la page appliqués)
+  var lg = (location.search.match(/[?&]language=(\d+)/) || [])[1] || '';
+  var d = { u: location.href, img: img, name: title.replace(/\s*\(V\.[^)]*\)\s*$/, '').trim(), price: p, from: from, lg: lg, num: nk ? info[nk] : '', rar: rar || (rm ? rm[1].trim() : '') };
   var s = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   window.open(SITE + '#cm=' + s, '_blank');
 }
@@ -2451,8 +2459,40 @@ const canLoad = (src, ms = 5000) => new Promise(res => {
   i.referrerPolicy = 'no-referrer'; i.src = src;
 });
 // Arrivée depuis le favori : on retrouve la carte dans nos bases ; l'image, le prix et le lien viennent de Cardmarket
+// Prix « De » de Cardmarket (première offre dans la langue filtrée), relevé par le favori « + Wishlist »
+const CM_LANG_CODE = Object.fromEntries(Object.entries(CM_LANG).map(([k, v]) => [String(v), k]));
+function cmFromOf(d){ const v = num(d && d.from); return v == null ? null : { v, lang: CM_LANG_CODE[d.lg] || '', at: Date.now() }; }
+function setCmFrom(it, f){
+  if (it.cmFrom && Date.now() - it.cmFrom.at > 20 * 3600e3) it.cmFromPrev = it.cmFrom.v;   // relevé précédent (plus de 20 h)
+  else if (!it.cmFrom) it.cmFromPrev = null;
+  it.cmFrom = f;
+}
+// Cartes de la wishlist qui correspondent à une fiche Cardmarket (lien enregistré, lien exact, ou n° de produit Pokémon)
+function itemsForCm(url){
+  const id = linkId(url), pid = (String(url).match(/idProduct=(\d+)/) || [])[1];
+  return state.items.filter(it => (id && [it.cmLink, savedLink(it, itemKey(it))].some(u => u && linkId(u) === id)) || (pid && String(it.cmId) === pid));
+}
+const agoText = t => { const d = Math.floor((Date.now() - t) / 864e5); return d <= 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d} j`; };
+function fromHTML(c, long){
+  const f = c.cmFrom; if (!f) return '';
+  const lg = f.lang ? ` ${esc(langLabel(c.game, f.lang))}` : '';
+  const d = c.cmFromPrev != null ? f.v - c.cmFromPrev : 0;
+  const arrow = Math.abs(d) >= 0.005 ? `<span class="tr ${d > 0 ? 'pricier' : 'cheaper'}" title="Relevé précédent : ${eur(c.cmFromPrev)}">${d > 0 ? '▲' : '▼'} ${eur(Math.abs(d))}</span>` : '';
+  return long ? `<b>${eur(f.v)}</b>${lg} ${arrow} <span class="hint">relevé ${agoText(f.at)} avec « + Wishlist »</span>`
+    : `<div class="tfrom" title="Prix « De » Cardmarket, relevé ${agoText(f.at)}">De <b>${eur(f.v)}</b>${lg} <span>· ${agoText(f.at)}</span> ${arrow}</div>`;
+}
+
 async function importFromCm(d){
   const L = parseCmLink((d && d.u) || '');
+  // Carte déjà dans la wishlist : on met seulement à jour son prix « De »
+  const known = L ? itemsForCm(L.url) : [];
+  const f = cmFromOf(d);
+  if (known.length && f){
+    known.forEach(it => setCmFrom(it, f)); save();
+    filters = { ...filters, q: '' }; goView('wishlist');
+    toast(`${known[0].name} : prix « De » mis à jour, ${eur(f.v)}${f.lang ? ' (' + langLabel(known[0].game, f.lang) + ')' : ''}`);
+    return;
+  }
   const s = search; resetResults(s); s.mode = 'link'; s.link = { url: (d && d.u) || '' };
   goView('explore');
   if (!L){ renderResults("Cette page Cardmarket n'est pas une fiche de carte Pokémon ou Yu-Gi-Oh!."); return; }
@@ -2472,6 +2512,7 @@ async function importFromCm(d){
   // Les photos de Cardmarket (product-images.s3.cardmarket.com) refusent tout affichage hors de leur site (erreur 403) : inutile d'attendre
   if (d.img && !/product-images\.s3\.cardmarket\.com/.test(d.img) && await canLoad(d.img)) card = { ...card, img: d.img, imgHi: d.img, printArt: true, cmImg: d.img };
   if (cmPrice != null && (L.game === 'ygo' || card.manual)) card = { ...card, prices: { ...card.prices, normal: cmPrice }, cmPrice: true };
+  if (f) card = { ...card, cmFrom: f };
   renderConfigure(card, { cmLink: url, printKey: (res && res.printKey) || '', printCode: (res && res.printCode) || '' });
 }
 
