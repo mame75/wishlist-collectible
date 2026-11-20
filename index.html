@@ -122,6 +122,8 @@ select.field option{background:var(--surface)}
 @keyframes fxTwinkle{0%,100%{opacity:.6}50%{opacity:1}}
 @keyframes fxDrift{0%{background-position:0 0,8px 9px,100% 100%}100%{background-position:17px 38px,31px -20px,0 0}}
 @media (prefers-reduced-motion:reduce){.img.holo:has(img)::after,.img .fxl{animation:none!important;background-position:50% 50%}}
+/* Photos TCGplayer des cartes Pokémon : fond blanc dans les coins → on arrondit comme une vraie carte */
+.img.pk img[src*="tcgplayer-cdn"]{object-fit:cover;border-radius:4.8%/3.4%}
 .img img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;display:block}
 /* Grand visuel (ajout, fiche) : l'image garde ses vraies proportions, sans recadrage ni bandes */
 .detail > .img{align-self:start}
@@ -1070,7 +1072,7 @@ function imgBox(c, hi, badges){
   const fb = hi ? (c.baseImgHi || c.baseImg) : c.baseImg;   // image de secours si celle-ci ne s'affiche pas
   const info = [c.set, c.num || c.printCode].filter(Boolean).join(' · ');
   const fx = src && c.holo && (c.holo === src || c.holo === c.img) ? holoKind(c.holoR) : '';
-  return `<div class="img${fx ? ' holo fx-' + fx : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
+  return `<div class="img${fx ? ' holo fx-' + fx : ''}${c.game === 'pkm' ? ' pk' : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
       ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
@@ -1663,7 +1665,7 @@ function trendingHTML(){
   return `<div class="gridhead"><h3 class="xh" style="margin:0">Cartes tendance</h3>
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
-      ${imgBox({ name: c.name, img: c.img, baseImg: c.fb, set: c.set }, false, '')}
+      ${imgBox({ name: c.name, img: c.img, baseImg: c.fb, set: c.set, game: c.game }, false, '')}
       <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${esc(c.set)}</div>` : ''}
         <div class="tsub faint">${esc((c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
       <div class="tprice"><b>${c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
@@ -2071,7 +2073,7 @@ async function openPkmVersions(card, onPick){
         `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('')}</div></div>
       <div class="hint" style="margin-top:8px">TCG puis OCG, de l'extension la plus récente à la plus ancienne</div>
       <div class="edgrid" id="pvgrid">${rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
-        ${imgBox({ name: v.name, img: v.img, set: v.set }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
+        ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm" }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
         <div><div class="st">${esc(v.set)}</div><div class="mt">n° ${esc(v.localId)}${v.ocg && !v.tcgpj ? ' · ' + esc(v.name) : ''}</div>${v.rarity ? `<div class="rr">${esc(v.rarity)}</div>` : ''}</div></button>`).join('')
         || '<div class="status" style="grid-column:1/-1">Aucune édition trouvée.</div>'}</div>`;
     $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
