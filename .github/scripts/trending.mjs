@@ -133,21 +133,23 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
     const key = l ? l.id : clean(c.name);
     if (seen.has(key)) continue;   // une seule fois par carte (la rareté qui monte le plus)
     seen.add(key); k++;
-    out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number, ea: c.ea, sub: c.sub,
+    out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number, ea: c.ea, sub: c.sub, tid: c.tid || null,
       img: c.pimg ? `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg` : null, usd: Math.round(c.price * 100) / 100,
       fb: game === 'ygo' && l ? `https://images.ygoprodeck.com/images/cards_small/${l.id}.jpg` : null, price: toEur(c.price), cur: 'EUR', change: c.change });
   }
 }
 // Noms français quand ils existent
+// Extension Pokémon en français avec son sigle officiel (« OBF: Flammes Obsidiennes »)
+async function frSet(c, setId){
+  const s = await get(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(setId)}`);
+  const ab = s && s.abbreviation ? (s.abbreviation.official || s.abbreviation.localized || '') : '';
+  if (s && s.name) c.set = ab && !s.name.startsWith(ab) ? `${ab}: ${s.name}` : s.name;
+}
 const fr = async c => {
-  if (!c.id) return;
+  if (!c.id){ if (c.game === 'pkm' && c.tid) await frSet(c, c.tid); return; }
   if (c.game === 'pkm'){ const d = await get(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`);
     if (d && d.name) c.name = d.name; if (d && d.image) c.fb = d.image + '/low.webp';
-    // Extension en français avec son sigle officiel (« OBF: Flammes Obsidiennes »)
-    if (d && d.set && d.set.id){ const s = await get(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(d.set.id)}`);
-      const ab = s && s.abbreviation ? (s.abbreviation.official || s.abbreviation.localized || '') : '';
-      const nm = (s && s.name) || d.set.name;
-      if (nm) c.set = ab && !nm.startsWith(ab) ? `${ab}: ${nm}` : nm; } }
+    if (d && d.set && d.set.id) await frSet(c, d.set.id); }
   else { const d = await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}&language=fr`) || await get(`https://db.ygoprodeck.com/api/v7/cardinfo.php?id=${c.id}`);
     if (d && d.data && d.data[0]) c.name = d.data[0].name; }
 };
