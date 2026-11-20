@@ -1509,7 +1509,10 @@ function trendBadge(change, src){
   if (Math.abs(pc) < 1) return `<span class="tr flat" title="${esc(src)}">= stable</span>`;
   return `<span class="tr ${pc > 0 ? 'pricier' : 'cheaper'}" title="${esc(src)}">${pc > 0 ? '▲ +' : '▼ '}${pc} %</span>`;
 }
-const usd = v => v == null ? '—' : v.toLocaleString('fr-FR', { style: 'currency', currency: 'USD' });
+// Prix TCGplayer (dollars) affichés en euros, au taux BCE du jour (data/fx.json, mis à jour par la tâche quotidienne)
+let FX = 0.92;
+fetch('data/fx.json').then(r => r.ok ? r.json() : null).then(d => { if (d && d.usdEur) FX = d.usdEur; }).catch(() => {});
+const usd = v => v == null ? '—' : eur(Math.round(v * FX * 100) / 100);
 function tileTrend(c){
   if (c.game === 'pkm') return trendBadge(c.trend && c.trend.normal, 'Cardmarket : moyenne des ventes sur 7 jours comparée à 30 jours');
   return c.tp ? trendBadge(c.tp.change, `TCGplayer : ${c.tp.p.code} · ${c.tp.p.rarity}${c.tp.p.ea ? ' (ill. étendue)' : ''}, ${usd(c.tp.usd)}, évolution sur 7 jours`) : '';
@@ -1598,7 +1601,7 @@ function resultTiles(cards, mk){
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc([c.set, c.num].filter(Boolean).join(' · ') || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.game === 'pkm' ? (c.set || '') : (c.set || (c.prints ? c.prints.length + ' impression(s)' : '')))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
@@ -1661,8 +1664,8 @@ function trendingHTML(){
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox({ name: c.name, img: c.img, baseImg: c.fb, set: c.set }, false, '')}
-      <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.set || '')}</div>
-        <div class="tsub faint">${esc([c.number, c.rarity + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : '')].filter(Boolean).join(' · '))}</div></div>
+      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${esc(c.set)}</div>` : ''}
+        <div class="tsub faint">${esc((c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
       <div class="tprice"><b>${c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : '<span>CM</span>'}</div>
     </button>`).join('')}</div>`;

@@ -14,6 +14,15 @@ async function get(url){
   return null;
 }
 const day = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10);
+// Taux de change dollar → euro (Banque centrale européenne), pour afficher les prix TCGplayer en euros
+let usdEur = null;
+try {
+  const x = await (await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml', { headers: UA })).text();
+  const m = x.match(/currency=['"]USD['"]\s+rate=['"]([\d.]+)['"]/);
+  if (m) usdEur = 1 / parseFloat(m[1]);
+} catch {}
+if (!usdEur){ const prev = JSON.parse(await readFile('data/fx.json', 'utf8').catch(() => '{}')); usdEur = prev.usdEur || 0.92; }
+const toEur = v => Math.round(v * usdEur * 100) / 100;
 const TCG = 'https://tcgcsv.com/tcgplayer';
 const MIN = 2;   // prix minimum ($) pour éviter le bruit des cartes communes
 
@@ -125,8 +134,8 @@ for (const [cat, game, link] of [[3, 'pkm', linkPkm], [2, 'ygo', linkYgo]]){
     if (seen.has(key)) continue;   // une seule fois par carte (la rareté qui monte le plus)
     seen.add(key); k++;
     out.push({ game, id: l ? l.id : null, q: clean(c.name), name: clean(c.name), set: c.set, rarity: c.rarity, number: c.number, ea: c.ea, sub: c.sub,
-      img: c.pimg ? `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg` : null,
-      fb: game === 'ygo' && l ? `https://images.ygoprodeck.com/images/cards_small/${l.id}.jpg` : null, price: Math.round(c.price * 100) / 100, cur: 'USD', change: c.change });
+      img: c.pimg ? `https://tcgplayer-cdn.tcgplayer.com/product/${c.pid}_400w.jpg` : null, usd: Math.round(c.price * 100) / 100,
+      fb: game === 'ygo' && l ? `https://images.ygoprodeck.com/images/cards_small/${l.id}.jpg` : null, price: toEur(c.price), cur: 'EUR', change: c.change });
   }
 }
 // Noms français quand ils existent
@@ -147,6 +156,7 @@ if (!Y.length) Y = prev.filter(c => c.game === 'ygo');
 const cards = [];
 for (let i = 0; i < Math.max(P.length, Y.length); i++){ if (P[i]) cards.push(P[i]); if (Y[i]) cards.push(Y[i]); }
 await mkdir('data', { recursive: true });
+await writeFile('data/fx.json', JSON.stringify({ usdEur, date: new Date().toISOString().slice(0, 10) }));
 await writeFile('data/trending.json', JSON.stringify({ updated: new Date().toISOString(), source: 'TCGplayer', from: then, to: now, stats, cards }));
 await rm('data/history-ygo.json', { force: true });
 
