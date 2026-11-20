@@ -1718,7 +1718,7 @@ function trendingHTML(){
     </button>`).join('')}</div>`;
 }
 async function openTrending(c){
-  if (!c.id){ search.q = c.q || c.name; runSearch(); return; }   // carte pas encore reliée à nos bases : on la cherche
+  if (!c.id){ closeModal('#cardScrim'); search.q = c.q || c.name; runSearch(); return; }   // carte pas encore reliée à nos bases : on la cherche
   toast('Chargement de la carte…');
   const card = await (c.game === 'pkm' ? API.pkmCard(c.id, 'fr') : API.ygoCard(c.id, 'fr')).catch(() => null);
   if (!card){ toast('Carte indisponible pour le moment'); return; }
@@ -1781,8 +1781,11 @@ function renderResults(msg){
     side.innerHTML = xSideHTML(s, [], true); bindXSide();
     box.innerHTML = trendingHTML();
     if ($('#tgrid')) $('#tgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return;
-      const list = (trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game);
-      setNav(list.length, +t.dataset.t, j => openTrending(list[j])); openTrending(list[+t.dataset.t]); };
+      const list = (trending.cards || []).filter(c => xf.game === 'all' || c.game === xf.game), c = list[+t.dataset.t];
+      // Navigation entre les cartes qui ont une fiche (les autres ouvrent une recherche)
+      const nav = list.filter(x => x.id);
+      if (c.id) setNav(nav.length, nav.indexOf(c), j => openTrending(nav[j])); else cardNav = null;
+      openTrending(c); };
     return;
   }
   const list = allCards(s), cards = list.filter(c => xMatch(c));
