@@ -412,6 +412,9 @@ function cachePrune(all){
     }
   } catch(e){}
 }
+// Ancien cache des éditions : la clé ne gardait que les lettres latines, toutes les recherches de noms japonais
+// partageaient donc la même entrée (et renvoyaient les cartes d'un autre Pokémon) → effacé
+try { Object.keys(localStorage).filter(k => k.startsWith('wlc.c2.pv:')).forEach(k => localStorage.removeItem(k)); } catch (e){}
 async function cached(key, fn){
   const hit = cacheGet(key);
   if (hit !== undefined) return hit;
@@ -2195,11 +2198,11 @@ async function pkmVersions(card){
   const sameForm = l => l.filter(b => pkmForm(b.name) === form);
   const name = card.nameJa || card.name;
   const [tcgL, ocgL, tSets, oSets] = await Promise.all([
-    intl ? cached(`pv:${tl}:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('fr').then(sameForm),
-    !intl ? cached(`pv:ja:${norm(name)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => [])
+    intl ? cached(`pv2:${tl}:${String(name).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('fr').then(sameForm),
+    !intl ? cached(`pv2:ja:${String(name).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => [])
       // Carte TCG : cartes japonaises du même Pokémon et du même type, complétées par une recherche sur leur nom japonais
       : byDex('ja').then(sameForm).then(async l => { const names = [...new Set(l.map(b => b.name))].slice(0, 2);
-          const more = await Promise.all(names.map(nm => cached(`pv:ja:${norm(nm)}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(nm)}`)).catch(() => [])));
+          const more = await Promise.all(names.map(nm => cached(`pv2:ja:${String(nm).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(nm)}`)).catch(() => [])));
           return [...l, ...more.flat().filter(Boolean)]; }),
     setsOf(tl), setsOf('ja')]);
   const map = (list, sets, ocg) => { const seen = new Set();
