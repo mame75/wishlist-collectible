@@ -2281,7 +2281,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b id="cpx">${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b id="cpx">${eur(card.prices.normal)}</b>${card.prices.reverse != null && card.prices.reverse !== card.prices.normal ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
         ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
