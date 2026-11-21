@@ -2234,7 +2234,7 @@ function sameCardImg(c, lang){
   });
 }
 function reprintImg(id, lang){
-  return cached(`rp2:${lang}:${id}`, async () => {
+  return cached(`rp3:${lang}:${id}`, async () => {
     let en = await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`), byNum = false;
     // Extension propre à une langue (ex. Collection McDonald's 2018 française, « 2018sm-fr ») : carte dans sa langue,
     // nom d'extension anglais de l'extension sœur (« 2018sm »), et carte repérée sur Bulbapedia par son numéro « 4/40 »
@@ -2252,13 +2252,20 @@ function reprintImg(id, lang){
     const text = p => (p && p.revisions && p.revisions[0].slots.main['*']) || '';
     const rx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Page Bulbapedia de l'extension (ou du deck), puis identifiant Bulbapedia de la carte
-    const s = await J(`${BULBAPEDIA}action=query&list=search&srlimit=5&srsearch=${encodeURIComponent(en.set.name + ' TCG')}`);
-    const titles = ((s.query && s.query.search) || []).map(x => x.title).filter(t => /\(TCG\)$/.test(t));
-    if (!titles.length) return {};
-    const w = await J(`${BULBAPEDIA}action=query&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(titles.join('|'))}`);
+    // Nom d'extension tel que Bulbapedia l'écrit (« Collection McDonald's 2013 » → « McDonald's Collection 2013 »)
+    const names = [...new Set([en.set.name, String(en.set.name).replace(/^Collection McDonald'?s (\d{4})$/i, "McDonald's Collection $1")])];
+    const pages = [];
+    for (const nm of names){
+      const s = await J(`${BULBAPEDIA}action=query&list=search&srlimit=5&srsearch=${encodeURIComponent(nm + ' TCG')}`);
+      const titles = ((s.query && s.query.search) || []).map(x => x.title).filter(t => /\(TCG\)$/.test(t));
+      if (!titles.length) continue;
+      const w = await J(`${BULBAPEDIA}action=query&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(titles.join('|'))}`);
+      // la page dont le titre reprend le nom de l'extension en premier
+      pages.push(...Object.values(w.query.pages).sort((a, b) => (b.title.startsWith(nm) ? 1 : 0) - (a.title.startsWith(nm) ? 1 : 0)));
+    }
     let X = null, nameEn = en.name;
     const tot = en.set.cardCount && (en.set.cardCount.official || en.set.cardCount.total);
-    for (const p of Object.values(w.query.pages)){
+    for (const p of pages){
       const m = byNum
         ? text(p).match(new RegExp(`\\|0*${n}/0*${tot}\\|\\{\\{TCG ID\\|([^|}]+)\\|([^|}]+)\\|0*${n}\\}\\}`))
         : text(p).match(new RegExp(`\\{\\{TCG ID\\|([^|}]+)\\|${rx(en.name)}\\|0*${n}\\}\\}`));
