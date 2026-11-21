@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc18:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc19:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -572,6 +572,11 @@ const API = {
     if (!card.img && lang !== 'en'){
       const en = await this.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
       if (en && en.image){ card.img = en.image + '/low.webp'; card.imgHi = en.image + '/high.webp'; card.imgLang = 'en'; }
+    }
+    // Toujours rien : même carte (mêmes PV, type, attaques, talent et illustrateur) imprimée dans une autre extension
+    if (!card.img){
+      const sc = await sameCardImg(c, lang).catch(() => null);
+      if (sc && sc.lo){ card.img = sc.lo; card.imgHi = sc.hi; card.imgReprint = sc.from; }
     }
     // Toujours rien (kits du dresseur, decks…) : visuel de la carte d'origine dont c'est une réimpression (Bulbapedia)
     if (!card.img && lang !== 'ja'){
@@ -2199,6 +2204,22 @@ const pkmForm = n => { const s = String(n || '').trim();
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
 const BULBAPEDIA = 'https://bulbapedia.bulbagarden.net/w/api.php?format=json&origin=*&';
+// Réimpression à l'identique repérée dans TCGdex (ex. Sovkipou de la Collection McDonald's 2018 = Sovkipou d'Ombres Ardentes) :
+// même nom, PV, type, attaques (nom et dégâts), talents et illustrateur
+const cardSig = c => JSON.stringify([c.hp, c.types, c.illustrator, (c.attacks || []).map(a => [a.name, a.damage ?? null]), (c.abilities || []).map(a => a.name),
+  c.category === 'Pokemon' || c.category === 'Pokémon' ? null : c.effect || null]);
+function sameCardImg(c, lang){
+  if (!c || !c.name || !c.illustrator || (!(c.attacks || []).length && !(c.abilities || []).length && !c.effect)) return Promise.resolve(null);
+  return cached(`same1:${lang}:${c.id}`, async () => {
+    const list = (await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(c.name)}`)) || [];
+    const sig = cardSig(c);
+    for (const b of list.filter(b => b.image && b.id !== c.id && !isPocketCard(b.id)).slice(0, 25)){
+      const d = await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(b.id)}`).catch(() => null);
+      if (d && cardSig(d) === sig) return { lo: b.image + '/low.webp', hi: b.image + '/high.webp', from: `${d.set.name} ${d.localId}` };
+    }
+    return {};
+  });
+}
 function reprintImg(id, lang){
   return cached(`rp1:${lang}:${id}`, async () => {
     const en = await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`);
@@ -2392,7 +2413,7 @@ async function openPkmVersions(card, onPick){
     if (tok !== edToken) return;
     let img = v.tcgpj ? await bulbaImg(v) : await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
       .then(d => d && d.image ? d.image + '/low.webp' : '')).catch(() => '');
-    if (!img && !v.ocg) img = ((await reprintImg(v.id, v.lang).catch(() => null)) || {}).lo || '';
+    if (!img && !v.ocg) img = ((await API.pkmCard(v.id, v.lang).catch(() => null)) || {}).img || '';   // réimpression (TCGdex ou Bulbapedia)
     if (tok !== edToken || !img) return;
     v.img = img;
     const b = document.querySelector(`#pvgrid .ed[data-i="${vs.indexOf(v)}"] .img`);
