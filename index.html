@@ -498,11 +498,19 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc12:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc13:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
+    // 1re édition / édition illimitée (cartes anciennes) : d'après TCGdex, prix TCGplayer de chaque édition
+    { const tp = (c.pricing && c.pricing.tcgplayer) || {};
+      const mk = (...ks) => { for (const k of ks){ const v = tp[k] && Number(tp[k].marketPrice); if (v > 0) return Math.round(v * FX * 100) / 100; } return null; };
+      const first = mk('1stEditionHolofoil', '1stEditionNormal', '1stEdition'), unl = mk('unlimitedHolofoil', 'unlimitedNormal', 'unlimited');
+      if ((c.variants && c.variants.firstEdition) || first != null){
+        card.editions = ['1st', ...(unl != null || (c.variants && (c.variants.normal || c.variants.holo)) ? ['unl'] : [])];
+        card.edPrices = { '1st': first, unl };
+      } }
     // Sigle officiel de l'extension (OBF, PAF…) pour l'afficher devant son nom
     if (c.set && c.set.id){
       card.setAb = await cached(`psab2:${lang}:${c.set.id}`, () => this.getJSON(`https://api.tcgdex.net/v2/${lang}/sets/${encodeURIComponent(c.set.id)}`)
@@ -1049,6 +1057,9 @@ const withExtra = c => c.extraPrint ? [c.extraPrint, ...(c.prints || []).filter(
 
 /* ========= Modèle d'un élément de wishlist ========= */
 function makeItem(card, opts){
+  // Édition choisie (1re / illimitée) : prix TCGplayer de cette édition
+  if ((card.editions || []).length > 1 && card.edPrices){ const ed = opts.edition || card.editions[0];
+    if (card.edPrices[ed] != null) card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp' }; }
   const variant = opts.variant || 'normal';
   const print = findPrint(withExtra(card), opts.printKey || opts.printCode);
   const ua = getUserArt(card, printKey(print));
@@ -1069,6 +1080,7 @@ function makeItem(card, opts){
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 3, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     cmFrom: card.cmFrom || null, cmFromPrev: null, priceSrc: card.priceSrc || null,
+    editions: card.editions || null, edPrices: card.edPrices || null, edition: (card.editions || []).length ? (opts.edition || card.editions[0]) : null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
@@ -1140,6 +1152,7 @@ function tileHTML(it, i){
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
+        ${it.edition === '1st' ? '<span class="bdg">1re éd.</span>' : ''}
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div class="tinfo">
       <div class="tname">${esc(it.name)}</div>
@@ -1880,6 +1893,9 @@ function versionFields(o, card){
     ${card.game === 'pkm' ? `<div><label class="l">Version</label>
       <div class="seg" id="cvar"><button type="button" data-v="normal" class="${o.variant!=='reverse'?'on':''}">Normale / Holo</button>
       <button type="button" data-v="reverse" class="${o.variant==='reverse'?'on':''}" ${hasRev?'':'disabled title="Pas de prix reverse disponible"'}>Reverse</button></div></div>` : ''}
+    ${card.game === 'pkm' && (card.editions || []).length ? `<div><label class="l">Édition</label>${card.editions.length > 1
+      ? `<div class="seg" id="ced">${card.editions.map(e => `<button type="button" data-e="${e}" class="${(o.edition || card.editions[0]) === e ? 'on' : ''}">${ED_LABEL[e]}</button>`).join('')}</div>`
+      : `<div class="hint">${ED_LABEL[card.editions[0]]} uniquement</div>`}</div>` : ''}
     ${prints.length ? `<div class="pp"><label class="l">Impression</label>
       <input type="hidden" id="cprint" value="${esc(o.printKey || (o.printCode ? printKey(findPrint(prints, o.printCode)) : ''))}">
       <div class="ppsum"><div class="t" id="ppsumT"></div>
@@ -1899,6 +1915,7 @@ function versionFields(o, card){
 
 function readVersionFields(o){
   const v = $('#cvar .on'); if (v) o.variant = v.dataset.v;
+  const ed = $('#ced .on'); o.edition = ed ? ed.dataset.e : (o.edition || null);
   if ($('#cprint')){ o.printKey = $('#cprint').value; o.printCode = keyCode(o.printKey); }
   o.graded = $('#cgr .on').dataset.g === '1';
   o.grader = $('#cgrader').value; o.grade = $('#cgrade').value;
@@ -1908,7 +1925,10 @@ function readVersionFields(o){
   return o;
 }
 
+const ED_LABEL = { '1st': '1re édition', unl: 'Illimitée' };
 function bindVersionFields(){
+  if ($('#ced')) $('#ced').onclick = e => { const b = e.target.closest('button'); if (!b) return;
+    $('#ced').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   if ($('#cvar')) $('#cvar').onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return;
     $('#cvar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#cgr').onclick = e => { const b = e.target.closest('button'); if (!b) return;
@@ -2133,11 +2153,11 @@ async function pkmVersions(card){
     const k = norm(en && en.name);
     if (k){
       const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
-      ocg = (idx[k] || []).map(([pid, set, num, rar, photo]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, ocg: true, lang: 'ja', tcgpj: true,
+      ocg = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
         img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
-        .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity) === i)
+        .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity && x.mirror === v.mirror) === i)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
     }
   }
@@ -2186,7 +2206,7 @@ async function openPkmVersions(card, onPick){
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm" }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div><div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div></div></button>`).join('')
+        <div><div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
@@ -2277,11 +2297,17 @@ function renderConfigure(card, pre){
         const tpid = Number(String(v.id).replace('tcgpj-', ''));
         const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
         const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
+        // Prix TCGplayer par édition (1st Edition / Unlimited) du relevé quotidien
+        const tq = await fetch(`data/tcgpp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
+        const subs = (tq && tq[2]) || {}, eur2 = x => x == null ? null : Math.round(x * FX * 100) / 100;
+        const first = eur2(subs['1st Edition'] ?? subs['1st Edition Holofoil']), unl = eur2(subs['Unlimited'] ?? subs['Unlimited Holofoil']);
+        const eds = first != null || unl != null ? [...(first != null ? ['1st'] : []), ...(unl != null ? ['unl'] : [])] : null;
         const bimg = v.img ? null : await bulbaImg(v);
         renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || v.img || bimg || null,
           prices: { normal: g ? (g[0] ?? g[1]) : null, reverse: g ? g[4] ?? null : null }, trend: g && g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null,
-          cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null,
-          prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
+          cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null, editions: eds, edPrices: eds ? { '1st': first, unl } : null,
+          rarity: v.rarity + (v.mirror ? ' · Mirror Holo' : ''), variant: v.mirror ? 'reverse' : 'normal',
+          prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: v.mirror ? "reverse" : opts.variant, note: opts.note }); return; }
       // Édition OCG : la carte japonaise ; édition TCG : dans la langue choisie (ou en anglais si la carte n'existe pas dans cette langue)
       const want = v.ocg ? 'ja' : (marketOf('pkm', card.lang) === 'intl' ? card.lang : 'fr');
       const c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
@@ -2485,6 +2511,8 @@ async function refreshOne(it, full){
     it.priceRaw = p;
   } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
   if (!viaGuide){ it.trend = c.trend ? (c.trend[it.variant] ?? null) : null; if (!it.cmPrice) it.priceSrc = c.priceSrc || null; }
+  if (c.editions){ it.editions = c.editions; it.edPrices = c.edPrices;
+    if (it.edition && c.editions.length > 1 && c.edPrices[it.edition] != null){ it.priceRaw = c.edPrices[it.edition]; it.priceSrc = 'tcgp'; } }
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
   if (full){   // après un changement de langue : nom et infos dans la nouvelle langue

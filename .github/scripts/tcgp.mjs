@@ -64,8 +64,8 @@ if (jp){
         if (!ex.Number) continue;
         const k = key(cleanName(p.name)); if (!k) continue;
         const f = /[a-z]/.test(k[0]) ? k[0] : '0';
-        ((idx[f] ||= {})[k] ||= []).push([p.productId, g.name, String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0]);
-        (jg[g.groupId] ||= []).push({ pid: p.productId, k, num: parseInt(String(ex.Number), 10) || 0 });
+        ((idx[f] ||= {})[k] ||= []).push([p.productId, g.name, String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0, /mirror|reverse/i.test(p.name) ? 1 : 0]);
+        if (!/mirror|reverse/i.test(p.name)) (jg[g.groupId] ||= []).push({ pid: p.productId, k, num: parseInt(String(ex.Number), 10) || 0 });   // versions miroir : même produit Cardmarket (prix reverse)
       }
     }
   }));

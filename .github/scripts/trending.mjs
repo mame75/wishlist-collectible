@@ -211,7 +211,9 @@ async function readCat(date, cat){
   for (const [pid, subs] of Object.entries(PA)){
     const [sub, v] = Object.entries(subs).sort((a, b) => b[1] - a[1])[0];
     const old = PB[pid] && PB[pid][sub];
-    (pp[Math.floor(pid / 20000)] ||= {})[pid] = [Math.round(v * 100) / 100, old ? Math.round((v / old - 1) * 1000) / 1000 : null];
+    // [prix de la variante la plus chère, évolution 7 j, prix par variante (1st Edition, Unlimited, Holofoil…) si plusieurs]
+    const all = Object.keys(subs).length > 1 || !/^(normal|holofoil)$/i.test(sub) ? Object.fromEntries(Object.entries(subs).map(([s, x]) => [s, Math.round(x * 100) / 100])) : null;
+    (pp[Math.floor(pid / 20000)] ||= {})[pid] = [Math.round(v * 100) / 100, old ? Math.round((v / old - 1) * 1000) / 1000 : null, ...(all ? [all] : [])];
   }
   await rm('data/tcgpp', { recursive: true, force: true });
   await mkdir('data/tcgpp', { recursive: true });
