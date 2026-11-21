@@ -1168,6 +1168,8 @@ function imgBox(c, hi, badges){
     <div class="badges">${badges || ''}</div>
   </div>`;
 }
+// Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
+window.wlcDebug = { get API(){ return API; } };
 /* ========= Visuel par édition (1re / illimitée) =========
    Les scans des séries anciennes portent presque toujours le tampon « Édition 1 ». Pour l'édition illimitée,
    on retire ce tampon du scan (il est repéré à gauche, juste sous l'illustration) ; sans tampon, le scan est gardé tel quel. */
