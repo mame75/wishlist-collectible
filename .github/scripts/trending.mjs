@@ -207,7 +207,8 @@ async function readCat(date, cat){
   return out;
 }
 {
-  const PA = await readCat(now, 3), PB = await readCat(then, 3), pp = {};
+  // Pokémon anglais (catégorie 3) et japonais (catégorie 85)
+  const PA = { ...(await readCat(now, 3)), ...(await readCat(now, 85)) }, PB = { ...(await readCat(then, 3)), ...(await readCat(then, 85)) }, pp = {};
   for (const [pid, subs] of Object.entries(PA)){
     const [sub, v] = Object.entries(subs).sort((a, b) => b[1] - a[1])[0];
     const old = PB[pid] && PB[pid][sub];
