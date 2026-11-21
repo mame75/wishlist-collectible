@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc16:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc17:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -569,6 +569,11 @@ const API = {
     if (!card.img && lang !== 'en'){
       const en = await this.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
       if (en && en.image){ card.img = en.image + '/low.webp'; card.imgHi = en.image + '/high.webp'; card.imgLang = 'en'; }
+    }
+    // Toujours rien (kits du dresseur, decks…) : visuel de la carte d'origine dont c'est une réimpression (Bulbapedia)
+    if (!card.img && lang !== 'ja'){
+      const rp = await reprintImg(id, lang).catch(() => null);
+      if (rp && rp.lo){ card.img = rp.lo; card.imgHi = rp.hi; card.imgReprint = rp.from || null; }
     }
     return card;
   },
@@ -2184,6 +2189,52 @@ function withLang(link, lang){
 const pkmForm = n => { const s = String(n || '').trim();
   const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
   return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
+// Visuel d'une carte de deck ou de kit sans scan : Bulbapedia indique de quelle carte elle est la réimpression
+// (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
+// dans la langue voulue, sinon l'image de Bulbapedia.
+const BULBAPEDIA = 'https://bulbapedia.bulbagarden.net/w/api.php?format=json&origin=*&';
+function reprintImg(id, lang){
+  return cached(`rp1:${lang}:${id}`, async () => {
+    const en = await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`);
+    const n = en && parseInt(en.localId, 10);
+    if (!en || !en.set || !en.name || !(n >= 0)) return {};
+    const J = u => fetch(u).then(r => r.json());
+    const text = p => (p && p.revisions && p.revisions[0].slots.main['*']) || '';
+    const rx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Page Bulbapedia de l'extension (ou du deck), puis identifiant Bulbapedia de la carte
+    const s = await J(`${BULBAPEDIA}action=query&list=search&srlimit=5&srsearch=${encodeURIComponent(en.set.name + ' TCG')}`);
+    const titles = ((s.query && s.query.search) || []).map(x => x.title).filter(t => /\(TCG\)$/.test(t));
+    if (!titles.length) return {};
+    const w = await J(`${BULBAPEDIA}action=query&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(titles.join('|'))}`);
+    let X = null;
+    for (const p of Object.values(w.query.pages)){ const m = text(p).match(new RegExp(`\\{\\{TCG ID\\|([^|}]+)\\|${rx(en.name)}\\|0*${n}\\}\\}`)); if (m){ X = m[1]; break; } }
+    if (!X) return {};
+    const r = await J(`${BULBAPEDIA}action=query&redirects=1&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(`${en.name} (${X} ${n})`)}`);
+    const fp = Object.values(r.query.pages)[0];
+    if (!fp || fp.missing !== undefined) return {};
+    const m = fp.title.match(/^.* \((.+) (\d+)\)$/);
+    // Réimpression d'une carte d'une autre extension : visuel TCGdex de cette carte (dans la langue de la fiche si possible)
+    if (m && m[1] !== X){
+      const sets = await cached('psets:en', () => API.getJSON('https://api.tcgdex.net/v2/en/sets')).catch(() => []);
+      const st = (sets || []).find(x => x.name.toLowerCase() === m[1].toLowerCase());
+      if (st){
+        const sc = await API.getJSON(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(st.id)}`).catch(() => null);
+        const oc = sc && (sc.cards || []).find(c => parseInt(c.localId, 10) === +m[2]);
+        if (oc){
+          const loc = lang !== 'en' ? await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(oc.id)}`).catch(() => null) : null;
+          const img = (loc && loc.image) || oc.image;
+          if (img) return { lo: img + '/low.webp', hi: img + '/high.webp', from: `${st.name} ${m[2]}` };
+        }
+      }
+    }
+    // Sinon : image de la page Bulbapedia
+    const file = (text(fp).match(/\|\s*image=([^\n|}]+)/) || [])[1];
+    if (!file) return {};
+    const ii = await J(`https://archives.bulbagarden.net/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent('File:' + file.trim())}`);
+    const url = Object.values(ii.query.pages)[0].imageinfo?.[0]?.url;
+    return url ? { lo: url, hi: url, from: m ? `${m[1]} ${m[2]}` : null } : {};
+  });
+}
 // Index des visuels TCG Republic (data/trj.json, construit chaque semaine)
 const TRJ = 'https://tcgrepublic.com';
 let trjP = null;
@@ -2328,8 +2379,9 @@ async function openPkmVersions(card, onPick){
   const noImg = vs.filter(v => !v.img);
   mapLimit(noImg, 6, async v => {
     if (tok !== edToken) return;
-    const img = v.tcgpj ? await bulbaImg(v) : await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
+    let img = v.tcgpj ? await bulbaImg(v) : await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
       .then(d => d && d.image ? d.image + '/low.webp' : '')).catch(() => '');
+    if (!img && !v.ocg) img = ((await reprintImg(v.id, v.lang).catch(() => null)) || {}).lo || '';
     if (tok !== edToken || !img) return;
     v.img = img;
     const b = document.querySelector(`#pvgrid .ed[data-i="${vs.indexOf(v)}"] .img`);
