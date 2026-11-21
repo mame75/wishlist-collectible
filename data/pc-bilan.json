@@ -2,8 +2,8 @@
  "date": "2026-11-21",
  "jp": {
   "sansVisuel": 898,
-  "trouves": 458,
-  "reste": 440
+  "trouves": 493,
+  "reste": 405
  },
  "wizards": {
   "cartes": 936,
@@ -17,8 +17,8 @@
   ],
   [
    "SV2a: Pokemon Card 151",
-   null,
-   "0/41"
+   "pokemon-japanese-scarlet-%26-violet-151",
+   "31/41"
   ],
   [
    "L1: HeartGold Collection",
@@ -152,8 +152,8 @@
   ],
   [
    "SV8a: Terastal Fest ex",
-   null,
-   "0/5"
+   "pokemon-japanese-terastal-festival",
+   "5/5"
   ],
   [
    "Gift Box (Latios)",
@@ -212,7 +212,7 @@
   ],
   [
    "Ocean's Kyogre ex Constructed Starter Deck",
-   "pokemon-japanese-kyogre-ex-starter-deck",
+   "pokemon-japanese-mirage%27s-mew-constructed-starter-deck",
    "0/7"
   ],
   [
@@ -272,8 +272,8 @@
   ],
   [
    "EX Battle Boost",
-   "pokemon-japanese-ex-battle-boost",
-   "1/1"
+   "pokemon-japanese-gx-battle-boost",
+   "0/1"
   ],
   [
    "Giratina vs Dialga Deck Kit (Dialga)",
