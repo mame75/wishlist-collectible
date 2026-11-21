@@ -228,9 +228,22 @@ for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
   const list = (j && j.priceGuides) || [];
   const r2 = v => v == null ? null : Math.round(v * 100) / 100;
   const buckets = {};
+  // Pokémon : extension Cardmarket de chaque produit, et liste des produits par extension et par nom (versions V1, V2… dans l'ordre)
+  let expOf = null;
+  if (game === 'pkm'){
+    const pl = ((await get('https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json')) || {}).products || [];
+    expOf = new Map(pl.map(p => [p.idProduct, p.idExpansion]));
+    const key = s => String(s || '').replace(/\s*\[.*?\]\s*/g, ' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const byExp = {};
+    for (const p of pl){ const k = key(p.name); if (!k) continue; ((byExp[p.idExpansion] ||= {})[k] ||= []).push(p.idProduct); }
+    await rm('data/cmprod', { recursive: true, force: true });
+    await mkdir('data/cmprod', { recursive: true });
+    for (const [e, m] of Object.entries(byExp)){ for (const k in m) m[k].sort((a, b) => a - b); await writeFile(`data/cmprod/${e}.json`, JSON.stringify(m)); }
+    console.log('produits Pokémon :', pl.length, '— extensions :', Object.keys(byExp).length);
+  }
   for (const g of list){
     const f = g['avg7-foil'] ?? g['avg7-holo'], f30 = g['avg30-foil'] ?? g['avg30-holo'];
-    (buckets[Math.floor(g.idProduct / 20000)] ||= {})[g.idProduct] = [r2(g.avg7), r2(g.avg30), r2(g.low), r2(g.trend), r2(f), r2(f30)];
+    (buckets[Math.floor(g.idProduct / 20000)] ||= {})[g.idProduct] = [r2(g.avg7), r2(g.avg30), r2(g.low), r2(g.trend), r2(f), r2(f30), expOf ? expOf.get(g.idProduct) || null : null];
   }
   for (const [b, m] of Object.entries(buckets)) await writeFile(`data/cmpg/${game}-${b}.json`, JSON.stringify(m));
   guideMap[game] = new Map(list.map(g => [g.idProduct, g]));
