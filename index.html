@@ -2135,6 +2135,9 @@ async function pkmVersions(card){
       const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
       ocg = (idx[k] || []).map(([pid, set, num, rar, photo]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, ocg: true, lang: 'ja', tcgpj: true,
         img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
+        .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
+        // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
+        .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity) === i)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
     }
   }
@@ -2275,7 +2278,7 @@ function renderConfigure(card, pre){
         const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
         const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
         const bimg = v.img ? null : await bulbaImg(v);
-        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || bimg || null,
+        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || v.img || bimg || null,
           prices: { normal: g ? (g[0] ?? g[1]) : null, reverse: g ? g[4] ?? null : null }, trend: g && g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null,
           cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null,
           prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
