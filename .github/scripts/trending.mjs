@@ -220,7 +220,7 @@ async function readCat(date, cat){
 
 // ---- Guide des prix Cardmarket (fichier publié chaque jour) : data/cmpg/<jeu>-<tranche>.json
 // n° de produit Cardmarket → [moyenne 7 j, moyenne 30 j, plus bas, tendance, moyenne 7 j foil/holo, moyenne 30 j foil/holo]
-const guideMap = {};
+const guideMap = {}; let pkmByExp = {}, pkmExpOf = new Map();
 await rm('data/cmpg', { recursive: true, force: true });
 await mkdir('data/cmpg', { recursive: true });
 for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
@@ -239,6 +239,7 @@ for (const [game, id] of [['ygo', 3], ['pkm', 6]]){
     await rm('data/cmprod', { recursive: true, force: true });
     await mkdir('data/cmprod', { recursive: true });
     for (const [e, m] of Object.entries(byExp)){ for (const k in m) m[k].sort((a, b) => a - b); await writeFile(`data/cmprod/${e}.json`, JSON.stringify(m)); }
+    pkmByExp = byExp; pkmExpOf = expOf;
     console.log('produits Pokémon :', pl.length, '— extensions :', Object.keys(byExp).length);
   }
   for (const g of list){
@@ -263,10 +264,19 @@ for (const c of cards.filter(c => c.game === 'pkm' && c.id)){
     let shared = false;
     for (const b of sibs){ const e = await get(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(b.id)}`);
       if (e && e.pricing && e.pricing.cardmarket && e.pricing.cardmarket.idProduct === cm.idProduct){ shared = true; break; } }
-    if (shared) continue;
-    const g = guideMap.pkm && guideMap.pkm.get(cm.idProduct), rev = /reverse/i.test(c.sub || '');
+    let pid = cm.idProduct;
+    if (shared){
+      // Version confondue par TCGdex : vrai produit = même rang parmi les versions de même nom dans l'extension Cardmarket
+      const pids = (pkmByExp[pkmExpOf.get(cm.idProduct)] || {})[nn(String(d.name).replace(/\s*\[.*?\]\s*/g, ' '))] || [];
+      const same = ((await get(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(d.name)}`)) || [])
+        .filter(b => b.id.startsWith(setId + '-')).sort((a, b) => Number(a.localId) - Number(b.localId));
+      const i = same.findIndex(b => b.id === c.id);
+      if (pids.length < 2 || same.length !== pids.length || i < 0) continue;
+      pid = pids[i];
+    }
+    const g = guideMap.pkm && guideMap.pkm.get(pid), rev = /reverse/i.test(c.sub || '');
     const a7 = rev ? g && g['avg7-holo'] : (g ? g.avg7 : cm.avg7), a30 = rev ? g && g['avg30-holo'] : (g ? g.avg30 : cm.avg30);
-    if (a7) Object.assign(c, { cm7: a7, cm30: a30 ?? null, cmPid: cm.idProduct });
+    if (a7) Object.assign(c, { cm7: a7, cm30: a30 ?? null, cmPid: pid });
   } catch {}
 }
 // Yu-Gi-Oh! : produit Cardmarket retrouvé par le nom de la carte, l'extension (cartes en commun avec la liste de l'extension)
