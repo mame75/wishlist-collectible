@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc17:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc18:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -524,6 +524,9 @@ const API = {
       if ((c.variants && c.variants.firstEdition) || first != null){
         card.editions = ['1st', ...(unl != null || (c.variants && (c.variants.normal || c.variants.holo)) ? ['unl'] : [])];
         card.edPrices = { '1st': first, unl };
+        // Vrais scans de chaque édition (PriceCharting), pour les cartes anglaises
+        if (lang === 'en'){ const pe = (await pcIndex('pced'))[c.id];
+          if (pe) card.edImgs = Object.fromEntries(Object.entries(pe).map(([e, id]) => [e, { lo: pcImg(id, 240), hi: pcImg(id, 1600) }])); }
       } }
     // Sigle officiel de l'extension (OBF, PAF…) pour l'afficher devant son nom
     if (c.set && c.set.id){
@@ -1100,7 +1103,7 @@ function makeItem(card, opts){
     note: opts.note || '', cmLink: opts.cmLink || null, addedAt: Date.now(), refreshedAt: Date.now(), priceAt: Date.now(), pv: 3, prevPrice: null,
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     cmFrom: card.cmFrom || null, cmFromPrev: null, priceSrc: card.priceSrc || null,
-    editions: card.editions || null, edPrices: card.edPrices || null, edition: (card.editions || []).length ? (opts.edition || card.editions[0]) : null,
+    editions: card.editions || null, edPrices: card.edPrices || null, edImgs: card.edImgs || null, edition: (card.editions || []).length ? (opts.edition || card.editions[0]) : null,
     baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
   };
 }
@@ -1154,7 +1157,7 @@ function imgBox(c, hi, badges){
   const fx = src && c.holo && (c.holo === src || c.holo === c.img) ? holoKind(c.holoR) : '';
   return `<div class="img${fx ? ' holo fx-' + fx : ''}${c.game === 'pkm' ? ' pk' : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
-      ${c.game === 'pkm' && (c.editions || []).length > 1 && !c.userImg ? `data-ed="${esc(c.edition || c.editions[0])}"` : ''}
+      ${c.game === 'pkm' && (c.editions || []).length > 1 && !c.userImg ? `data-ed="${esc(c.edition || c.editions[0])}"${Object.entries(c.edImgs || {}).map(([e, x]) => ` data-ed-${e}="${esc(hi ? x.hi : x.lo)}"`).join('')}` : ''}
       ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
@@ -1203,6 +1206,9 @@ function unstampURL(src){
 }
 function applyEd(img){
   if (!img.dataset.orig) img.dataset.orig = img.getAttribute('src');
+  // Vrai scan de cette édition quand on l'a (PriceCharting)
+  const real = img.getAttribute(`data-ed-${img.dataset.ed}`);
+  if (real){ if (img.getAttribute('src') !== real) img.src = real; return; }
   if (img.dataset.ed !== 'unl'){ if (img.getAttribute('src') !== img.dataset.orig) img.src = img.dataset.orig; return; }
   unstampURL(img.dataset.orig).then(u => { if (u && img.dataset.ed === 'unl') img.src = u; });
 }
@@ -2239,6 +2245,10 @@ function reprintImg(id, lang){
 const TRJ = 'https://tcgrepublic.com';
 let trjP = null;
 const trjIndex = () => trjP ||= fetch('data/trj.json').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+// Index des visuels PriceCharting (images seulement) : pcj = cartes japonaises, pced = 1re édition / illimitée (Wizards)
+const pcP = {};
+const pcIndex = n => pcP[n] ||= fetch(`data/${n}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+const pcImg = (id, size) => `https://storage.googleapis.com/images.pricecharting.com/${id}/${size}.jpg`;
 // Noms anglais des anciennes extensions japonaises (absentes du catalogue TCGplayer)
 const JA_SET_EN = { neo1: 'Gold, Silver, to a New World...', neo2: 'Crossing the Ruins...', neo3: 'Awakening Legends', neo4: 'Darkness, and to Light...',
   e1: 'Base Expansion Pack', e2: 'The Town on No Map', e3: 'Wind from the Sea', e4: 'Split Earth', e5: 'Mysterious Mountains' };
@@ -2279,9 +2289,10 @@ async function pkmVersions(card){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
     const k = norm(en && en.name);
     if (k){
-      const [idx, trj] = await Promise.all([fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})), trjIndex()]);
+      const [idx, trj, pcj] = await Promise.all([fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})), trjIndex(), pcIndex('pcj')]);
       // Sans photo TCGplayer : visuel TCG Republic (nom anglais et numéro vérifiés chaque semaine)
-      const trImg = (set, num) => { const t = trj[`${set}|${num}`]; return t ? { img: `${TRJ}${t[0]}.l2_thumbnail.jpg`, imgHi: `${TRJ}${t[0]}` } : { img: null, imgHi: null }; };
+      const trImg = (set, num) => { const t = trj[`${set}|${num}`], p = pcj[`${set}|${num}`];
+        return t ? { img: `${TRJ}${t[0]}.l2_thumbnail.jpg`, imgHi: `${TRJ}${t[0]}` } : p ? { img: pcImg(p[0], 240), imgHi: pcImg(p[0], 1600) } : { img: null, imgHi: null }; };
       const tj = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
         ...(photo ? { img: `${TCGP}${pid}_400w.jpg`, imgHi: `${TCGP}${pid}_in_1000x1000.jpg` } : trImg(set, num)) }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
@@ -2698,7 +2709,7 @@ async function refreshOne(it, full){
     it.priceRaw = p;
   } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
   if (!viaGuide){ it.trend = c.trend ? (c.trend[it.variant] ?? null) : null; if (!it.cmPrice) it.priceSrc = c.priceSrc || null; }
-  if (c.editions){ it.editions = c.editions; it.edPrices = c.edPrices;
+  if (c.editions){ it.editions = c.editions; it.edPrices = c.edPrices; it.edImgs = c.edImgs || null;
     if (it.edition && c.editions.length > 1 && c.edPrices){ it.priceRaw = c.edPrices[it.edition] ?? null; it.priceSrc = it.priceRaw != null ? 'tcgp' : null; } }
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }

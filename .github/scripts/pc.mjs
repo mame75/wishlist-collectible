@@ -23,7 +23,7 @@ async function req(url, body){
 const key = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 const stem = w => w.slice(0, 5);
 const words = s => String(s || '').toLowerCase().replace(/&amp;/g, '&').replace(/%27/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .split(/[^a-z0-9]+/).filter(w => w && !['the', 'of', 'and', 'a', 'to', 'pokemon', 'japanese', 'pack', 'expansion', 'card'].includes(w)).map(stem);
+  .split(/[^a-z0-9]+/).filter(w => w && !['the', 'of', 'and', 'a', 'to', 'pokemon', 'japanese', 'pack', 'expansion', 'card', 'ex', 'amp'].includes(w)).map(stem);
 const num = s => parseInt(String(s).split('/')[0], 10);
 
 // Toutes les cartes d'une extension PriceCharting (pagination : formulaire « cursor »)
@@ -56,8 +56,11 @@ async function setRows(slug){
 // Extensions PriceCharting (liste de la catégorie Pokémon)
 const cat = await req(`${BASE}/category/pokemon-cards`);
 if (!cat){ console.log('PriceCharting injoignable'); process.exit(0); }
-const consoles = [...new Set([...cat.matchAll(/href="\/console\/([^"?#]+)"/g)].map(m => m[1]))];
-const jpCons = consoles.filter(c => c.startsWith('pokemon-japanese-')).map(c => ({ slug: c, w: new Set(words(c.replace(/^pokemon-japanese-/, '').replace(/-/g, ' '))) }));
+const consoles = [...new Set([...cat.matchAll(/href="\/console\/([^"?#]+)"/g)].map(m => m[1].replace(/&amp;/g, '%26')))];
+const jpCons = consoles.filter(c => c.startsWith('pokemon-japanese-')).map(c => ({ slug: c, w: words(decodeURIComponent(c).replace(/^pokemon-japanese-/, '').replace(/-/g, ' ')) }));
+// Mots équivalents : identiques ou l'un préfixe de l'autre (« Fest » ↔ « Festival », « Revival » ↔ « Reviving »)
+const same = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+const has = (list, x) => list.some(y => same(x, y));
 const slugify = s => String(s).toLowerCase().replace(/&/g, '&amp;').replace(/'/g, '%27').replace(/[^a-z0-9&;%]+/g, '-').replace(/^-|-$/g, '');
 
 // ---------- 1) Cartes japonaises sans visuel ----------
@@ -77,7 +80,7 @@ function matchJp(set){
   const bare = set.replace(/^[A-Za-z0-9+-]+:\s/, '');
   const w = words(bare);
   if (!w.length) return [];
-  const cand = jpCons.map(c => [c.slug, w.filter(x => c.w.has(x)).length / w.length, c.w.size]).filter(x => x[1] === 1).sort((a, b) => a[2] - b[2]).map(x => x[0]);
+  const cand = jpCons.map(c => [c.slug, w.filter(x => has(c.w, x)).length / w.length, c.w.length]).filter(x => x[1] === 1).sort((a, b) => a[2] - b[2]).map(x => x[0]);
   const guess = `pokemon-japanese-${slugify(bare)}`;
   return [...new Set([...cand.slice(0, 1), guess])];
 }
@@ -89,7 +92,7 @@ async function searchJp(set, sample){
   if (!html) return null;
   const w = words(bare);
   const slugs = [...new Set([...html.matchAll(/\/(?:game|console)\/(pokemon-japanese-[^/"?#]+)/g)].map(m => m[1]))];
-  const best = slugs.map(s => [s, w.filter(x => words(s.replace(/^pokemon-japanese-/, '').replace(/-/g, ' ')).includes(x)).length / (w.length || 1)]).sort((a, b) => b[1] - a[1])[0];
+  const best = slugs.map(s => [s, w.filter(x => has(words(s.replace(/^pokemon-japanese-/, '').replace(/-/g, ' ')), x)).length / (w.length || 1)]).sort((a, b) => b[1] - a[1])[0];
   return best && best[1] >= 0.5 ? best[0] : null;
 }
 const pcj = {}, logJ = [];
