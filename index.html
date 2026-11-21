@@ -1145,11 +1145,58 @@ function imgBox(c, hi, badges){
   const fx = src && c.holo && (c.holo === src || c.holo === c.img) ? holoKind(c.holoR) : '';
   return `<div class="img${fx ? ' holo fx-' + fx : ''}${c.game === 'pkm' ? ' pk' : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
+      ${c.game === 'pkm' && (c.editions || []).length > 1 && !c.userImg ? `data-ed="${esc(c.edition || c.editions[0])}"` : ''}
       ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
   </div>`;
 }
+/* ========= Visuel par édition (1re / illimitée) =========
+   Les scans des séries anciennes portent presque toujours le tampon « Édition 1 ». Pour l'édition illimitée,
+   on retire ce tampon du scan (il est repéré à gauche, juste sous l'illustration) ; sans tampon, le scan est gardé tel quel. */
+const UNSTAMP = new Map();
+function unstampURL(src){
+  if (!UNSTAMP.has(src)) UNSTAMP.set(src, new Promise(res => {
+    const i = new Image(); i.crossOrigin = 'anonymous';
+    i.onerror = () => res(null);
+    i.onload = () => { try {
+      const W = i.naturalWidth, H = i.naturalHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const x = cv.getContext('2d'); x.drawImage(i, 0, 0);
+      const X0 = Math.round(W * 0.025), X1 = Math.round(W * 0.14), Y0 = Math.round(H * 0.505), Y1 = Math.round(H * 0.59);
+      const im = x.getImageData(0, 0, W, H), d = im.data, at = (px, py) => (py * W + px) * 4;
+      const lum = k => 0.3 * d[k] + 0.59 * d[k + 1] + 0.11 * d[k + 2];
+      // Pixels sombres du tampon : on garde le plus gros amas (boîte englobante)
+      let n = 0, bx0 = W, bx1 = 0, by0 = H, by1 = 0;
+      for (let py = Y0; py < Y1; py++) for (let px = X0; px < X1; px++) if (lum(at(px, py)) < 70){ n++; bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px); by0 = Math.min(by0, py); by1 = Math.max(by1, py); }
+      const bw = bx1 - bx0, bh = by1 - by0;
+      if (n < (X1 - X0) * (Y1 - Y0) * 0.03 || bw < W * 0.03 || bw > W * 0.1 || bh < W * 0.03 || bh > W * 0.1) return res(null);
+      const m = Math.max(3, Math.round(W * 0.006)); bx0 -= m; bx1 += m; by0 -= m; by1 += m;
+      // Fond reconstruit : moyenne des interpolations horizontale et verticale entre les bords de la zone
+      const src2 = new Uint8ClampedArray(d);
+      const px2 = (px, py, c) => src2[at(px, py) + c];
+      for (let py = by0; py <= by1; py++) for (let px = bx0; px <= bx1; px++){
+        const tx = (px - bx0) / (bx1 - bx0), ty = (py - by0) / (by1 - by0), k = at(px, py);
+        for (let c = 0; c < 3; c++){
+          const hz = px2(bx0 - 1, py, c) * (1 - tx) + px2(bx1 + 1, py, c) * tx, vt = px2(px, by0 - 1, c) * (1 - ty) + px2(px, by1 + 1, c) * ty;
+          d[k + c] = (hz + vt) / 2;
+        }
+      }
+      x.putImageData(im, 0, 0);
+      res(cv.toDataURL('image/webp', 0.9));
+    } catch (e){ res(null); } };
+    i.src = src;
+  }));
+  return UNSTAMP.get(src);
+}
+function applyEd(img){
+  if (!img.dataset.orig) img.dataset.orig = img.getAttribute('src');
+  if (img.dataset.ed !== 'unl'){ if (img.getAttribute('src') !== img.dataset.orig) img.src = img.dataset.orig; return; }
+  unstampURL(img.dataset.orig).then(u => { if (u && img.dataset.ed === 'unl') img.src = u; });
+}
+new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) if (nd.nodeType === 1){
+  if (nd.matches('img[data-ed]')) applyEd(nd); nd.querySelectorAll('img[data-ed]').forEach(applyEd); } })
+  .observe(document.documentElement, { childList: true, subtree: true });
+
 /* ========= Vues ========= */
 let view = 'wishlist';
 let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'' };
@@ -1939,7 +1986,10 @@ function readVersionFields(o){
 const ED_LABEL = { '1st': '1re édition', unl: 'Illimitée' };
 function bindVersionFields(){
   if ($('#ced')) $('#ced').onclick = e => { const b = e.target.closest('button'); if (!b) return;
-    $('#ced').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+    $('#ced').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    // Le visuel suit l'édition choisie
+    const sc = $('#ced').closest('.scrim') || document;
+    sc.querySelectorAll('.detail > .img img[data-ed]').forEach(i => { i.dataset.ed = b.dataset.e; applyEd(i); }); };
   if ($('#cvar')) $('#cvar').onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return;
     $('#cvar').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#cgr').onclick = e => { const b = e.target.closest('button'); if (!b) return;
@@ -2266,7 +2316,7 @@ function renderConfigure(card, pre){
               cmLinkInput: pre.cmLink || '', edition: pre.edition || null };
   // 1re édition / illimitée : le prix affiché suit l'édition choisie
   if ((card.editions || []).length > 1 && card.edPrices){ const ed = o.edition || card.editions[0];
-    card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp', trend: null }; }
+    card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp', trend: null, edition: ed }; }
   const market = marketOf(card.game, card.lang);
   const langs = langChoices(card.game, card.lang);
   $('#cardBody').innerHTML = `<div class="detail">
