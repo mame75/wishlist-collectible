@@ -1154,38 +1154,42 @@ function imgBox(c, hi, badges){
 /* ========= Visuel par édition (1re / illimitée) =========
    Les scans des séries anciennes portent presque toujours le tampon « Édition 1 ». Pour l'édition illimitée,
    on retire ce tampon du scan (il est repéré à gauche, juste sous l'illustration) ; sans tampon, le scan est gardé tel quel. */
-const UNSTAMP = new Map();
+const UNSTAMP = new Map(), STAMP_W = 300;
+const loadCors = u => new Promise(res => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => res(null); i.src = u; });
+const grayOf = (i, w) => { const hh = Math.round(w * i.naturalHeight / i.naturalWidth), c = document.createElement('canvas'); c.width = w; c.height = hh;
+  const x = c.getContext('2d'); x.drawImage(i, 0, 0, w, hh); const d = x.getImageData(0, 0, w, hh).data, g = new Float32Array(w * hh);
+  for (let k = 0; k < w * hh; k++) g[k] = 0.3 * d[4 * k] + 0.59 * d[4 * k + 1] + 0.11 * d[4 * k + 2]; return { g, w, h: hh }; };
+// Gabarit du tampon, pris sur un scan de référence (Lugia Neo Genesis 1re édition)
+let stampTpl = null;
+const getStampTpl = () => stampTpl ||= loadCors('https://assets.tcgdex.net/en/neo/neo1/9/high.webp').then(i => {
+  if (!i) return null; const R = grayOf(i, STAMP_W), TS = 24, x0 = 12, y0 = Math.round(0.5273 * R.h) + 1, T = new Float32Array(TS * TS);
+  for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) T[y * TS + x] = R.g[(y0 + y) * STAMP_W + x0 + x];
+  let m = 0; for (const v of T) m += v; m /= T.length; let n = 0; for (let k = 0; k < T.length; k++){ T[k] -= m; n += T[k] * T[k]; }
+  return { T, TS, n: Math.sqrt(n) }; });
 function unstampURL(src){
-  if (!UNSTAMP.has(src)) UNSTAMP.set(src, new Promise(res => {
-    const i = new Image(); i.crossOrigin = 'anonymous';
-    i.onerror = () => res(null);
-    i.onload = () => { try {
-      const W = i.naturalWidth, H = i.naturalHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-      const x = cv.getContext('2d'); x.drawImage(i, 0, 0);
-      const X0 = Math.round(W * 0.025), X1 = Math.round(W * 0.14), Y0 = Math.round(H * 0.505), Y1 = Math.round(H * 0.59);
-      const im = x.getImageData(0, 0, W, H), d = im.data, at = (px, py) => (py * W + px) * 4;
-      const lum = k => 0.3 * d[k] + 0.59 * d[k + 1] + 0.11 * d[k + 2];
-      // Pixels sombres du tampon : on garde le plus gros amas (boîte englobante)
-      let n = 0, bx0 = W, bx1 = 0, by0 = H, by1 = 0;
-      for (let py = Y0; py < Y1; py++) for (let px = X0; px < X1; px++) if (lum(at(px, py)) < 70){ n++; bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px); by0 = Math.min(by0, py); by1 = Math.max(by1, py); }
-      const bw = bx1 - bx0, bh = by1 - by0;
-      if (n < (X1 - X0) * (Y1 - Y0) * 0.03 || bw < W * 0.03 || bw > W * 0.1 || bh < W * 0.03 || bh > W * 0.1) return res(null);
-      const m = Math.max(3, Math.round(W * 0.006)); bx0 -= m; bx1 += m; by0 -= m; by1 += m;
-      // Fond reconstruit : moyenne des interpolations horizontale et verticale entre les bords de la zone
-      const src2 = new Uint8ClampedArray(d);
-      const px2 = (px, py, c) => src2[at(px, py) + c];
-      for (let py = by0; py <= by1; py++) for (let px = bx0; px <= bx1; px++){
-        const tx = (px - bx0) / (bx1 - bx0), ty = (py - by0) / (by1 - by0), k = at(px, py);
-        for (let c = 0; c < 3; c++){
-          const hz = px2(bx0 - 1, py, c) * (1 - tx) + px2(bx1 + 1, py, c) * tx, vt = px2(px, by0 - 1, c) * (1 - ty) + px2(px, by1 + 1, c) * ty;
-          d[k + c] = (hz + vt) / 2;
-        }
-      }
-      x.putImageData(im, 0, 0);
-      res(cv.toDataURL('image/webp', 0.9));
-    } catch (e){ res(null); } };
-    i.src = src;
-  }));
+  if (!UNSTAMP.has(src)) UNSTAMP.set(src, (async () => { try {
+    const [tpl, i] = await Promise.all([getStampTpl(), loadCors(src)]);
+    if (!tpl || !i) return null;
+    // Recherche du tampon (corrélation normalisée) à gauche, sous l'illustration
+    const G = grayOf(i, STAMP_W), { T, TS } = tpl; let best = [-1, 0, 0];
+    for (let y = Math.round(0.47 * G.h); y < 0.62 * G.h - TS; y++) for (let x = 0; x < 0.2 * STAMP_W - TS; x++){
+      let m = 0; for (let yy = 0; yy < TS; yy++) for (let xx = 0; xx < TS; xx++) m += G.g[(y + yy) * STAMP_W + x + xx]; m /= TS * TS;
+      let num = 0, den = 0; for (let yy = 0; yy < TS; yy++) for (let xx = 0; xx < TS; xx++){ const v = G.g[(y + yy) * STAMP_W + x + xx] - m; num += v * T[yy * TS + xx]; den += v * v; }
+      const s = num / (Math.sqrt(den) * tpl.n + 1e-6); if (s > best[0]) best = [s, x, y]; }
+    if (best[0] < 0.68) return null;   // pas de tampon sur ce scan
+    const W = i.naturalWidth, H = i.naturalHeight, k = W / STAMP_W, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const x = cv.getContext('2d'); x.drawImage(i, 0, 0);
+    const im = x.getImageData(0, 0, W, H), d = im.data, at = (px, py) => (py * W + px) * 4, mg = Math.ceil(2 * k);
+    const bx0 = Math.max(1, Math.floor(best[1] * k) - mg), by0 = Math.floor(best[2] * k) - mg, bx1 = Math.ceil((best[1] + TS) * k) + mg, by1 = Math.ceil((best[2] + TS) * k) + mg;
+    // Fond reconstruit : moyenne des interpolations horizontale et verticale entre les bords de la zone
+    const s2 = new Uint8ClampedArray(d), p2 = (px, py, c) => s2[at(px, py) + c];
+    for (let py = by0; py <= by1; py++) for (let px = bx0; px <= bx1; px++){
+      const tx = (px - bx0) / (bx1 - bx0), ty = (py - by0) / (by1 - by0), q = at(px, py);
+      for (let c = 0; c < 3; c++) d[q + c] = (p2(bx0 - 1, py, c) * (1 - tx) + p2(bx1 + 1, py, c) * tx + p2(px, by0 - 1, c) * (1 - ty) + p2(px, by1 + 1, c) * ty) / 2;
+    }
+    x.putImageData(im, 0, 0);
+    return cv.toDataURL('image/webp', 0.9);
+  } catch (e){ return null; } })());
   return UNSTAMP.get(src);
 }
 function applyEd(img){
