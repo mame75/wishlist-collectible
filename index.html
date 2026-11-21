@@ -2133,13 +2133,36 @@ async function pkmVersions(card){
     const k = norm(en && en.name);
     if (k){
       const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
-      ocg = (idx[k] || []).map(([pid, set, num, rar, photo]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, set, rarity: rar, ocg: true, lang: 'ja', tcgpj: true,
+      ocg = (idx[k] || []).map(([pid, set, num, rar, photo]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, ocg: true, lang: 'ja', tcgpj: true,
         img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
     }
   }
   return [...tcg, ...ocg];
 }
+// Bulbagarden Archives (photothèque de Bulbapedia) : scans des cartes japonaises absentes ailleurs.
+// 1) scan exact de l'édition japonaise (« NomExtensionNuméro.jpg ») ; 2) pour les raretés de base (même illustration
+// qu'en anglais), le visuel de la carte anglaise équivalente, celui qu'affiche la page Bulbapedia de la carte.
+const BULBA_BASIC = /^(common|uncommon|rare|rare holo|holo rare|none|promo)$/i;
+async function bulbaImg(v){
+  if (!v || !v.nameEn || !v.set) return null;
+  return cached(`bulba:${v.id}`, async () => {
+    const set = String(v.set).replace(/^[A-Za-z0-9-]+:\s*/, ''), num = String(v.localId || '').split('/')[0].replace(/^0+(?=\d)/, '');
+    const compact = s => String(s).replace(/[^A-Za-z0-9é]/g, '');
+    const info = async titles => { const r = await API.getJSON(`https://archives.bulbagarden.net/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(titles.join('|'))}`).catch(() => null);
+      const pg = Object.values((r && r.query && r.query.pages) || {}).find(p => p.imageinfo && p.imageinfo[0]); return pg ? pg.imageinfo[0].url : null; };
+    const base = `File:${compact(v.nameEn)}${compact(set)}${num}`;
+    let u = await info([`${base}.jpg`, `${base}.png`]);
+    if (!u && BULBA_BASIC.test(v.rarity || '')){
+      const r = await API.getJSON(`https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${encodeURIComponent(`${v.nameEn} (${set} ${num})`)}&prop=wikitext&redirects=1&format=json&origin=*`).catch(() => null);
+      const w = r && r.parse && r.parse.wikitext && r.parse.wikitext['*'];
+      const f = w && (w.match(/\bimage=([^\n|}]+)/) || [])[1];
+      if (f) u = await info([`File:${f.trim()}`]);
+    }
+    return u || '';
+  }).catch(() => '');
+}
+
 async function openPkmVersions(card, onPick){
   $('#edBody').innerHTML = '<div class="status">Recherche des éditions…</div>';
   openModal('#edScrim');
@@ -2167,11 +2190,11 @@ async function openPkmVersions(card, onPick){
   $('#pvq').oninput = draw;
   $('#pvm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mk = c.dataset.m; draw(); } };
   $('#pvgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return; const v = vs[+b.dataset.i]; closeModal('#edScrim'); onPick(v); };
-  // Visuels manquants dans cette langue (cartes anciennes sans image française) : visuel anglais de la même carte
-  const noImg = vs.filter(v => !v.img && !v.tcgpj);
+  // Visuels manquants : visuel anglais de la même carte (TCGdex), ou scan Bulbagarden pour les éditions japonaises TCGplayer
+  const noImg = vs.filter(v => !v.img);
   mapLimit(noImg, 6, async v => {
     if (tok !== edToken) return;
-    const img = await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
+    const img = v.tcgpj ? await bulbaImg(v) : await cached(`pimg:en:${v.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(v.id)}`)
       .then(d => d && d.image ? d.image + '/low.webp' : '')).catch(() => '');
     if (tok !== edToken || !img) return;
     v.img = img;
@@ -2251,7 +2274,8 @@ function renderConfigure(card, pre){
         const tpid = Number(String(v.id).replace('tcgpj-', ''));
         const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
         const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
-        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img, imgHi: v.imgHi,
+        const bimg = v.img ? null : await bulbaImg(v);
+        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || bimg || null,
           prices: { normal: g ? (g[0] ?? g[1]) : null, reverse: g ? g[4] ?? null : null }, trend: g && g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null,
           cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null,
           prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
