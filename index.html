@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc21:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc22:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -2215,8 +2215,11 @@ const sameCard = (a, b) => cardSig(a) === cardSig(b) && (!(a.abilities || []).le
   || JSON.stringify(a.abilities.map(x => sigTxt(x.name))) === JSON.stringify(b.abilities.map(x => sigTxt(x.name))));
 function sameCardImg(c, lang){
   if (!c || !c.name || !c.illustrator || (!(c.attacks || []).length && !(c.abilities || []).length && !c.effect)) return Promise.resolve(null);
-  return cached(`same3:${lang}:${c.id}`, async () => {
-    const list = (await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(c.name)}`)) || [];
+  return cached(`same4:${lang}:${c.id}`, async () => {
+    // Même nom, ou même Pokémon (le nom peut s'écrire autrement : « d'Alola » / « d’Alola »)
+    const [byName, ...byDex] = await Promise.all([API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=eq:${encodeURIComponent(c.name)}`).catch(() => []),
+      ...(c.dexId || []).slice(0, 1).map(d => API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?dexId=eq:${d}`).catch(() => []))]);
+    const list = [...new Map([...(byName || []), ...byDex.flat().filter(Boolean)].map(b => [b.id, b])).values()];
     // Cartes de la même génération d'abord (sm, swsh, xy…), pour les noms très imprimés (Pikachu…)
     const era = (String(c.set && c.set.id || c.id).match(/(swsh|sv|sm|xy|bw|hgss|dp|pl|me)/) || [])[1];
     const cand = list.filter(b => b.image && b.id !== c.id && !isPocketCard(b.id))
