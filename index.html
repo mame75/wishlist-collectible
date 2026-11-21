@@ -484,7 +484,7 @@ const API = {
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
       // Prix affiché : moyenne des ventes Cardmarket sur 7 jours (le « plus bas » mélange les langues : une copie étrangère isolée le fausse)
-      prices: { normal: pick('avg7','avg1','avg30','avg','trend','low'), reverse: pick('avg7-holo','avg1-holo','avg30-holo','avg-holo','trend-holo','low-holo') },
+      prices: { normal: pick('avg7','avg1','avg30','avg','trend','low'), reverse: c.variants && c.variants.reverse === false ? null : pick('avg7-holo','avg1-holo','avg30-holo','avg-holo','trend-holo','low-holo') },
       trend: { normal: ratio(cm.avg7, cm.avg30), reverse: ratio(cm['avg7-holo'], cm['avg30-holo']) },
       prints: null, cmId: cm.idProduct || null, nameEn: null, dexId: c.dexId || [],
       priceDate: cm.updated || null
@@ -498,7 +498,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc14:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc15:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -2170,6 +2170,8 @@ async function pkmVersions(card){
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
         .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity && x.mirror === v.mirror) === i)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+      // Mirror Holo : même produit Cardmarket que la version normale (le prix holo de Cardmarket est celui du Mirror)
+      ocg.forEach(v => { if (v.mirror){ const b = ocg.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
     }
   }
   return [...tcg, ...ocg];
@@ -2310,8 +2312,11 @@ function renderConfigure(card, pre){
       if (v.tcgpj){
         // Produit Cardmarket de cette édition japonaise (data/cmjp, relié chaque semaine) : lien exact et moyenne des ventes 7 j
         const tpid = Number(String(v.id).replace('tcgpj-', ''));
-        const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
-        const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
+        const cpid = v.basePid ? Number(String(v.basePid).replace('tcgpj-', '')) : tpid;
+        const cmPid = await fetch(`data/cmjp/${Math.floor(cpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[cpid] || null).catch(() => null);
+        let g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
+        // Mirror Holo : moyenne 7 j « holo » du produit Cardmarket
+        if (g && v.mirror) g = (g[4] ?? g[5]) != null ? [g[4] ?? g[5], g[5] ?? null, null, null, g[4] ?? g[5], g[5]] : null;
         // Prix TCGplayer par édition (1st Edition / Unlimited) du relevé quotidien
         const tq = await fetch(`data/tcgpp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
         const subs = (tq && tq[2]) || {}, eur2 = x => x == null ? null : Math.round(x * FX * 100) / 100;
