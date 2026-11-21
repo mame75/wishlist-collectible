@@ -2146,14 +2146,14 @@ async function pkmVersions(card){
 const BULBA_BASIC = /^(common|uncommon|rare|rare holo|holo rare|none|promo)$/i;
 async function bulbaImg(v){
   if (!v || !v.nameEn || !v.set) return null;
-  return cached(`bulba:${v.id}`, async () => {
+  return cached(`bulba2:${v.id}`, async () => {
     const set = String(v.set).replace(/^[A-Za-z0-9-]+:\s*/, ''), num = String(v.localId || '').split('/')[0].replace(/^0+(?=\d)/, '');
     const compact = s => String(s).replace(/[^A-Za-z0-9é]/g, '');
     const info = async titles => { const r = await API.getJSON(`https://archives.bulbagarden.net/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(titles.join('|'))}`).catch(() => null);
       const pg = Object.values((r && r.query && r.query.pages) || {}).find(p => p.imageinfo && p.imageinfo[0]); return pg ? pg.imageinfo[0].url : null; };
     const base = `File:${compact(v.nameEn)}${compact(set)}${num}`;
     let u = await info([`${base}.jpg`, `${base}.png`]);
-    if (!u && BULBA_BASIC.test(v.rarity || '')){
+    if (!u && (!v.rarity || BULBA_BASIC.test(v.rarity))){   // rareté inconnue (decks, coffrets) : réimpression d'une carte existante
       const r = await API.getJSON(`https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=${encodeURIComponent(`${v.nameEn} (${set} ${num})`)}&prop=wikitext&redirects=1&format=json&origin=*`).catch(() => null);
       const w = r && r.parse && r.parse.wikitext && r.parse.wikitext['*'];
       const f = w && (w.match(/\bimage=([^\n|}]+)/) || [])[1];
