@@ -1,6 +1,6 @@
 // Sonde : où trouver les visuels 1re édition / illimitée dans le catalogue TCGplayer ?
 import { writeFile, mkdir } from 'node:fs/promises';
-const J = u => fetch(u).then(r => r.json());
+const J = u => fetch(u, { headers: { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' } }).then(r => r.json());
 const out = {};
 for (const cat of [3, 85]){
   const g = (await J(`https://tcgcsv.com/tcgplayer/${cat}/groups`)).results;
