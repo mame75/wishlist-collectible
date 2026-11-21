@@ -2184,6 +2184,10 @@ function withLang(link, lang){
 const pkmForm = n => { const s = String(n || '').trim();
   const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
   return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
+// Index des visuels TCG Republic (data/trj.json, construit chaque semaine)
+const TRJ = 'https://tcgrepublic.com';
+let trjP = null;
+const trjIndex = () => trjP ||= fetch('data/trj.json').then(r => r.ok ? r.json() : {}).catch(() => ({}));
 // Noms anglais des anciennes extensions japonaises (absentes du catalogue TCGplayer)
 const JA_SET_EN = { neo1: 'Gold, Silver, to a New World...', neo2: 'Crossing the Ruins...', neo3: 'Awakening Legends', neo4: 'Darkness, and to Light...',
   e1: 'Base Expansion Pack', e2: 'The Town on No Map', e3: 'Wind from the Sea', e4: 'Split Earth', e5: 'Mysterious Mountains' };
@@ -2224,9 +2228,11 @@ async function pkmVersions(card){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
     const k = norm(en && en.name);
     if (k){
-      const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+      const [idx, trj] = await Promise.all([fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})), trjIndex()]);
+      // Sans photo TCGplayer : visuel TCG Republic (nom anglais et numéro vérifiés chaque semaine)
+      const trImg = (set, num) => { const t = trj[`${set}|${num}`]; return t ? { img: `${TRJ}${t[0]}.l2_thumbnail.jpg`, imgHi: `${TRJ}${t[0]}` } : { img: null, imgHi: null }; };
       const tj = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
-        img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
+        ...(photo ? { img: `${TCGP}${pid}_400w.jpg`, imgHi: `${TCGP}${pid}_in_1000x1000.jpg` } : trImg(set, num)) }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
         .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity && x.mirror === v.mirror) === i)
