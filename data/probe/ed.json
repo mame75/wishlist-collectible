@@ -1,0 +1,608 @@
+{
+ "groups3": [
+  [
+   24584,
+   "First Partner Collection 2026",
+   ""
+  ],
+  [
+   23330,
+   "My First Battle",
+   ""
+  ],
+  [
+   22873,
+   "SV01: Scarlet & Violet Base Set",
+   "SVI"
+  ],
+  [
+   2585,
+   "SWSH01: Sword & Shield Base Set",
+   "SWSH01"
+  ],
+  [
+   1863,
+   "SM Base Set",
+   "SM01"
+  ],
+  [
+   1387,
+   "XY Base Set",
+   "XY"
+  ],
+  [
+   1402,
+   "HeartGold SoulSilver",
+   "HS"
+  ],
+  [
+   1396,
+   "Neo Genesis",
+   "N1"
+  ],
+  [
+   605,
+   "Base Set 2",
+   "BS2"
+  ],
+  [
+   635,
+   "Jungle",
+   "JU"
+  ],
+  [
+   604,
+   "Base Set",
+   "BS"
+  ],
+  [
+   1663,
+   "Base Set (Shadowless)",
+   "BSS"
+  ],
+  [
+   2776,
+   "First Partner Pack",
+   "FPP"
+  ]
+ ],
+ "groups85": [
+  [
+   24025,
+   "L1: HeartGold Collection",
+   "L1: HG"
+  ],
+  [
+   24026,
+   "L1: SoulSilver Collection",
+   "L1: SS"
+  ],
+  [
+   23722,
+   "Pokemon Jungle",
+   ""
+  ]
+ ],
+ "g22873 SV01: Scarlet & Violet Base Set": [],
+ "g2585 SWSH01: Sword & Shield Base Set": [],
+ "g1863 SM Base Set": [],
+ "g1387 XY Base Set": [],
+ "g1396 Neo Genesis": [
+  {
+   "id": 86903,
+   "name": "Lugia",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/86903_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "009/111"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Colorless"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "90"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[RWL] Elemental Blast (90)\r\n<br>Discard a Fire Energy card, a Water Energy card, and a Lightning Energy card attached to Lugia in order to use this attack."
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "P"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    },
+    {
+     "name": "RetreatCost",
+     "displayName": "Retreat Cost",
+     "value": "2"
+    }
+   ],
+   "prices": [
+    [
+     "1st Edition Holofoil",
+     1300
+    ],
+    [
+     "Unlimited Holofoil",
+     513.49
+    ]
+   ]
+  }
+ ],
+ "g605 Base Set 2": [
+  {
+   "id": 42461,
+   "name": "Scyther",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/42461_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "017/130"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "70"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[G] Swords Dance\r\n<br>During your next turn, Scyther's Slash attack's base damage is 60 instead of 30."
+    },
+    {
+     "name": "Attack 2",
+     "displayName": "Attack 2",
+     "value": "[3] Slash (30)"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "R"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    }
+   ],
+   "prices": [
+    [
+     "Holofoil",
+     41
+    ]
+   ]
+  },
+  {
+   "id": 42479,
+   "name": "Charizard",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/42479_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "004/130"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Fire"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "120"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Stage 2"
+    },
+    {
+     "name": "CardText",
+     "displayName": "Card Text",
+     "value": "<strong>Pokémon Power: Energy Burn</strong> As often as you like during your turn <em>(before your attack)</em>, you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed."
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[RRRR] Fire Spin (100)\r\n<br>Discard 2 Energy cards attached to Charizard in order to use this attack."
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "W"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    },
+    {
+     "name": "RetreatCost",
+     "displayName": "Retreat Cost",
+     "value": "3"
+    }
+   ],
+   "prices": [
+    [
+     "Holofoil",
+     513.67
+    ]
+   ]
+  }
+ ],
+ "g635 Jungle": [
+  {
+   "id": 45121,
+   "name": "Scyther (10)",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/45121_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "10/64"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "70"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[G] Swords Dance\r\n<br>During your next turn, Scyther's Slash attack's base damage is 60 instead of 30."
+    },
+    {
+     "name": "Attack 2",
+     "displayName": "Attack 2",
+     "value": "[3] Slash (30)"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "R"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    }
+   ],
+   "prices": [
+    [
+     "1st Edition Holofoil",
+     178.61
+    ],
+    [
+     "Unlimited Holofoil",
+     55.18
+    ]
+   ]
+  },
+  {
+   "id": 106988,
+   "name": "Scyther (26)",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/106988_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "26/64"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Grass"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "70"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[G] Swords Dance\r\n<br>During your next turn, Scyther's Slash attack's base damage is 60 instead of 30."
+    },
+    {
+     "name": "Attack 2",
+     "displayName": "Attack 2",
+     "value": "[3] Slash (30)"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "R"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    }
+   ],
+   "prices": [
+    [
+     "1st Edition",
+     30.7
+    ],
+    [
+     "Unlimited",
+     15.85
+    ]
+   ]
+  }
+ ],
+ "g604 Base Set": [
+  {
+   "id": 42382,
+   "name": "Charizard",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/42382_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "004/102"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Fire"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "120"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Stage 2"
+    },
+    {
+     "name": "CardText",
+     "displayName": "Card Text",
+     "value": "<strong>Pokémon Power: Energy Burn</strong> As often as you like during your turn <em>(before your attack)</em>, you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed."
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[RRRR] Fire Spin (100)\r\n<br>Discard 2 Energy cards attached to Charizard in order to use this attack."
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "W"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    },
+    {
+     "name": "RetreatCost",
+     "displayName": "Retreat Cost",
+     "value": "3"
+    }
+   ],
+   "prices": [
+    [
+     "Holofoil",
+     1001.05
+    ]
+   ]
+  },
+  {
+   "id": 657516,
+   "name": "Charizard (Black Dot Error)",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/657516_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "004/102"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Fire"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "120"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Stage 2"
+    },
+    {
+     "name": "CardText",
+     "displayName": "Card Text",
+     "value": "<strong>Pokémon Power: Energy Burn</strong> As often as you like during your turn <em>(before your attack)</em>, you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed."
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[RRRR] Fire Spin (100)\r\n<br>Discard 2 Energy cards attached to Charizard in order to use this attack."
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "W"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    },
+    {
+     "name": "RetreatCost",
+     "displayName": "Retreat Cost",
+     "value": "3"
+    }
+   ],
+   "prices": [
+    [
+     "Holofoil",
+     null
+    ]
+   ]
+  }
+ ],
+ "g1663 Base Set (Shadowless)": [
+  {
+   "id": 106999,
+   "name": "Charizard",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/106999_200w.jpg",
+   "n": 1,
+   "ext": [
+    {
+     "name": "Number",
+     "displayName": "Card Number",
+     "value": "004/102"
+    },
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Holo Rare"
+    },
+    {
+     "name": "Card Type",
+     "displayName": "Card Type",
+     "value": "Fire"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "120"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Stage 2"
+    },
+    {
+     "name": "CardText",
+     "displayName": "Card Text",
+     "value": "<strong>Pokémon Power: Energy Burn</strong> As often as you like during your turn <em>(before your attack)</em>, you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed."
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[RRRR] Fire Spin (100)\r\n<br>Discard 2 Energy cards attached to Charizard in order to use this attack."
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "W"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "F-30"
+    },
+    {
+     "name": "RetreatCost",
+     "displayName": "Retreat Cost",
+     "value": "3"
+    }
+   ],
+   "prices": [
+    [
+     "1st Edition Holofoil",
+     null
+    ],
+    [
+     "Unlimited Holofoil",
+     2172.24
+    ]
+   ]
+  }
+ ]
+}
