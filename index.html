@@ -1060,7 +1060,7 @@ function makeItem(card, opts){
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link && !p.ocg),
     extraPrint: print && (print.link || print.ocg || print.ea) ? print : null,
-    cmId: card.cmId || null, cmShared: !!card.cmShared, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
+    cmId: card.cmId || null, cmPid: card.cmPid || null, cmShared: !!card.cmShared, nameEn: card.nameEn || null, nameJa: card.nameJa || null,
     variant, priceRaw: card.prices[variant] ?? card.prices.normal ?? null,
     trend: card.trend ? (card.trend[variant] ?? null) : null, printArt: !!card.printArt,
     hasReverse: card.prices.reverse != null,
@@ -2246,8 +2246,15 @@ function renderConfigure(card, pre){
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
       const opts = readVersionFields(o);
       // Édition japonaise connue seulement de TCGplayer : fiche créée à partir du catalogue (pas de prix Cardmarket)
-      if (v.tcgpj){ renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img, imgHi: v.imgHi,
-        prices: { normal: null, reverse: null }, prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
+      if (v.tcgpj){
+        // Produit Cardmarket de cette édition japonaise (data/cmjp, relié chaque semaine) : lien exact et moyenne des ventes 7 j
+        const tpid = Number(String(v.id).replace('tcgpj-', ''));
+        const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
+        const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
+        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img, imgHi: v.imgHi,
+          prices: { normal: g ? (g[0] ?? g[1]) : null, reverse: g ? g[4] ?? null : null }, trend: g && g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null,
+          cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null,
+          prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: opts.variant, note: opts.note }); return; }
       // Édition OCG : la carte japonaise ; édition TCG : dans la langue choisie (ou en anglais si la carte n'existe pas dans cette langue)
       const want = v.ocg ? 'ja' : (marketOf('pkm', card.lang) === 'intl' ? card.lang : 'fr');
       const c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);

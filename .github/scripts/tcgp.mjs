@@ -53,7 +53,7 @@ if (jp){
   const cleanName = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+-\s+[A-Z]*\d+\/[A-Z]*\d+\s*$/i, '').trim();
   const key = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
   const jgroups = (await get(`https://tcgcsv.com/tcgplayer/${jp.categoryId}/groups`)).results || [];
-  const idx = {};
+  const idx = {}, jg = {};   // jg : extension japonaise TCGplayer → cartes (pour le lien avec Cardmarket)
   const q = jgroups.slice();
   await Promise.all(Array.from({ length: 4 }, async () => {
     while (q.length){
@@ -65,10 +65,41 @@ if (jp){
         const k = key(cleanName(p.name)); if (!k) continue;
         const f = /[a-z]/.test(k[0]) ? k[0] : '0';
         ((idx[f] ||= {})[k] ||= []).push([p.productId, g.name, String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0]);
+        (jg[g.groupId] ||= []).push({ pid: p.productId, k, num: parseInt(String(ex.Number), 10) || 0 });
       }
     }
   }));
   await mkdir('data/tcgpj', { recursive: true });
   for (const [f, m] of Object.entries(idx)) await writeFile(`data/tcgpj/${f}.json`, JSON.stringify(m));
   console.log('Pokémon japonais :', jgroups.length, 'extensions');
+
+  // ---- Lien avec Cardmarket : data/cmjp/<tranche>.json (n° de produit TCGplayer japonais → n° de produit Cardmarket)
+  // Extension Cardmarket = celle qui partage le plus de cartes (même nom anglais) avec l'extension TCGplayer, à taille comparable ;
+  // versions d'une même carte : rangées par numéro chez TCGplayer, par n° de produit chez Cardmarket (V1, V2…)
+  const pl = ((await get('https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_6.json')) || {}).products || [];
+  const ck = s => key(String(s || '').replace(/\s*\[.*?\]\s*/g, ' '));
+  const byExp = {}, expsOf = {};
+  for (const p of pl){ const k = ck(p.name); if (!k) continue;
+    ((byExp[p.idExpansion] ||= {})[k] ||= []).push(p.idProduct);
+    (expsOf[k] ||= new Set()).add(p.idExpansion); }
+  const out = {};
+  let linked = 0;
+  for (const cards of Object.values(jg)){
+    const names = new Set(cards.map(c => c.k));
+    const score = {};
+    for (const k of names) for (const e of expsOf[k] || []) score[e] = (score[e] || 0) + 1;
+    let best = null, bj = 0;
+    for (const [e, n] of Object.entries(score)){ const size = Object.keys(byExp[e]).length;
+      const j = n / (names.size + size - n); if (j > bj){ bj = j; best = e; } }
+    if (!best || bj < 0.5) continue;
+    for (const k of names){
+      const tp = cards.filter(c => c.k === k).sort((a, b) => a.num - b.num || a.pid - b.pid);
+      const cm = (byExp[best][k] || []).slice().sort((a, b) => a - b);
+      if (!cm.length || tp.length !== cm.length) continue;
+      tp.forEach((c, i) => { (out[Math.floor(c.pid / 20000)] ||= {})[c.pid] = cm[i]; linked++; });
+    }
+  }
+  await mkdir('data/cmjp', { recursive: true });
+  for (const [b, m] of Object.entries(out)) await writeFile(`data/cmjp/${b}.json`, JSON.stringify(m));
+  console.log('cartes japonaises reliées à Cardmarket :', linked);
 }
