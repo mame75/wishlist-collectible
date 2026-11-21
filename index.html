@@ -438,6 +438,7 @@ function frSuffix(s){
   if (!s) return '';
   let m;
   if ((m = s.match(/^([XY])(ex|EX)$/))) return ` ${m[1]}-${m[2]}`;
+  if (/^[（(]デルタ種[)）]$/.test(s)) return ' δ';
   if (/^(ex|EX|GX|TAG ?TEAM)$/.test(s)) return '-' + s;
   if (/^(V|VMAX|VSTAR|V-UNION|BREAK|LEGEND|☆|◇|δ|プリズムスター)$/.test(s)) return ' ' + s.replace('プリズムスター', '◇');
   if (/^LV\.?X$/i.test(s)) return ' NIV.X';
@@ -498,7 +499,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc15:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc16:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -2180,6 +2181,9 @@ function withLang(link, lang){
 const pkmForm = n => { const s = String(n || '').trim();
   const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
   return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
+// Noms anglais des anciennes extensions japonaises (absentes du catalogue TCGplayer)
+const JA_SET_EN = { neo1: 'Gold, Silver, to a New World...', neo2: 'Crossing the Ruins...', neo3: 'Awakening Legends', neo4: 'Darkness, and to Light...',
+  e1: 'Base Expansion Pack', e2: 'The Town on No Map', e3: 'Wind from the Sea', e4: 'Split Earth', e5: 'Mysterious Mountains' };
 async function pkmVersions(card){
   if (card.vsOf){ const vs = await pkmVersions(card.vsOf); return vs; }   // édition japonaise TCGplayer : mêmes éditions que la carte d'origine
   const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
@@ -2241,6 +2245,17 @@ async function pkmVersions(card){
         tj.filter(t => t.mirror && t.basePid === m.id).forEach(t => { t.set = m.set; ocg.push(t); });
       }
       ocg.push(...tj.filter(t => !used.has(t)));
+    }
+  }
+  // Éditions japonaises sans visuel ni équivalent TCGplayer (séries anciennes) : nom d'extension anglais et
+  // visuel de la carte anglaise de la même extension (même identifiant chez TCGdex, même illustration)
+  const left = ocg.filter(v => !v.tcgpj && !v.img && v.sid);
+  if (left.length){
+    const enDex = await byDex('en').catch(() => []);
+    for (const v of left){
+      const sid = String(v.sid).toLowerCase(), c = enDex.filter(b => b.image && b.id.slice(0, b.id.lastIndexOf('-')).toLowerCase() === sid);
+      if (c.length === 1){ v.img = c[0].image + '/low.webp'; v.enImg = c[0].image; }
+      if (JA_SET_EN[sid]) v.set = `${v.sid}: ${JA_SET_EN[sid]}`;
     }
   }
   // Noms en français pour les éditions japonaises (même Pokémon) : « ヘラクロス » → « Scarhino »
@@ -2408,6 +2423,8 @@ function renderConfigure(card, pre){
       // Édition japonaise reliée au catalogue TCGplayer : photo, nom d'extension anglais, produit Cardmarket ; mêmes éditions que la carte d'origine
       if (c2 && v.ocg){
         c2 = { ...c2, vsOf: card.vsOf || (marketOf('pkm', card.lang) === 'intl' ? card : null) || undefined };
+        if (!c2.img && v.enImg) Object.assign(c2, { img: v.enImg + '/low.webp', imgHi: v.enImg + '/high.webp', baseImg: v.enImg + '/low.webp', baseImgHi: v.enImg + '/high.webp', imgLang: 'en' });
+        if (v.enImg || JA_SET_EN[String(v.sid || '').toLowerCase()]) c2.set = v.set;
         if (v.tcgpjId){
           c2.set = v.set;
           if (!c2.img && v.tpImg) Object.assign(c2, { img: v.tpImg, imgHi: v.tpImgHi || v.tpImg, baseImg: v.tpImg, baseImgHi: v.tpImgHi || v.tpImg, imgLang: null });
