@@ -498,15 +498,25 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc13:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc14:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
     const card = this.pkmNorm(c, lang);
     // 1re édition / édition illimitée (cartes anciennes) : d'après TCGdex, prix TCGplayer de chaque édition
-    { const tp = (c.pricing && c.pricing.tcgplayer) || {};
-      const mk = (...ks) => { for (const k of ks){ const v = tp[k] && Number(tp[k].marketPrice); if (v > 0) return Math.round(v * FX * 100) / 100; } return null; };
-      const first = mk('1stEditionHolofoil', '1stEditionNormal', '1stEdition'), unl = mk('unlimitedHolofoil', 'unlimitedNormal', 'unlimited');
+    { const tp = {}; for (const [k, v] of Object.entries((c.pricing && c.pricing.tcgplayer) || {})) if (v && typeof v === 'object') tp[k.toLowerCase().replace(/[^a-z0-9]/g, '')] = v;
+      // Relevé quotidien TCGplayer (prix par sous-type) en priorité, sinon le prix transmis par TCGdex
+      const tpid = Object.values(tp).map(x => x.productId).find(Boolean);
+      let subs = {};
+      if (tpid && ((c.variants && c.variants.firstEdition) || Object.keys(tp).some(k => k.startsWith('1st')))){
+        const m = await fetch(`data/tcgpp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+        for (const [k, v] of Object.entries((m[tpid] && m[tpid][2]) || {})) subs[k.toLowerCase().replace(/[^a-z0-9]/g, '')] = v;
+      }
+      const mk = (...ks) => { for (const k of ks){ const v = subs[k] ?? (tp[k] && Number(tp[k].marketPrice)); if (v > 0) return Math.round(v * FX * 100) / 100; } return null; };
+      const has1st = Object.keys(tp).some(k => k.startsWith('1st')) || Object.keys(subs).some(k => k.startsWith('1st'));
+      const first = mk('1steditionholofoil', '1steditionnormal', '1stedition');
+      // Sans prix « unlimited » explicite, le prix holo/normal TCGplayer est celui de l'édition illimitée
+      const unl = mk('unlimitedholofoil', 'unlimitednormal', 'unlimited') ?? (has1st ? null : mk('holofoil', 'normal'));
       if ((c.variants && c.variants.firstEdition) || first != null){
         card.editions = ['1st', ...(unl != null || (c.variants && (c.variants.normal || c.variants.holo)) ? ['unl'] : [])];
         card.edPrices = { '1st': first, unl };
@@ -1059,7 +1069,8 @@ const withExtra = c => c.extraPrint ? [c.extraPrint, ...(c.prints || []).filter(
 function makeItem(card, opts){
   // Édition choisie (1re / illimitée) : prix TCGplayer de cette édition
   if ((card.editions || []).length > 1 && card.edPrices){ const ed = opts.edition || card.editions[0];
-    if (card.edPrices[ed] != null) card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp' }; }
+    // Prix inconnu pour cette édition : pas de prix plutôt que celui (mélangé) de l'autre édition
+    card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: card.edPrices[ed] != null ? 'tcgp' : null }; }
   const variant = opts.variant || 'normal';
   const print = findPrint(withExtra(card), opts.printKey || opts.printCode);
   const ua = getUserArt(card, printKey(print));
@@ -2250,7 +2261,10 @@ function renderConfigure(card, pre){
   $('#cardTitle').textContent = '';
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '',
-              cmLinkInput: pre.cmLink || '' };
+              cmLinkInput: pre.cmLink || '', edition: pre.edition || null };
+  // 1re édition / illimitée : le prix affiché suit l'édition choisie
+  if ((card.editions || []).length > 1 && card.edPrices){ const ed = o.edition || card.editions[0];
+    card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp', trend: null }; }
   const market = marketOf(card.game, card.lang);
   const langs = langChoices(card.game, card.lang);
   $('#cardBody').innerHTML = `<div class="detail">
@@ -2265,7 +2279,7 @@ function renderConfigure(card, pre){
         ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
-        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b>${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
+        <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b id="cpx">${eur(card.prices.normal)}</b>${card.prices.reverse != null ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
         ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
         ${card.game === 'ygo' ? `<dt>Tendance</dt><dd id="tpTrend"><span class="hint">choisis une édition</span></dd>` : ''}
@@ -2283,6 +2297,7 @@ function renderConfigure(card, pre){
       ${hintHTML(pre.ambiguous ? "Cette rareté existe aussi en illustration étendue et le lien Cardmarket ne dit pas laquelle. Si l'image ne correspond pas, choisis la bonne dans « Voir les éditions » : le site s'en souviendra pour ce lien." : cmHint(card, o.printKey || o.printCode, pre.cmLink))}
     </div></div>`;
   bindVersionFields();
+  if ($('#ced') && card.edPrices) $('#ced').addEventListener('click', () => { const b = $('#ced .on'); if (b && $('#cpx')) $('#cpx').textContent = eur(card.edPrices[b.dataset.e]); });
   // Pokémon : version de la carte (extension, numéro) et accès aux autres versions
   if (card.game === 'pkm' && $('#clang')){
     $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
@@ -2478,6 +2493,8 @@ function openDetail(i){
         if (it.cmLink && sameBase(prevP, print)) rememberLink(it.cmLink, printKey(print)); else it.cmLink = null; }
       Object.assign(it, { variant:o.variant, graded:o.graded, grader:o.grader, grade:o.grade, priceGraded:o.priceGraded, note:o.note,
         printCode: print ? print.code : '', printKey: printKey(print), extraPrint: print && (print.link || print.ocg || print.ea) ? print : null });
+      if (o.edition && o.edition !== it.edition){ it.edition = o.edition;
+        if (it.edPrices && (it.editions || []).length > 1){ it.priceRaw = it.edPrices[o.edition] ?? null; it.priceSrc = it.priceRaw != null ? 'tcgp' : null; it.prevPrice = null; } }
       if (it.game === 'ygo'){ it.set = print ? print.set : ''; it.rarity = print ? print.rarity : ''; }
       if (art !== undefined){ it.cmImg = null; it.userImg = art && art.user ? art.img : null;
         it.holo = art && art.holo || null; it.holoR = art && art.holoR || null;
@@ -2512,7 +2529,7 @@ async function refreshOne(it, full){
   } else { it.pv = 3; it.priceAt = Date.now(); }   // prix lu sur Cardmarket : gardé tel quel
   if (!viaGuide){ it.trend = c.trend ? (c.trend[it.variant] ?? null) : null; if (!it.cmPrice) it.priceSrc = c.priceSrc || null; }
   if (c.editions){ it.editions = c.editions; it.edPrices = c.edPrices;
-    if (it.edition && c.editions.length > 1 && c.edPrices[it.edition] != null){ it.priceRaw = c.edPrices[it.edition]; it.priceSrc = 'tcgp'; } }
+    if (it.edition && c.editions.length > 1 && c.edPrices){ it.priceRaw = c.edPrices[it.edition] ?? null; it.priceSrc = it.priceRaw != null ? 'tcgp' : null; } }
   it.hasReverse = c.prices.reverse != null;
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
   if (full){   // après un changement de langue : nom et infos dans la nouvelle langue
