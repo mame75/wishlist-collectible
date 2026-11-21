@@ -1,16 +1,16 @@
-// Sonde : structure d'une page d'extension TCG Republic (bloc produit, pagination)
+// Sonde : structure de PriceCharting (liste des extensions Pokémon, page d'extension, pagination)
 import { writeFile, mkdir } from 'node:fs/promises';
 const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
-const get = async u => (await fetch(u, { headers: UA })).text();
+const get = async u => { const r = await fetch(u, { headers: UA }); return { s: r.status, t: await r.text() }; };
 const out = {};
-const s = await get('https://tcgrepublic.com/category/subcategory_page_3486.html');
-const i = s.indexOf('308940');
-out.around = i >= 0 ? s.slice(Math.max(0, i - 2500), i + 1500) : null;
-out.firstProduct = s.slice(s.indexOf('product_page_') - 1500, s.indexOf('product_page_') + 1500);
-out.pager = [...s.matchAll(/href="([^"]*subcategory_page_3486[^"]*)"/g)].map(m => m[1]).slice(0, 40);
-out.count = (s.match(/product_page_\d+/g) || []).length;
-out.title = (s.match(/<title>([\s\S]*?)<\/title>/) || [])[1];
-const q = await get('https://tcgrepublic.com/product/text_search.html?category=35&q=Heracross');
-out.search = q.slice(q.indexOf('product_page_') - 1500, q.indexOf('product_page_') + 1500);
+out.robots = (await get('https://www.pricecharting.com/robots.txt')).t.slice(0, 2500);
+const cat = await get('https://www.pricecharting.com/category/pokemon-cards');
+out.cat = { s: cat.s, n: cat.t.length, consoles: [...new Set([...cat.t.matchAll(/href="\/console\/([^"?#]+)"/g)].map(m => m[1]))] };
+const set = await get('https://www.pricecharting.com/console/pokemon-japanese-reviving-legends');
+const i = set.t.indexOf('<tr');
+out.set = { s: set.s, n: set.t.length, rows: (set.t.match(/<tr[ >]/g) || []).length, first: set.t.slice(set.t.indexOf('id="games_table"'), set.t.indexOf('id="games_table"') + 3500),
+  more: (set.t.match(/[^\n]*(cursor|next|load more|page=)[^\n]*/gi) || []).slice(0, 20) };
+const neo = await get('https://www.pricecharting.com/console/pokemon-neo-genesis');
+out.neo = { s: neo.s, rows: (neo.t.match(/<tr[ >]/g) || []).length, names: [...neo.t.matchAll(/<td class="title"[\s\S]{0,400}?<a[^>]*>([^<]+)</g)].map(m => m[1].trim()).slice(0, 40) };
 await mkdir('data/probe', { recursive: true });
-await writeFile('data/probe/tr.json', JSON.stringify(out, null, 1));
+await writeFile('data/probe/pc.json', JSON.stringify(out, null, 1));
