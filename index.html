@@ -498,7 +498,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc11:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc12:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -526,7 +526,16 @@ const API = {
             const m = await fetch(`data/tcgpp/${f}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
             if (m[tpid]) daily = Math.round(m[tpid][0] * FX * 100) / 100; }
           const normal = daily ?? mk('holofoil') ?? mk('normal') ?? mk('1stEditionHolofoil') ?? mk('unlimitedHolofoil'), reverse = mk('reverseHolofoil');
-          Object.assign(card, { cmId: null, cmShared: true, prices: { normal, reverse }, trend: null, priceSrc: normal != null ? 'tcgp' : null }); break;
+          Object.assign(card, { cmId: null, cmShared: true, prices: { normal, reverse }, trend: null, priceSrc: normal != null ? 'tcgp' : null });
+          // Vrai produit Cardmarket : dans l'extension, les versions d'une même carte (V1, V2…) suivent l'ordre des numéros
+          const real = await realCmProduct(c, d.pricing.cardmarket.idProduct, lang).catch(() => null);
+          if (real){
+            const g = await cmpgOf('pkm', real).catch(() => null);
+            Object.assign(card, { cmId: real, cmShared: false });
+            if (g && (g[0] ?? g[1]) != null) Object.assign(card, { prices: { normal: g[0] ?? g[1], reverse: g[4] ?? null },
+              trend: { normal: g[0] && g[1] ? g[0] / g[1] - 1 : null, reverse: null }, priceSrc: null });
+          }
+          break;
         }
       }
     }
@@ -2564,6 +2573,20 @@ const canLoad = (src, ms = 5000) => new Promise(res => {
   i.referrerPolicy = 'no-referrer'; i.src = src;
 });
 // Arrivée depuis le favori : on retrouve la carte dans nos bases ; l'image, le prix et le lien viennent de Cardmarket
+// Pokémon : retrouver le produit Cardmarket d'une version (Full Art…) que TCGdex confond avec la version normale.
+// Les produits de même nom dans l'extension Cardmarket (data/cmprod) sont rangés comme les numéros de la carte dans l'extension.
+async function realCmProduct(c, basePid, lang){
+  const g0 = await cmpgOf('pkm', basePid); const exp = g0 && g0[6]; if (!exp) return null;
+  const names = await fetch(`data/cmprod/${exp}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+  const en = lang === 'en' ? c : await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(c.id)}`).catch(() => null);
+  const pids = en && names[norm(String(en.name || '').replace(/\s*\[.*?\]\s*/g, ' '))];
+  if (!pids || pids.length < 2) return null;
+  const same = ((await API.getJSON(`https://api.tcgdex.net/v2/en/cards?name=eq:${encodeURIComponent(en.name)}`).catch(() => [])) || [])
+    .filter(b => b.id.startsWith(c.set.id + '-')).sort((a, b) => Number(a.localId) - Number(b.localId) || String(a.localId).localeCompare(String(b.localId)));
+  if (same.length !== pids.length) return null;   // pas le même nombre de versions : on ne devine pas
+  const i = same.findIndex(b => b.id === c.id);
+  return i >= 0 ? pids[i] : null;
+}
 // Guide des prix Cardmarket (data/cmpg, compilé chaque jour) : moyenne des ventes 7 j / 30 j du produit exact
 const cmpgSets = {};
 const cmpgOf = async (game, pid) => { pid = Number(pid); if (!pid) return null;
