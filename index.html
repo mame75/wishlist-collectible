@@ -2184,7 +2184,7 @@ async function pkmVersions(card){
   if (card.vsOf){ const vs = await pkmVersions(card.vsOf); return vs; }   // édition japonaise TCGplayer : mêmes éditions que la carte d'origine
   const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
   const setsOf = async l => { const s = await cached(l === 'fr' ? 'home2:psets' : `psets:${l}`, () => API.getJSON(`https://api.tcgdex.net/v2/${l}/sets`)).catch(() => []);
-    return Object.fromEntries((s || []).map((x, i) => [x.id, { i, name: x.name }])); };
+    return Object.fromEntries((s || []).map((x, i) => [x.id, { i, name: x.name, n: x.cardCount && (x.cardCount.official || x.cardCount.total) }])); };
   const byDex = async l => (await Promise.all((card.dexId || []).map(d => cached(`pdex:${l}:${d}`,
     () => API.getJSON(`https://api.tcgdex.net/v2/${l}/cards?dexId=eq:${d}`)).catch(() => [])))).flat().filter(Boolean);
   const form = pkmForm(card.nameJa || card.name);
@@ -2200,7 +2200,7 @@ async function pkmVersions(card){
     setsOf(tl), setsOf('ja')]);
   const map = (list, sets, ocg) => { const seen = new Set();
     return (list || []).filter(b => b && !isPocketCard(b.id) && !seen.has(b.id) && seen.add(b.id)).map(b => { const sid = b.id.slice(0, b.id.lastIndexOf('-')), o = sets[sid] || { i: -1, name: sid };
-      return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, sid, i: o.i, ocg, lang: ocg ? 'ja' : tl }; })
+      return { id: b.id, localId: b.localId, name: b.name, img: b.image ? b.image + '/low.webp' : null, set: o.name, sid, i: o.i, ocg, lang: ocg ? 'ja' : tl, setN: o.n }; })
     .sort((a, b) => b.i - a.i || String(a.localId).localeCompare(String(b.localId), undefined, { numeric: true })); };
   const tcg = map(tcgL, tSets, false);
   let ocg = map(ocgL, oSets, true);
@@ -2212,22 +2212,42 @@ async function pkmVersions(card){
     if (ab) tcg.filter(v => v.sid === sid && !String(v.set).startsWith(ab)).forEach(v => { v.set = `${ab}: ${v.set}`; });   // pas de doublon (« 151 », « SVP Black Star Promos »)
   }));
   ocg.forEach(v => { if (v.sid && !String(v.set).startsWith(v.sid)) v.set = `${v.sid}: ${v.set}`; });
-  // Pas d'édition japonaise dans TCGdex (Dresseurs, Objets… sans n° de Pokédex) : catalogue japonais de TCGplayer, par nom anglais
-  if (!ocg.length && intl){
+  // Catalogue japonais de TCGplayer (par nom anglais) : noms d'extension en anglais, photos, éditions absentes de TCGdex
+  if (intl){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
     const k = norm(en && en.name);
     if (k){
       const idx = await fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
-      ocg = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
+      const tj = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
         img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
         .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity && x.mirror === v.mirror) === i)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
       // Mirror Holo : même produit Cardmarket que la version normale (le prix holo de Cardmarket est celui du Mirror)
-      ocg.forEach(v => { if (v.mirror){ const b = ocg.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
+      tj.forEach(v => { if (v.mirror){ const b = tj.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
+      // Rapprochement avec les cartes japonaises de TCGdex : même numéro, et même sigle d'extension (« SV6: … ») ou même nombre de cartes
+      const code = s => (String(s).match(/^([A-Za-z0-9-]+):/) || [])[1];
+      const nb = s => parseInt(String(s).split('/')[0], 10), tot = s => parseInt(String(s).split('/')[1], 10);
+      const used = new Set();
+      for (const o of ocg){
+        const m = tj.find(t => !t.mirror && !used.has(t) && nb(t.localId) === nb(o.localId)
+          && (code(t.set) ? code(t.set).toLowerCase() === String(o.sid).toLowerCase() : o.setN && tot(t.localId) === o.setN));
+        if (!m) continue;
+        used.add(m); tj.filter(t => t.mirror && t.basePid === m.id).forEach(t => used.add(t));
+        Object.assign(o, { set: m.set, tpImg: m.img, tpImgHi: m.imgHi, tcgpjId: m.id, rarity: o.rarity || m.rarity, nameEn: en.name });
+        if (!o.img) o.img = m.img;
+        // Mirror Holo de cette édition : gardé comme entrée TCGplayer
+        tj.filter(t => t.mirror && t.basePid === m.id).forEach(t => { t.set = m.set; ocg.push(t); });
+      }
+      ocg.push(...tj.filter(t => !used.has(t)));
     }
   }
+  // Noms en français pour les éditions japonaises (même Pokémon) : « ヘラクロス » → « Scarhino »
+  { const names = [...new Set(ocg.filter(v => !v.tcgpj).map(v => v.name))];
+    const tr = Object.fromEntries(await Promise.all(names.map(async n => [n, (await translateJa(n, card.dexId).catch(() => null))
+      || (/[（(]デルタ種[)）]$/.test(n) ? card.name + ' δ' : null)])));
+    ocg.forEach(v => { if (!v.tcgpj && tr[v.name]){ v.nameJa = v.name; v.name = tr[v.name]; } }); }
   return [...tcg, ...ocg];
 }
 // Bulbagarden Archives (photothèque de Bulbapedia) : scans des cartes japonaises absentes ailleurs.
@@ -2384,7 +2404,20 @@ function renderConfigure(card, pre){
           prints: null, dexId: card.dexId || [], manual: true, nameEn: card.nameEn || null, vsOf: card.vsOf || card }, { variant: v.mirror ? "reverse" : opts.variant, note: opts.note }); return; }
       // Édition OCG : la carte japonaise ; édition TCG : dans la langue choisie (ou en anglais si la carte n'existe pas dans cette langue)
       const want = v.ocg ? 'ja' : (marketOf('pkm', card.lang) === 'intl' ? card.lang : 'fr');
-      const c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
+      let c2 = (await API.pkmCard(v.id, want).catch(() => null)) || (want !== 'en' && !v.ocg ? await API.pkmCard(v.id, 'en').catch(() => null) : null);
+      // Édition japonaise reliée au catalogue TCGplayer : photo, nom d'extension anglais, produit Cardmarket ; mêmes éditions que la carte d'origine
+      if (c2 && v.ocg){
+        c2 = { ...c2, vsOf: card.vsOf || (marketOf('pkm', card.lang) === 'intl' ? card : null) || undefined };
+        if (v.tcgpjId){
+          c2.set = v.set;
+          if (!c2.img && v.tpImg) Object.assign(c2, { img: v.tpImg, imgHi: v.tpImgHi || v.tpImg, baseImg: v.tpImg, baseImgHi: v.tpImgHi || v.tpImg, imgLang: null });
+          if (!c2.cmId){ const tpid = Number(v.tcgpjId.replace('tcgpj-', ''));
+            const cmPid = await fetch(`data/cmjp/${Math.floor(tpid / 20000)}.json`).then(r => r.ok ? r.json() : {}).then(m => m[tpid] || null).catch(() => null);
+            const g = cmPid ? await cmpgOf('pkm', cmPid).catch(() => null) : null;
+            if (cmPid) Object.assign(c2, { cmId: cmPid, cmPid });
+            if (g && (g[0] ?? g[1]) != null) Object.assign(c2, { prices: { normal: g[0] ?? g[1], reverse: g[4] ?? null }, trend: g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null, priceSrc: 'cm7' }); }
+        }
+      }
       if (c2) renderConfigure(!v.ocg && want !== 'en' && c2.lang === 'en' ? { ...c2, lang: want } : c2, { variant: opts.variant, graded: opts.graded, grader: opts.grader, grade: opts.grade, priceGraded: opts.priceGraded, note: opts.note });
       else toast('Version indisponible pour le moment');
     });
