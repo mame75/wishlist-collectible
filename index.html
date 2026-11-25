@@ -2439,7 +2439,10 @@ async function pkmVersions(card){
   // Catalogue japonais de TCGplayer (par nom anglais) : noms d'extension en anglais, photos, éditions absentes de TCGdex
   if (intl){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
-    const k = norm(en && en.name);
+    // Clé TCGplayer : « Mew ☆ δ » s'appelle « Mew Star (Delta Species) » chez TCGplayer (→ « mewstar ») ; un Pokémon δ sans ☆
+    // ne se distingue pas de sa forme normale dans le catalogue (« Mew (Delta Species) » → « mew ») : on s'en passe
+    const enN = en && en.name ? String(en.name).replace(/[☆★]/g, ' Star') : '';
+    const k = /δ/.test(enN) && !/Star/.test(enN) ? '' : norm(enN.replace(/δ/g, ''));
     if (k){
       const [idx, trj, pcj] = await Promise.all([fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})), trjIndex(), pcIndex('pcj')]);
       // Sans photo TCGplayer : visuel TCG Republic (nom anglais et numéro vérifiés chaque semaine)
