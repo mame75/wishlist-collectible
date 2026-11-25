@@ -434,7 +434,7 @@ async function speciesNames(dex){
     return { fr: n('fr'), ja: n('ja') || n('ja-Hrkt') };
   });
 }
-const JA_PREFIX = { 'かがやく':[ '', ' radieux' ], 'メガ':[ 'Méga-', '' ], 'ダーク':[ '', ' obscur' ], 'わるい':[ '', ' obscur' ], '暗い':[ '', ' obscur' ], '輝く':[ '', ' brillant' ], 'ガラル':[ '', ' de Galar' ],
+const JA_PREFIX = { 'かがやく':[ '', ' radieux' ], 'メガ':[ 'Méga-', '' ], 'ダーク':[ '', ' obscur' ], 'わるい':[ '', ' obscur' ], '暗い':[ '', ' obscur' ], '輝く':[ '', ' brillant' ], 'ひかる':[ '', ' brillant' ], 'ガラル':[ '', ' de Galar' ],
   'アローラ':[ '', " d'Alola" ], 'ヒスイ':[ '', ' de Hisui' ], 'パルデア':[ '', ' de Paldea' ], 'ロケット団の':[ '', ' de la Team Rocket' ] };
 function frSuffix(s){
   s = s.trim();
@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc27:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc28:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -2226,12 +2226,14 @@ function withLang(link, lang){
 
 // Pokémon : toutes les éditions d'une carte, TCG (même nom) puis OCG japonaises (même Pokémon, même type ex / V / Méga…)
 const pkmForm = n => { const s = String(n || '').trim();
-  const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
+  const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|Ex|V)$/);
   // Formes régionales : « Tauros de Paldea » / « Paldean Tauros » / « パルデアケンタロス » ≠ « Tauros »
   const reg = /alola|アローラ/i.test(s) ? 'alola' : /galar|ガラル/i.test(s) ? 'galar' : /hisui|ヒスイ/i.test(s) ? 'hisui' : /paldea|パルデア/i.test(s) ? 'paldea' : '';
   // Pokémon « de dresseur » (Tauros de Chuck « チャックのタウロス », Pokémon de la Team Rocket…) : cartes à part
   const own = /の|de la team rocket|team rocket's|^[A-Z][a-z]+'s /i.test(s) ? ':own' : '';
-  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}${reg ? ':' + reg : ''}${own}`; };
+  // Pokémon brillants / radieux : cartes à part (« ひかるミュウ » = Shining Mew ≠ Mew)
+  const shine = /^(ひかる|輝く|shining )|brillant$/i.test(s) ? ':shine' : /^(かがやく|radiant )|radieux$/i.test(s) ? ':radiant' : '';
+  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}${reg ? ':' + reg : ''}${own}${shine}`; };
 // Visuel d'une carte de deck ou de kit sans scan : Bulbapedia indique de quelle carte elle est la réimpression
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
@@ -2372,7 +2374,11 @@ const JA_SET_EN = { pmcg1: 'Expansion Pack', pmcg2: 'Pokémon Jungle', pmcg3: 'M
   pmcg6: 'Challenge from the Darkness', vs1: 'Pokémon VS', neo1: 'Gold, Silver, to a New World...', neo2: 'Crossing the Ruins...', neo3: 'Awakening Legends', neo4: 'Darkness, and to Light...',
   e1: 'Base Expansion Pack', e2: 'The Town on No Map', e3: 'Wind from the Sea', e4: 'Split Earth', e5: 'Mysterious Mountains' };
 // Extension anglaise qui reprend les mêmes cartes (même illustration) qu'une ancienne extension japonaise
-const JA_SET_EN_ID = { pmcg1: 'base1', pmcg2: 'base2', pmcg3: 'base3', pmcg4: 'base5', pmcg5: 'gym1', pmcg6: 'gym2' };
+// Noms anglais des extensions japonaises de l'époque EX (sans sigle chez TCGplayer)
+const JA_NAME_EN = { '蒼空の激突': 'Clash of the Blue Sky', '伝説の飛翔': 'Flight of Legends', 'ロケット団の逆襲': 'Rocket Gang Strikes Back',
+  '金の空、銀の海': 'Golden Sky, Silvery Ocean', 'まぼろしの森': 'Mirage Forest', 'ホロンの研究塔': 'Holon Research Tower', 'ホロンの幻影': 'Holon Phantom',
+  'さいはての攻防': 'Offense and Defense of the Furthest Ends', 'ミラクルクリスタル': 'Miracle Crystal', 'ひかる伝説': 'Shining Legends' };
+const JA_SET_EN_ID = { m6a: '30th', pmcg1: 'base1', pmcg2: 'base2', pmcg3: 'base3', pmcg4: 'base5', pmcg5: 'gym1', pmcg6: 'gym2' };
 async function pkmVersions(card){
   if (card.vsOf){ const vs = await pkmVersions(card.vsOf); return vs; }   // édition japonaise TCGplayer : mêmes éditions que la carte d'origine
   const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
@@ -2423,7 +2429,7 @@ async function pkmVersions(card){
       // Mirror Holo : même produit Cardmarket que la version normale (le prix holo de Cardmarket est celui du Mirror)
       tj.forEach(v => { if (v.mirror){ const b = tj.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
       // Rapprochement avec les cartes japonaises de TCGdex : même numéro, et même sigle d'extension (« SV6: … ») ou même nombre de cartes
-      const code = s => (String(s).match(/^([A-Za-z0-9-]+):/) || [])[1];
+      const code = s => { const c = (String(s).match(/^([A-Za-z0-9+-]+):/) || [])[1]; return c && c.replace(/\+$/, 'p'); };   // « SM3+ » = « SM3p » chez TCGdex
       const nb = s => parseInt(String(s).split('/')[0], 10), tot = s => parseInt(String(s).split('/')[1], 10);
       const used = new Set();
       for (const o of ocg){
@@ -2454,11 +2460,20 @@ async function pkmVersions(card){
   if (left.length){
     const enDex = await byDex('en').catch(() => []);
     for (const v of left){
-      const sid = String(v.sid).toLowerCase(), esid = JA_SET_EN_ID[sid] || sid, c = enDex.filter(b => b.image && b.id.slice(0, b.id.lastIndexOf('-')).toLowerCase() === esid && pkmForm(b.name) === pkmForm(v.nameJa || v.name));
-      if (c.length === 1){ v.img = c[0].image + '/low.webp'; v.enImg = c[0].image; }
+      const sid = String(v.sid).toLowerCase(), esid = JA_SET_EN_ID[sid] || sid;
+      let c = enDex.filter(b => b.id.slice(0, b.id.lastIndexOf('-')).toLowerCase() === esid && pkmForm(b.name) === pkmForm(v.nameJa || v.name));
+      // plusieurs cartes du même Pokémon : celle du même numéro (cartes lettrées « B », « G », « R »…)
+      if (c.length > 1) c = c.filter(b => String(b.localId).replace(/^0+/, '').toLowerCase() === String(v.localId).replace(/^0+/, '').toLowerCase());
+      if (c.length === 1){
+        // visuel vérifié (TCGdex annonce parfois des images absentes) ; sinon autre visuel de cette carte
+        const a = c[0].image && await imgExists(c[0].image + '/low.webp') ? { lo: c[0].image + '/low.webp', hi: c[0].image + '/high.webp' } : await altImg(c[0].id, 'en').catch(() => null);
+        if (a && a.lo){ v.img = a.lo; v.enImg = null; v.enAlt = a; }
+      }
       if (JA_SET_EN[sid]) v.set = `${v.sid}: ${JA_SET_EN[sid]}`;
+      else { const jn = String(v.set).replace(/^[A-Za-z0-9+-]+:\s*/, ''); if (JA_NAME_EN[jn]) v.set = `${v.sid}: ${JA_NAME_EN[jn]}`; }
     }
   }
+  ocg.forEach(v => { const jn = String(v.set).replace(/^[A-Za-z0-9+-]+:\s*/, ''); if (JA_NAME_EN[jn]) v.set = `${v.sid || ''}${v.sid ? ': ' : ''}${JA_NAME_EN[jn]}`; });
   // Noms en français pour les éditions japonaises (même Pokémon) : « ヘラクロス » → « Scarhino »
   { const names = [...new Set(ocg.filter(v => !v.tcgpj).map(v => v.name))];
     const tr = Object.fromEntries(await Promise.all(names.map(async n => [n, (await translateJa(n, card.dexId).catch(() => null))
@@ -2528,7 +2543,7 @@ async function openPkmVersions(card, onPick){
     if (tok !== edToken || !img) return;
     v.img = img;
     const b = document.querySelector(`#pvgrid .ed[data-i="${vs.indexOf(v)}"] .img`);
-    if (b && !b.querySelector('img')) b.insertAdjacentHTML('afterbegin', `<img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`);
+    if (b && !b.querySelector('img')) b.insertAdjacentHTML('afterbegin', `<img src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer"${!v.ocg && !v.tcgpj ? ` data-cid="${esc(v.id)}" data-clang="${esc(v.lang)}"` : ''} onerror="wlcImgFail(this)">`);
   });
   // Raretés : la liste de TCGdex ne les donne pas, on les complète carte par carte (mémorisées)
   await mapLimit(vs.filter(v => !v.rarity && !v.tcgpj), 6, async v => {
@@ -2628,6 +2643,7 @@ function renderConfigure(card, pre){
       if (c2 && v.ocg){
         c2 = { ...c2, vsOf: card.vsOf || (marketOf('pkm', card.lang) === 'intl' ? card : null) || undefined };
         if (!c2.img && v.enImg) Object.assign(c2, { img: v.enImg + '/low.webp', imgHi: v.enImg + '/high.webp', baseImg: v.enImg + '/low.webp', baseImgHi: v.enImg + '/high.webp', imgLang: 'en' });
+        if (!c2.img && v.enAlt) Object.assign(c2, { img: v.enAlt.lo, imgHi: v.enAlt.hi, baseImg: v.enAlt.lo, baseImgHi: v.enAlt.hi, imgLang: 'en' });
         if (v.set && !/[\u3040-\u30ff\u4e00-\u9fff]/.test(v.set)) c2.set = v.set;   // nom d'extension anglais quand on l'a
         if (!c2.img && v.tpImg) Object.assign(c2, { img: v.tpImg, imgHi: v.tpImgHi || v.tpImg, baseImg: v.tpImg, baseImgHi: v.tpImgHi || v.tpImg, imgLang: null });
         if (v.tcgpjId){
