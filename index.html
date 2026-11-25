@@ -2495,9 +2495,19 @@ async function pkmVersions(card){
   const left = ocg.filter(v => !v.tcgpj && !v.img && v.sid);
   if (left.length){
     const enDex = await byDex('en').catch(() => []);
+    // Anciennes extensions japonaises : photo PriceCharting de la carte japonaise (même nom anglais, n° de Pokédex ou n° de carte)
+    const old = await pcIndex('pcold');
+    const enName = left.some(v => old[String(v.sid).toLowerCase()]) ? ((await API.pkmCard(card.id, 'en').catch(() => null)) || {}).name : null;
+    const kEn = enName ? norm(String(enName).replace(/\s*[☆★]|\s*δ/g, '')) : '';
+    for (const v of left.filter(v => old[String(v.sid).toLowerCase()] && kEn)){
+      if (baseForm(v.nameJa || v.name) !== form || /[☆★δ]|スター|デルタ種/.test(v.nameJa || v.name)) continue;
+      const rows = old[String(v.sid).toLowerCase()].filter(r => r[0] === kEn && (r[1] === (card.dexId || [])[0] || r[1] === parseInt(v.localId, 10)));
+      const r = rows.find(r => !r[2]) || rows[0];
+      if (r){ v.img = pcImg(r[3], 240); v.enAlt = { lo: pcImg(r[3], 240), hi: pcImg(r[3], 1600) }; v.pcJp = true; }
+    }
     for (const v of left){
       const sid = String(v.sid).toLowerCase(), esid = JA_SET_EN_ID[sid] || sid;
-      let c = enDex.filter(b => b.id.slice(0, b.id.lastIndexOf('-')).toLowerCase() === esid && pkmForm(b.name) === pkmForm(v.nameJa || v.name));
+      let c = v.img ? [] : enDex.filter(b => b.id.slice(0, b.id.lastIndexOf('-')).toLowerCase() === esid && pkmForm(b.name) === pkmForm(v.nameJa || v.name));
       // plusieurs cartes du même Pokémon : celle du même numéro (cartes lettrées « B », « G », « R »…)
       if (c.length > 1) c = c.filter(b => String(b.localId).replace(/^0+/, '').toLowerCase() === String(v.localId).replace(/^0+/, '').toLowerCase());
       if (c.length === 1){
@@ -2678,7 +2688,7 @@ function renderConfigure(card, pre){
       if (c2 && v.ocg){
         c2 = { ...c2, vsOf: card.vsOf || (marketOf('pkm', card.lang) === 'intl' ? card : null) || undefined };
         if (!c2.img && v.enImg) Object.assign(c2, { img: v.enImg + '/low.webp', imgHi: v.enImg + '/high.webp', baseImg: v.enImg + '/low.webp', baseImgHi: v.enImg + '/high.webp', imgLang: 'en' });
-        if (!c2.img && v.enAlt) Object.assign(c2, { img: v.enAlt.lo, imgHi: v.enAlt.hi, baseImg: v.enAlt.lo, baseImgHi: v.enAlt.hi, imgLang: 'en' });
+        if (!c2.img && v.enAlt) Object.assign(c2, { img: v.enAlt.lo, imgHi: v.enAlt.hi, baseImg: v.enAlt.lo, baseImgHi: v.enAlt.hi, imgLang: v.pcJp ? null : 'en' });
         if (v.set && !/[\u3040-\u30ff\u4e00-\u9fff]/.test(v.set)) c2.set = v.set;   // nom d'extension anglais quand on l'a
         if (!c2.img && v.tpImg) Object.assign(c2, { img: v.tpImg, imgHi: v.tpImgHi || v.tpImg, baseImg: v.tpImg, baseImgHi: v.tpImgHi || v.tpImg, imgLang: null });
         if (v.tcgpjId){
