@@ -497,7 +497,7 @@ const API = {
   pkmSearch(q, lang){ return cached(`ps:${lang}:${q.toLowerCase()}`, () => this._pkmSearch(q, lang)); },
   async _pkmSearch(q, lang){
     // « Mew star », « Mew étoile », « Mew delta » → « Mew ☆ », « Mew δ » (symboles difficiles à taper)
-    q = String(q).replace(/\s*\b(gold\s*star|star|[ée]toile)\b/gi, ' ☆').replace(/\s*\bdelta\b/gi, ' δ').replace(/\s+/g, ' ').trim();
+    q = String(q).replace(/\s*(?<!\p{L})(gold\s*star|star|[ée]toile)(?!\p{L})/giu, ' ☆').replace(/\s*(?<!\p{L})delta(?!\p{L})/giu, ' δ').replace(/\s+/g, ' ').trim();
     const list = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(q)}`);
     if (!Array.isArray(list)) return [];
     // Cartes avec visuel d'abord (tri stable : l'ordre de la base est conservé)
