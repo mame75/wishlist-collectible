@@ -453,7 +453,7 @@ async function translateJa(name, dexIds){
   if (sp.some(x => !x || !x.ja || !x.fr)) return null;
   let rest = name, pre = '', post = '';
   // Préfixe connu (かがやく, メガ…) ou propriétaire (« X の ») qu'on ne sait pas traduire
-  for (const k of Object.keys(JA_PREFIX)) if (rest.startsWith(k)){ [pre, post] = JA_PREFIX[k]; rest = rest.slice(k.length); break; }
+  for (const k of Object.keys(JA_PREFIX)) if (rest.startsWith(k)){ [pre, post] = JA_PREFIX[k]; rest = rest.slice(k.length).trim(); break; }
   if (rest.indexOf(sp[0].ja) !== 0) return null;   // texte inconnu avant l'espèce (ex. nom d'un dresseur) : on garde le japonais
   let fr = sp.map(x => x.fr).join(' & ');
   let tail = rest;
@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc25:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc26:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
