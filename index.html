@@ -976,7 +976,7 @@ async function tcgpImg(p){
   const hit = hits.find(([k]) => k.endsWith('|EA') === !!p.ea) || (hits.length === 1 ? hits[0] : null);
   return hit ? { img: `${TCGP}${hit[1]}_400w.jpg`, imgHi: `${TCGP}${hit[1]}_in_1000x1000.jpg`, tcgp: true } : null;
 }
-const hiRes = u => String(u).replace(/_400w\.jpg$/, '_in_1000x1000.jpg');
+const hiRes = u => String(u).replace(/_400w\.jpg$/, '_in_1000x1000.jpg').replace(/(images\.pricecharting\.com\/[^/]+)\/240\.jpg$/, '$1/1600.jpg');
 
 // Visuel PriceCharting d'une impression japonaise (data/pcy.json : code → [variante, image]) : même code et même rareté
 // (« Overframe » = cadre étendu : préféré pour une impression en illustration étendue, sinon la version normale)
@@ -994,7 +994,7 @@ async function editionArt(c, p, lang){
   if (!p) return null;
   const ua = getUserArt(c, printKey(p));
   if (ua) return { img: ua, imgHi: ua, user: true };
-  if (p.img && !p.user) return { img: p.img, imgHi: hiRes(p.img), ...(p.tcgp ? { tcgp: true } : {}), ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
+  if (p.img && !p.user) return { img: p.img, imgHi: hiRes(p.img), ...(p.tcgp ? { tcgp: true } : {}), ...(p.pc ? { pc: true } : {}), ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
   // Impression japonaise sans scan Yugipedia : photo PriceCharting (même code, même rareté)
   if (c.game === 'ygo' && p.code && (p.ocg || /-JP/i.test(p.code))){ const pc = await pcYgoImg(p).catch(() => null); if (pc) return pc; }
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
