@@ -28,7 +28,7 @@ const num = s => parseInt(String(s).split('/')[0], 10);
 
 // Toutes les cartes d'une extension PriceCharting (pagination : formulaire « cursor »)
 async function setRows(slug){
-  const rows = [], seen = new Set();
+  const rows = [], seen = new Set(), raw = [];
   let cursor = null;
   for (let p = 0; p < 30; p++){
     const html = await req(`${BASE}/console/${slug}`, cursor ? `cursor=${cursor}` : null);
@@ -43,6 +43,7 @@ async function setRows(slug){
       const img = chunk.match(/images\.pricecharting\.com\/([^/"]+)\/\d+\.jpg/)?.[1] || null;
       if (!t) continue;
       const title = t[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+      raw.push({ title, img, href: t[1] });
       const m = title.match(/^(.*?)\s*(?:\[([^\]]+)\])?\s*#\s*([A-Za-z]*\d+)\s*$/);
       if (m) rows.push({ id, name: m[1].trim(), variant: (m[2] || '').trim(), n: parseInt(m[3].replace(/^[A-Za-z]+/, ''), 10), img, href: t[1] });
     }
@@ -50,6 +51,7 @@ async function setRows(slug){
     if (!fresh || !next || next === cursor) break;
     cursor = next;
   }
+  rows.raw = raw;
   return rows;
 }
 
@@ -131,8 +133,25 @@ for (const [sid, slug] of Object.entries(WOTC)){
 }
 await writeFile('data/pced.json', JSON.stringify(pced));
 
+// ---------- 3) Yu-Gi-Oh! japonais (OCG) : visuels par code d'impression et rareté ----------
+// data/pcy.json  { "LOCR-JP001": [["Overframe Grand Master Rare", id image], …] }
+const ycat = await req(`${BASE}/category/yugioh-cards`);
+const ycons = ycat ? [...new Set([...ycat.matchAll(/href="\/console\/([^"?#]+)"/g)].map(m => m[1].replace(/&amp;/g, '%26')))].filter(c => c.startsWith('yugioh-japanese-')) : [];
+const pcy = {};
+for (const slug of ycons){
+  const rows = await setRows(slug);
+  for (const r of rows.raw || []){
+    const m = r.title.match(/^(.*?)\s*(?:\[([^\]]+)\])?\s+([A-Z0-9]{2,6}-JP[A-Z]?\d{2,4})\s*$/);
+    if (!m || !r.img) continue;
+    (pcy[m[3]] ||= []).push([(m[2] || '').trim(), r.img]);
+  }
+}
+await writeFile('data/pcy.json', JSON.stringify(pcy));
+console.log(`Yu-Gi-Oh! japonais : ${ycons.length} extensions, ${Object.keys(pcy).length} codes, ${Object.values(pcy).reduce((n, l) => n + l.length, 0)} impressions avec visuel`);
+
 const fixed = Object.keys(pcj).length;
 console.log(`Japonais : ${fixed} visuels trouvés sur ${total} cartes sans visuel — reste ${total - fixed}`);
 console.log(`Wizards (anglais) : ${edCards} cartes avec visuel PriceCharting, dont ${edBoth} avec 1re édition ET illimitée`);
 console.log(JSON.stringify(logJ));
-await writeFile('data/pc-bilan.json', JSON.stringify({ date: new Date().toISOString().slice(0, 10), jp: { sansVisuel: total, trouves: fixed, reste: total - fixed }, wizards: { cartes: edCards, deuxEditions: edBoth }, extensions: logJ }, null, 1));
+await writeFile('data/pc-bilan.json', JSON.stringify({ date: new Date().toISOString().slice(0, 10), jp: { sansVisuel: total, trouves: fixed, reste: total - fixed }, wizards: { cartes: edCards, deuxEditions: edBoth },
+  yugioh: { extensions: ycons.length, codes: Object.keys(pcy).length, impressions: Object.values(pcy).reduce((n, l) => n + l.length, 0) }, extensions: logJ }, null, 1));
