@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc28:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc29:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -582,6 +582,11 @@ const API = {
     if (!card.img && lang !== 'ja'){
       const rp = await reprintImg(id, lang).catch(() => null);
       if (rp && rp.lo){ card.img = rp.lo; card.imgHi = rp.hi; card.imgReprint = rp.from || null; }
+    }
+    // Scan Bulbagarden Archives (sous-extensions : Galerie Galaroise, Galerie de Dresseurs, Coffre Chromatique…)
+    if (!card.img && lang !== 'ja'){
+      const ar = await archiveImg(id).catch(() => null);
+      if (ar && ar.lo){ card.img = ar.lo; card.imgHi = ar.hi; card.imgLang = 'en'; }
     }
     // Dernier recours : photo TCGplayer de cette carte exacte (impression anglaise), si elle existe
     if (!card.img){
@@ -2252,6 +2257,7 @@ function altImg(id, lang){
     }
     const sc = await ok(await sameCardImg(c, lang).catch(() => null)); if (sc) return sc;
     const rp = lang !== 'ja' ? await ok(await reprintImg(id, lang).catch(() => null)) : null; if (rp) return rp;
+    const ar = lang !== 'ja' ? await ok(await archiveImg(id).catch(() => null)) : null; if (ar) return ar;
     const tpid = Object.values((c.pricing && c.pricing.tcgplayer) || {}).map(x => x && x.productId).find(Boolean);
     const tp = tpid ? await ok({ lo: `${TCGP}${tpid}_400w.jpg`, hi: `${TCGP}${tpid}_in_1000x1000.jpg` }) : null;
     return tp || {};
@@ -2266,6 +2272,20 @@ window.wlcImgFail = img => {
       box.insertAdjacentHTML('afterbegin', `<img src="${esc(hi ? a.hi : a.lo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`);
   }).catch(() => {});
 };
+// Scan Bulbagarden Archives d'après le nom anglais, l'extension et le numéro (« MewCrownZenithGG10.jpg »)
+function archiveImg(id){
+  return cached(`arch1:${id}`, async () => {
+    const en = await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
+    if (!en || !en.set || !en.name) return {};
+    const cp = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]/g, '');
+    const sets = [...new Set([en.set.name, String(en.set.name).replace(/\s+(Galarian Gallery|Trainer Gallery|Shiny Vault|Radiant Collection|Classic Collection)$/i, '')].map(cp))];
+    const nums = [...new Set([String(en.localId), String(en.localId).replace(/^0+(?=\d)/, '')])];
+    const titles = sets.flatMap(s => nums.flatMap(n => ['jpg', 'png'].map(x => `File:${cp(en.name)}${s}${n}.${x}`)));
+    const j = await fetch(`https://archives.bulbagarden.net/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&origin=*&titles=${encodeURIComponent(titles.join('|'))}`).then(r => r.json());
+    const url = Object.values((j.query && j.query.pages) || {}).map(p => p.imageinfo && p.imageinfo[0] && p.imageinfo[0].url).find(Boolean);
+    return url ? { lo: url, hi: url } : {};
+  });
+}
 // Une image existe-t-elle ? (chargement réel, 8 s maximum)
 const imgExists = u => new Promise(res => { const i = new Image(); const t = setTimeout(() => res(false), 8000);
   i.referrerPolicy = 'no-referrer'; i.onload = () => { clearTimeout(t); res(i.naturalWidth > 50); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = u; });
