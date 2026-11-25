@@ -1,24 +1,29 @@
 {
- "date": "2026-11-21",
+ "date": "2026-11-25",
  "jp": {
   "sansVisuel": 898,
-  "trouves": 493,
-  "reste": 405
+  "trouves": 494,
+  "reste": 404
  },
  "wizards": {
   "cartes": 936,
   "deuxEditions": 934
  },
+ "yugioh": {
+  "extensions": 48,
+  "codes": 2732,
+  "impressions": 4719
+ },
  "extensions": [
-  [
-   "L1: SoulSilver Collection",
-   "pokemon-japanese-soulsilver-collection",
-   "68/71"
-  ],
   [
    "SV2a: Pokemon Card 151",
    "pokemon-japanese-scarlet-%26-violet-151",
    "31/41"
+  ],
+  [
+   "L1: SoulSilver Collection",
+   "pokemon-japanese-soulsilver-collection",
+   "68/71"
   ],
   [
    "L1: HeartGold Collection",
@@ -48,7 +53,7 @@
   [
    "SVN: Battle Partners Deck Build Box",
    "pokemon-japanese-battle-partners-deck-build-box",
-   "2/9"
+   "3/9"
   ],
   [
    "World Champions Pack",
@@ -81,14 +86,14 @@
    "0/2"
   ],
   [
-   "M Master Deck Build Box Power Style",
-   "pokemon-japanese-m-master-deck-build-box",
-   "0/2"
-  ],
-  [
    "M Master Deck Build Box Speed Style",
    "pokemon-japanese-m-master-deck-build-box-speed",
    "0/4"
+  ],
+  [
+   "M Master Deck Build Box Power Style",
+   "pokemon-japanese-m-master-deck-build-box",
+   "0/2"
   ],
   [
    "Holon Research Tower Fire Quarter Deck",
@@ -99,6 +104,11 @@
    "Fire Quick Construction Pack",
    null,
    "0/4"
+  ],
+  [
+   "Fighting Quick Construction Pack",
+   null,
+   "0/3"
   ],
   [
    "sm1+: Enhanced Expansion Pack Sun & Moon",
@@ -131,14 +141,14 @@
    "0/5"
   ],
   [
-   "Fighting Quick Construction Pack",
-   null,
-   "0/3"
-  ],
-  [
    "Holon Research Tower Water Quarter Deck",
    null,
    "0/8"
+  ],
+  [
+   "SV8a: Terastal Fest ex",
+   "pokemon-japanese-terastal-festival",
+   "5/5"
   ],
   [
    "L2: Revival Legends",
@@ -149,11 +159,6 @@
    "SVM: Generations Start Decks",
    "pokemon-japanese-starter-deck-generations",
    "13/41"
-  ],
-  [
-   "SV8a: Terastal Fest ex",
-   "pokemon-japanese-terastal-festival",
-   "5/5"
   ],
   [
    "Gift Box (Latios)",
@@ -336,13 +341,13 @@
    "5/5"
   ],
   [
-   "BK: Terrakion Battle Strength Deck",
-   "pokemon-japanese-white-kyurem-ex-battle-strength-deck",
+   "BK: Virizion Battle Strength Deck",
+   "pokemon-japanese-virizion-battle-strength-deck",
    "0/2"
   ],
   [
-   "BK: Virizion Battle Strength Deck",
-   "pokemon-japanese-virizion-battle-strength-deck",
+   "BK: Terrakion Battle Strength Deck",
+   "pokemon-japanese-white-kyurem-ex-battle-strength-deck",
    "0/2"
   ],
   [
