@@ -149,6 +149,21 @@ for (const slug of ycons){
 await writeFile('data/pcy.json', JSON.stringify(pcy));
 console.log(`Yu-Gi-Oh! japonais : ${ycons.length} extensions, ${Object.keys(pcy).length} codes, ${Object.values(pcy).reduce((n, l) => n + l.length, 0)} impressions avec visuel`);
 
+// ---------- 4) Anciennes extensions japonaises (absentes de TCGplayer) : data/pcold.json ----------
+// { "<extension TCGdex>": [[clé du nom anglais, n° (souvent le n° de Pokédex), variante, id image], …] }
+const OLD = { pmcg1: 'pokemon-japanese-expansion-pack', pmcg2: 'pokemon-japanese-jungle', pmcg3: 'pokemon-japanese-mystery-of-the-fossils',
+  pmcg4: 'pokemon-japanese-rocket-gang', pmcg5: 'pokemon-japanese-leaders%27-stadium', pmcg6: 'pokemon-japanese-challenge-from-the-darkness',
+  neo1: 'pokemon-japanese-gold-silver-new-world', neo2: 'pokemon-japanese-crossing-the-ruins', neo3: 'pokemon-japanese-awakening-legends',
+  neo4: 'pokemon-japanese-darkness-and-to-light', vs1: 'pokemon-japanese-vs', e1: 'pokemon-japanese-expedition-expansion-pack',
+  e2: 'pokemon-japanese-the-town-on-no-map', e3: 'pokemon-japanese-wind-from-the-sea', e4: 'pokemon-japanese-split-earth', e5: 'pokemon-japanese-mysterious-mountains' };
+const pcold = {};
+for (const [sid, slug] of Object.entries(OLD)){
+  const rows = await setRows(slug);
+  pcold[sid] = rows.filter(r => r.img).map(r => [key(r.name), r.n, r.variant, r.img]);
+}
+await writeFile('data/pcold.json', JSON.stringify(pcold));
+console.log(`Anciennes extensions japonaises : ${Object.values(pcold).reduce((n, l) => n + l.length, 0)} cartes avec visuel`);
+
 const fixed = Object.keys(pcj).length;
 console.log(`Japonais : ${fixed} visuels trouvés sur ${total} cartes sans visuel — reste ${total - fixed}`);
 console.log(`Wizards (anglais) : ${edCards} cartes avec visuel PriceCharting, dont ${edBoth} avec 1re édition ET illimitée`);
