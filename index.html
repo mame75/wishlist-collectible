@@ -2411,11 +2411,16 @@ async function pkmVersions(card){
     return Object.fromEntries((s || []).map((x, i) => [x.id, { i, name: x.name, n: x.cardCount && (x.cardCount.official || x.cardCount.total) }])); };
   const byDex = async l => (await Promise.all((card.dexId || []).map(d => cached(`pdex:${l}:${d}`,
     () => API.getJSON(`https://api.tcgdex.net/v2/${l}/cards?dexId=eq:${d}`)).catch(() => [])))).flat().filter(Boolean);
-  const form = pkmForm(card.nameJa || card.name);
-  const sameForm = l => l.filter(b => pkmForm(b.name) === form);
+  // Les Pokémon ☆ et δ apparaissent avec la forme normale (Mew, Mew δ, Mew ☆ δ) : plus simple à trouver
+  const baseForm = n => pkmForm(n).replace(/:star|:delta/g, '');
+  const form = baseForm(card.nameJa || card.name);
+  const sameForm = l => l.filter(b => baseForm(b.name) === form);
+  const baseName = String(card.name).replace(/\s*[☆★]|\s*δ/g, '').trim();
   const name = card.nameJa || card.name;
   const [tcgL, ocgL, tSets, oSets] = await Promise.all([
-    intl ? cached(`pv2:${tl}:${String(name).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => []) : byDex('fr').then(sameForm),
+    intl ? Promise.all([cached(`pv2:${tl}:${String(baseName).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/${tl}/cards?name=eq:${encodeURIComponent(baseName)}`)).catch(() => []),
+        byDex(tl).then(l => l.filter(b => /[☆★δ]/.test(b.name) && baseForm(b.name) === form && String(b.name).replace(/\s*[☆★]|\s*δ/g, '').trim() === baseName))]).then(([a, b]) => [...(a || []), ...b])
+      : byDex('fr').then(sameForm),
     !intl ? cached(`pv2:ja:${String(name).toLowerCase()}`, () => API.getJSON(`https://api.tcgdex.net/v2/ja/cards?name=eq:${encodeURIComponent(name)}`)).catch(() => [])
       // Carte TCG : cartes japonaises du même Pokémon et du même type, complétées par une recherche sur leur nom japonais
       : byDex('ja').then(sameForm).then(async l => { const names = [...new Set(l.map(b => b.name))].slice(0, 2);
@@ -2441,14 +2446,15 @@ async function pkmVersions(card){
     const en = card.lang === 'en' ? card : await API.pkmCard(card.id, 'en').catch(() => null);
     // Clé TCGplayer : « Mew ☆ δ » s'appelle « Mew Star (Delta Species) » chez TCGplayer (→ « mewstar ») ; un Pokémon δ sans ☆
     // ne se distingue pas de sa forme normale dans le catalogue (« Mew (Delta Species) » → « mew ») : on s'en passe
-    const enN = en && en.name ? String(en.name).replace(/[☆★]/g, ' Star') : '';
-    const k = /δ/.test(enN) && !/Star/.test(enN) ? '' : norm(enN.replace(/δ/g, ''));
+    const enBase = en && en.name ? String(en.name).replace(/\s*[☆★]|\s*δ/g, '').trim() : '';
+    const k = norm(enBase);
     if (k){
       const [idx, trj, pcj] = await Promise.all([fetch(`data/tcgpj/${/[a-z]/.test(k[0]) ? k[0] : '0'}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})), trjIndex(), pcIndex('pcj')]);
       // Sans photo TCGplayer : visuel TCG Republic (nom anglais et numéro vérifiés chaque semaine)
       const trImg = (set, num) => { const t = trj[`${set}|${num}`], p = pcj[`${set}|${num}`];
         return t ? { img: `${TRJ}${t[0]}.l2_thumbnail.jpg`, imgHi: `${TRJ}${t[0]}` } : p ? { img: pcImg(p[0], 240), imgHi: pcImg(p[0], 1600) } : { img: null, imgHi: null }; };
-      const tj = (idx[k] || []).map(([pid, set, num, rar, photo, mirror]) => ({ id: 'tcgpj-' + pid, localId: num, name: card.name, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
+      // catalogue TCGplayer : forme normale (« mew ») et ☆ (« Mew Star » → « mewstar »)
+      const tj = [...(idx[k] || []).map(e => [e, baseName]), ...(idx[k + 'star'] || []).map(e => [e, baseName + ' ☆'])].map(([[pid, set, num, rar, photo, mirror], nm]) => ({ id: 'tcgpj-' + pid, localId: num, name: nm, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
         ...(photo ? { img: `${TCGP}${pid}_400w.jpg`, imgHi: `${TCGP}${pid}_in_1000x1000.jpg` } : trImg(set, num)) }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
@@ -2506,7 +2512,7 @@ async function pkmVersions(card){
   { const names = [...new Set(ocg.filter(v => !v.tcgpj).map(v => v.name))];
     const tr = Object.fromEntries(await Promise.all(names.map(async n => [n, (await translateJa(n, card.dexId).catch(() => null))
       // même Pokémon et même forme que la carte d'origine (ancien nom katakana « タウロス », « ミュースター（デルタ種） »…) : même nom
-      || (pkmForm(n) === pkmForm(card.nameJa || card.name) ? card.name : null)])));
+      || (baseForm(n) === form ? baseName + (/スター|[☆★]/.test(n) ? ' ☆' : '') + (/デルタ種|δ/.test(n) ? ' δ' : '') : null)])));
     ocg.forEach(v => { if (!v.tcgpj && tr[v.name]){ v.nameJa = v.name; v.name = tr[v.name]; } }); }
   return [...tcg, ...ocg];
 }
@@ -2553,7 +2559,7 @@ async function openPkmVersions(card, onPick){
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div><div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
+        <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
