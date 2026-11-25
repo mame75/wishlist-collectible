@@ -1169,7 +1169,7 @@ function imgBox(c, hi, badges){
   </div>`;
 }
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
-window.wlcDebug = { get API(){ return API; } };
+window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; } };
 /* ========= Visuel par édition (1re / illimitée) =========
    Les scans des séries anciennes portent presque toujours le tampon « Édition 1 ». Pour l'édition illimitée,
    on retire ce tampon du scan (il est repéré à gauche, juste sous l'illustration) ; sans tampon, le scan est gardé tel quel. */
@@ -2201,7 +2201,9 @@ function withLang(link, lang){
 // Pokémon : toutes les éditions d'une carte, TCG (même nom) puis OCG japonaises (même Pokémon, même type ex / V / Méga…)
 const pkmForm = n => { const s = String(n || '').trim();
   const m = s.match(/(VMAX|VSTAR|V-UNION|GX|BREAK|LV\.?X|ex|EX|V)$/);
-  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}`; };
+  // Formes régionales : « Tauros de Paldea » / « Paldean Tauros » / « パルデアケンタロス » ≠ « Tauros »
+  const reg = /alola|アローラ/i.test(s) ? 'alola' : /galar|ガラル/i.test(s) ? 'galar' : /hisui|ヒスイ/i.test(s) ? 'hisui' : /paldea|パルデア/i.test(s) ? 'paldea' : '';
+  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}${reg ? ':' + reg : ''}`; };
 // Visuel d'une carte de deck ou de kit sans scan : Bulbapedia indique de quelle carte elle est la réimpression
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
@@ -2373,6 +2375,10 @@ async function pkmVersions(card){
         tj.filter(t => t.mirror && t.basePid === m.id).forEach(t => { t.set = m.set; ocg.push(t); });
       }
       ocg.push(...tj.filter(t => !used.has(t)));
+      // Éditions TCGdex sans équivalent TCGplayer pour ce Pokémon : nom anglais de l'extension d'après son sigle (« M2 » → « M2: Inferno X »)
+      const setByCode = {};
+      for (const list of Object.values(idx)) for (const e of list){ const c = code(e[1]); if (c && !setByCode[c.toLowerCase()]) setByCode[c.toLowerCase()] = e[1]; }
+      ocg.forEach(o => { if (!o.tcgpj && !o.tcgpjId && o.sid && setByCode[String(o.sid).toLowerCase()]) o.set = setByCode[String(o.sid).toLowerCase()]; });
     }
   }
   // Éditions japonaises sans visuel ni équivalent TCGplayer (séries anciennes) : nom d'extension anglais et
@@ -2553,7 +2559,7 @@ function renderConfigure(card, pre){
       if (c2 && v.ocg){
         c2 = { ...c2, vsOf: card.vsOf || (marketOf('pkm', card.lang) === 'intl' ? card : null) || undefined };
         if (!c2.img && v.enImg) Object.assign(c2, { img: v.enImg + '/low.webp', imgHi: v.enImg + '/high.webp', baseImg: v.enImg + '/low.webp', baseImgHi: v.enImg + '/high.webp', imgLang: 'en' });
-        if (v.enImg || JA_SET_EN[String(v.sid || '').toLowerCase()]) c2.set = v.set;
+        if (v.set && !/[\u3040-\u30ff\u4e00-\u9fff]/.test(v.set)) c2.set = v.set;   // nom d'extension anglais quand on l'a
         if (v.tcgpjId){
           c2.set = v.set;
           if (!c2.img && v.tpImg) Object.assign(c2, { img: v.tpImg, imgHi: v.tpImgHi || v.tpImg, baseImg: v.tpImg, baseImgHi: v.tpImgHi || v.tpImg, imgLang: null });
