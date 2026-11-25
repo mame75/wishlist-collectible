@@ -978,11 +978,25 @@ async function tcgpImg(p){
 }
 const hiRes = u => String(u).replace(/_400w\.jpg$/, '_in_1000x1000.jpg');
 
+// Visuel PriceCharting d'une impression japonaise (data/pcy.json : code → [variante, image]) : même code et même rareté
+// (« Overframe » = cadre étendu : préféré pour une impression en illustration étendue, sinon la version normale)
+async function pcYgoImg(p){
+  if (!p || !p.code) return null;
+  const list = (await pcIndex('pcy'))[String(p.code).toUpperCase()];
+  if (!list || !list.length) return null;
+  const nr = s => String(s || '').toLowerCase().replace(/overframe/g, '').replace(/\s+/g, ' ').trim();
+  const want = nr(p.rarity), over = v => /overframe/i.test(v);
+  const same = list.filter(([v]) => nr(v) === want || (!v && !want));
+  const pick = same.find(([v]) => over(v) === !!p.ea) || same[0] || (list.length === 1 && !want ? list[0] : null);
+  return pick ? { img: pcImg(pick[1], 240), imgHi: pcImg(pick[1], 1600), pc: true } : null;
+}
 async function editionArt(c, p, lang){
   if (!p) return null;
   const ua = getUserArt(c, printKey(p));
   if (ua) return { img: ua, imgHi: ua, user: true };
   if (p.img && !p.user) return { img: p.img, imgHi: hiRes(p.img), ...(p.tcgp ? { tcgp: true } : {}), ...(p.holo ? { holo: p.holo, holoR: p.rarity, substitute: p.substitute } : {}) };
+  // Impression japonaise sans scan Yugipedia : photo PriceCharting (même code, même rareté)
+  if (c.game === 'ygo' && p.code && (p.ocg || /-JP/i.test(p.code))){ const pc = await pcYgoImg(p).catch(() => null); if (pc) return pc; }
   if (c.game !== 'ygo' || p.ocg || p.link || !p.code) return null;
   const u = (await tcgScans(c.nameEn || c.name, [p], lang).catch(() => ({})))[printKey(p)];
   if (u) return { img: u, imgHi: u };
@@ -1001,6 +1015,7 @@ async function editionArt(c, p, lang){
 const ART_NOTE = 'Illustration générique : pas encore de scan de cette rareté sur Yugipedia.';
 const artNote = a => !a ? '' : a.generic ? ART_NOTE
   : a.tcgp ? 'Photo TCGplayer (impression anglaise) : pas encore de scan de cette version sur Yugipedia.'
+  : a.pc ? 'Photo PriceCharting : pas encore de scan de cette version sur Yugipedia.'
   : a.substitute ? `Pas encore de scan de cette rareté : illustration étendue de la ${a.substitute} avec un effet animé pour la distinguer.` : '';
 
 // Liste officielle des cartes d'une extension (Yugipedia) : quelles raretés existent en illustration normale et/ou étendue
@@ -2143,6 +2158,9 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     const have = new Set(all.map(p => p.key));
     all = all.concat(jp.filter(p => !have.has(printKey(p))).map(dec));
     ocgState = 'done'; draw();
+    // Impressions japonaises sans scan Yugipedia : photo PriceCharting (même code, même rareté)
+    Promise.all(all.filter(p => p.ocg && !p.img && p.code).map(async p => { const pc = await pcYgoImg(p).catch(() => null); if (pc){ p.img = pc.img; p.pc = true; } }))
+      .then(() => { if (tok === edToken) draw(); });
   });
   // Variantes « illustration étendue » placées juste après leur version normale
   const eaList = nameEn ? await tcgVariants(nameEn).catch(() => []) : [];
