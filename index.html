@@ -280,6 +280,8 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
   #sres .results .tile{padding:7px 7px 10px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* Symbole d'extension devant son nom (fond clair : les symboles noirs restent lisibles en thème sombre) */
+.sicon{height:1.15em;width:auto;max-width:2.4em;object-fit:contain;vertical-align:-0.25em;margin-right:6px;background:#fff;border-radius:3px;padding:1px 2px;box-sizing:content-box}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Egyptian+Hieroglyphs&display=swap">
 </head>
@@ -1198,6 +1200,7 @@ function imgBox(c, hi, badges){
     <div class="badges">${badges || ''}</div>
   </div>`;
 }
+fetch('data/sym.json').then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
 window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; } };
 /* ========= Visuel par édition (1re / illimitée) =========
@@ -1253,6 +1256,11 @@ new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) 
   if (nd.matches('img[data-ed]')) applyEd(nd); nd.querySelectorAll('img[data-ed]').forEach(applyEd); } })
   .observe(document.documentElement, { childList: true, subtree: true });
 
+/* ========= Symboles d'extension (Poképédia, data/sym) ========= */
+let SYM = {};
+const pkSid = c => !c || c.game === 'ygo' || c.manual || !c.id || /^tcgpj-/.test(c.id) ? null : String(c.id).slice(0, String(c.id).lastIndexOf('-'));
+const symHTML = sid => sid && SYM[sid] ? `<img class="sicon" src="data/sym/${encodeURIComponent(sid)}.png" alt="" loading="lazy" onerror="this.remove()">` : '';
+
 /* ========= Vues ========= */
 let view = 'wishlist';
 let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'' };
@@ -1270,7 +1278,7 @@ function tileHTML(it, i){
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div class="tinfo">
       <div class="tname">${esc(it.name)}</div>
-      <div class="tsub">${esc(it.set || GAMES[it.game].label)}</div>
+      <div class="tsub">${symHTML(pkSid(it))}${esc(it.set || GAMES[it.game].label)}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
@@ -1855,7 +1863,7 @@ function trendingHTML(){
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox(c.game === 'pkm' && c.fb ? { name: c.name, img: c.fb, baseImg: c.img, set: c.set, game: c.game } : { name: c.name, img: c.img, baseImg: c.fb, set: c.set, game: c.game }, false, '')}
-      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${esc(c.set)}</div>` : ''}
+      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${symHTML(pkSid(c))}${esc(c.set)}</div>` : ''}
         <div class="tsub faint">${esc((c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
       <div class="tprice"><b title="${c.cm7 ? 'Moyenne des ventes Cardmarket sur 7 jours' : 'Prix du marché TCGplayer (converti en euros)'}">${c.cm7 ? eur(c.cm7) : c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}" title="Hausse TCGplayer sur 7 jours">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : `<span>${c.cm7 ? 'moy. 7 j' : 'TCGplayer'}</span>`}</div>
@@ -2571,7 +2579,7 @@ async function openPkmVersions(card, onPick){
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
+        <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${symHTML(v.tcgpj ? null : v.sid)}${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
@@ -2631,7 +2639,7 @@ function renderConfigure(card, pre){
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
         <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Asie)' : 'TCG (international)'}</dd>
-        ${card.set ? `<dt>Extension</dt><dd>${esc(card.set)}</dd>` : ''}
+        ${card.set ? `<dt>Extension</dt><dd>${symHTML(pkSid(card))}${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
         ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
         <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b id="cpx">${eur(card.prices.normal)}</b>${card.prices.reverse != null && card.prices.reverse !== card.prices.normal ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
@@ -2656,7 +2664,7 @@ function renderConfigure(card, pre){
   // Pokémon : version de la carte (extension, numéro) et accès aux autres versions
   if (card.game === 'pkm' && $('#clang')){
     $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
-      <div class="ppsum"><div class="t"><b>${esc(card.set || '—')}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + esc(card.rarity) : ''}</span></div>
+      <div class="ppsum"><div class="t"><b>${symHTML(pkSid(card))}${esc(card.set || '—')}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + esc(card.rarity) : ''}</span></div>
         <button type="button" class="btn sm" id="pvOpen">Voir les éditions</button></div></div>`);
     pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
@@ -2800,7 +2808,7 @@ function openDetail(i){
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
         <dt>Prix à partir de</dt><dd>${it.cmFrom ? fromHTML(it, true) : '<span class="hint">sur la fiche Cardmarket (filtrée dans ta langue), clique sur ton favori « + Wishlist » pour relever le premier prix</span>'}</dd>
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
-        ${it.set ? `<dt>Extension</dt><dd>${esc(it.set)}</dd>` : ''}
+        ${it.set ? `<dt>Extension</dt><dd>${symHTML(pkSid(it))}${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
         ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.extraPrint && it.extraPrint.ocg ? rarityLabel(it.extraPrint) : it.rarity)}</dd>` : ''}
         ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
