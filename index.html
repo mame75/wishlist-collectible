@@ -1185,7 +1185,8 @@ function imgBox(c, hi, badges){
   return `<div class="img${fx ? ' holo fx-' + fx : ''}${c.game === 'pkm' ? ' pk' : ''}">${fx ? HOLO_LAYERS[fx] || '' : ''}
     ${src ? `<img src="${esc(src)}" alt="${hi ? esc(c.name) : ''}" ${hi ? '' : 'loading="lazy"'} referrerpolicy="no-referrer"
       ${c.game === 'pkm' && (c.editions || []).length > 1 && !c.userImg ? `data-ed="${esc(c.edition || c.editions[0])}"${Object.entries(c.edImgs || {}).map(([e, x]) => ` data-ed-${e}="${esc(hi ? x.hi : x.lo)}"`).join('')}` : ''}
-      ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else this.remove()">` : ''}
+      ${fb && fb !== src ? `data-fb="${esc(fb)}"` : ''}${c.game === 'pkm' && c.id && !c.userImg && !/^tcgpj-/.test(c.id) ? ` data-cid="${esc(c.id)}" data-clang="${esc(c.lang || 'fr')}"${hi ? ' data-hi="1"' : ''}` : ''}
+      onerror="if(this.dataset.fb){this.src=this.dataset.fb;delete this.dataset.fb}else wlcImgFail(this)">` : ''}
     <div class="ph"><span><b>${esc(c.name)}</b>${info ? `<small>${esc(info)}</small>` : ''}<em>Visuel indisponible</em></span></div>
     <div class="badges">${badges || ''}</div>
   </div>`;
@@ -2235,6 +2236,34 @@ const pkmForm = n => { const s = String(n || '').trim();
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
 const BULBAPEDIA = 'https://bulbapedia.bulbagarden.net/w/api.php?format=json&origin=*&';
+// Visuel annoncé par TCGdex mais introuvable (fichier absent) : on cherche un autre visuel de la même carte,
+// en vérifiant à chaque fois que l'image existe vraiment
+function altImg(id, lang){
+  return cached(`alt1:${lang}:${id}`, async () => {
+    const ok = async x => x && x.lo && await imgExists(x.lo) ? x : null;
+    const c = await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`).catch(() => null);
+    if (!c) return {};
+    for (const l of ['en', 'fr', 'ja'].filter(l => l !== lang)){
+      const o = await API.getJSON(`https://api.tcgdex.net/v2/${l}/cards/${encodeURIComponent(id)}`).catch(() => null);
+      const r = o && o.image && await ok({ lo: o.image + '/low.webp', hi: o.image + '/high.webp' });
+      if (r) return r;
+    }
+    const sc = await ok(await sameCardImg(c, lang).catch(() => null)); if (sc) return sc;
+    const rp = lang !== 'ja' ? await ok(await reprintImg(id, lang).catch(() => null)) : null; if (rp) return rp;
+    const tpid = Object.values((c.pricing && c.pricing.tcgplayer) || {}).map(x => x && x.productId).find(Boolean);
+    const tp = tpid ? await ok({ lo: `${TCGP}${tpid}_400w.jpg`, hi: `${TCGP}${tpid}_in_1000x1000.jpg` }) : null;
+    return tp || {};
+  });
+}
+window.wlcImgFail = img => {
+  const box = img.parentElement, { cid, clang, hi } = img.dataset;
+  img.remove();
+  if (!cid || !box) return;
+  altImg(cid, clang || 'fr').then(a => {
+    if (a && a.lo && !box.querySelector('img'))
+      box.insertAdjacentHTML('afterbegin', `<img src="${esc(hi ? a.hi : a.lo)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`);
+  }).catch(() => {});
+};
 // Une image existe-t-elle ? (chargement réel, 8 s maximum)
 const imgExists = u => new Promise(res => { const i = new Image(); const t = setTimeout(() => res(false), 8000);
   i.referrerPolicy = 'no-referrer'; i.onload = () => { clearTimeout(t); res(i.naturalWidth > 50); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = u; });
@@ -2481,7 +2510,7 @@ async function openPkmVersions(card, onPick){
       `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('');
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
-        ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm" }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
+        ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
         <div><div class="st">${esc(v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
