@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc30:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc31:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -2238,7 +2238,10 @@ const pkmForm = n => { const s = String(n || '').trim();
   const own = /の|de la team rocket|team rocket's|^[A-Z][a-z]+'s /i.test(s) ? ':own' : '';
   // Pokémon brillants / radieux : cartes à part (« ひかるミュウ » = Shining Mew ≠ Mew)
   const shine = /^(ひかる|輝く|shining )|brillant$/i.test(s) ? ':shine' : /^(かがやく|radiant )|radieux$/i.test(s) ? ':radiant' : '';
-  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}${reg ? ':' + reg : ''}${own}${shine}`; };
+  // Pokémon ☆ (« Gold Star », « ミュースター ») et Pokémon δ (espèces Delta, « デルタ種 ») : cartes à part
+  const star = /[☆★]|スター\s*($|[（(])|\bstar$/i.test(s) ? ':star' : '';
+  const delta = /δ|デルタ種/.test(s) ? ':delta' : '';
+  return `${/^(m[ée]ga[-\s]|mega\s|メガ)/i.test(s) ? 'M' : ''}${m ? m[1].toLowerCase() : ''}${reg ? ':' + reg : ''}${own}${shine}${star}${delta}`; };
 // Visuel d'une carte de deck ou de kit sans scan : Bulbapedia indique de quelle carte elle est la réimpression
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
@@ -2400,7 +2403,7 @@ const JA_SET_EN = { pmcg1: 'Expansion Pack', pmcg2: 'Pokémon Jungle', pmcg3: 'M
 const JA_NAME_EN = { '蒼空の激突': 'Clash of the Blue Sky', '伝説の飛翔': 'Flight of Legends', 'ロケット団の逆襲': 'Rocket Gang Strikes Back',
   '金の空、銀の海': 'Golden Sky, Silvery Ocean', 'まぼろしの森': 'Mirage Forest', 'ホロンの研究塔': 'Holon Research Tower', 'ホロンの幻影': 'Holon Phantom',
   'さいはての攻防': 'Offense and Defense of the Furthest Ends', 'ミラクルクリスタル': 'Miracle Crystal', 'ひかる伝説': 'Shining Legends' };
-const JA_SET_EN_ID = { m6a: '30th', pmcg1: 'base1', pmcg2: 'base2', pmcg3: 'base3', pmcg4: 'base5', pmcg5: 'gym1', pmcg6: 'gym2' };
+const JA_SET_EN_ID = { m6a: '30th', pcg9: 'ex15', pmcg1: 'base1', pmcg2: 'base2', pmcg3: 'base3', pmcg4: 'base5', pmcg5: 'gym1', pmcg6: 'gym2' };
 async function pkmVersions(card){
   if (card.vsOf){ const vs = await pkmVersions(card.vsOf); return vs; }   // édition japonaise TCGplayer : mêmes éditions que la carte d'origine
   const intl = marketOf('pkm', card.lang) === 'intl', tl = intl ? card.lang : 'fr';
@@ -2499,9 +2502,8 @@ async function pkmVersions(card){
   // Noms en français pour les éditions japonaises (même Pokémon) : « ヘラクロス » → « Scarhino »
   { const names = [...new Set(ocg.filter(v => !v.tcgpj).map(v => v.name))];
     const tr = Object.fromEntries(await Promise.all(names.map(async n => [n, (await translateJa(n, card.dexId).catch(() => null))
-      || (/[（(]デルタ種[)）]$/.test(n) ? card.name + ' δ' : null)
-      // ancien nom katakana de l'espèce (« タウロス » avant « ケンタロス ») : même Pokémon, même forme
-      || (/^[\u30a0-\u30ff]+$/.test(n) && !pkmForm(n) ? card.name : null)])));
+      // même Pokémon et même forme que la carte d'origine (ancien nom katakana « タウロス », « ミュースター（デルタ種） »…) : même nom
+      || (pkmForm(n) === pkmForm(card.nameJa || card.name) ? card.name : null)])));
     ocg.forEach(v => { if (!v.tcgpj && tr[v.name]){ v.nameJa = v.name; v.name = tr[v.name]; } }); }
   return [...tcg, ...ocg];
 }
