@@ -502,7 +502,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc26:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc27:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -582,6 +582,13 @@ const API = {
     if (!card.img && lang !== 'ja'){
       const rp = await reprintImg(id, lang).catch(() => null);
       if (rp && rp.lo){ card.img = rp.lo; card.imgHi = rp.hi; card.imgReprint = rp.from || null; }
+    }
+    // Dernier recours : photo TCGplayer de cette carte exacte (impression anglaise), si elle existe
+    if (!card.img){
+      const tpid = Object.values((c.pricing && c.pricing.tcgplayer) || {}).map(x => x && x.productId).find(Boolean) || (c.thirdParty && c.thirdParty.tcgplayer);
+      if (tpid && await cached(`tpimg:${tpid}`, () => imgExists(`${TCGP}${tpid}_400w.jpg`).then(ok => ok ? 1 : 0)).catch(() => 0)){
+        card.img = `${TCGP}${tpid}_400w.jpg`; card.imgHi = `${TCGP}${tpid}_in_1000x1000.jpg`; card.imgLang = 'en'; card.tcgp = true;
+      }
     }
     return card;
   },
@@ -2228,6 +2235,9 @@ const pkmForm = n => { const s = String(n || '').trim();
 // (« Surskit (Latias Half Deck 16) » → « Surskit (Primal Clash 13) ») ; on prend alors le visuel TCGdex de cette carte
 // dans la langue voulue, sinon l'image de Bulbapedia.
 const BULBAPEDIA = 'https://bulbapedia.bulbagarden.net/w/api.php?format=json&origin=*&';
+// Une image existe-t-elle ? (chargement réel, 8 s maximum)
+const imgExists = u => new Promise(res => { const i = new Image(); const t = setTimeout(() => res(false), 8000);
+  i.referrerPolicy = 'no-referrer'; i.onload = () => { clearTimeout(t); res(i.naturalWidth > 50); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = u; });
 // Réimpression à l'identique repérée dans TCGdex (ex. Sovkipou de la Collection McDonald's 2018 = Sovkipou d'Ombres Ardentes) :
 // même nom, PV, type, attaques (nom et dégâts), talents et illustrateur
 // (les apostrophes typographiques et les talents absents d'une des deux fiches ne comptent pas)
