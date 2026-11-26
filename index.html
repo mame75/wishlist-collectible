@@ -286,6 +286,9 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 /* Symbole d'extension devant son nom (fond clair : les symboles noirs restent lisibles en thème sombre) */
 .sicon{height:1.6em;width:auto;max-width:3.2em;object-fit:contain;vertical-align:middle;margin-right:6px;
   filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)}
+.ricon{height:1.15em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin:0 5px 0 2px;
+  filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)}
+.rr .ricon,dd .ricon,.ppsum .ricon{margin-left:0}
 .tsub .sicon:only-child,.st .sicon:only-child,.ppsum .sicon:only-child{margin-right:0}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Egyptian+Hieroglyphs&display=swap">
@@ -512,7 +515,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc31:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc32:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -573,6 +576,11 @@ const API = {
           break;
         }
       }
+    }
+    // Rareté absente chez TCGdex (cartes récentes, ex. Méga-Évolution) : liste de l'extension sur Bulbapedia
+    if (!card.rarity && lang !== 'ja' && !isPocketCard(id)){
+      const br = await bulbaRarity(id).catch(() => null);
+      if (br){ card.rarity = br; card.rarityFrom = 'bulbapedia'; }
     }
     if (lang === 'ja'){
       const fr = await translateJa(card.name, card.dexId).catch(() => null);
@@ -1207,6 +1215,7 @@ function imgBox(c, hi, badges){
   </div>`;
 }
 fetch('data/sym.json').then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
+fetch('data/rar.json').then(r => r.ok ? r.json() : {}).then(j => { RAR = j || {}; if (Object.keys(RAR).length) try { render(); } catch (e){} }).catch(() => {});
 // Logos Poképédia des extensions sans logo chez TCGdex (onglet Sets)
 fetch('data/logo.json').then(r => r.ok ? r.json() : {}).then(j => { LOGO = j || {}; if (Object.keys(LOGO).length && view === 'sets') try { render(); } catch (e){} }).catch(() => {});
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
@@ -1271,6 +1280,107 @@ const symHTML = (sid, name) => sid && SYM[sid] ? `<img class="sicon" src="data/s
 // Extension : son symbole seul quand on l'a (nom en info-bulle), sinon son nom
 const setLabel = (sid, name) => symHTML(sid, name) || esc(name || '');
 
+/* ========= Raretés Pokémon : nom français corrigé et icône (Poképédia, page « Rareté », data/rar) =========
+   TCGdex mélange les noms (anglais / français) et a des erreurs connues : « Magnifique rare » y désigne en réalité
+   les cartes secrètes (« Secret Rare » en anglais) ; la vraie Magnifique rare s'appelle « Magnifique » chez TCGdex. */
+let RAR = {};
+const RK = {   // clé → [nom français, icône]
+  common: ['Commune', 'Rareté_Commune_JCC.svg'], uncommon: ['Peu commune', 'Rareté_Peu_commune_JCC.svg'],
+  rare: ['Rare', 'Rareté_Rare_JCC.svg'], rare1: ['Rare', 'Rareté_Rare_JCC-v1.svg'],
+  holo: ['Holographique rare', 'Rareté_Holographique_rare_JCC.svg'], holoEx: ['Holographique rare ex', 'Rareté_Holographique_ex_rare_JCC.svg'],
+  star: ['Holographique rare ☆', 'Rareté_Holographique_rare_☆_JCC.svg'], lvx: ['Holographique rare NIV.X', 'Rareté_Holographique_rare_JCC.svg'],
+  legend: ['LÉGENDE', 'Rareté_LÉGENDE_JCC.svg'], prime: ['Rare Prime', 'Rareté_Rare_Prime_JCC.svg'],
+  holoEX: ['Holographique rare EX', 'Rareté_Holographique_rare_EX_JCC.svg'], holoGX: ['Holographique rare GX', 'Rareté_Holographique_rare_GX_JCC.svg'],
+  holoV: ['Holographique rare V', 'Rareté_Holographique_rare_GX_JCC.svg'], holoVMAX: ['Holographique rare VMAX', 'Rareté_Holographique_rare_VMAX_JCC.svg'],
+  holoVSTAR: ['Holographique rare VSTAR', 'Rareté_Holographique_rare_VSTAR_JCC.svg'],
+  ultra1: ['Ultra rare', 'Rareté_Ultra_rare_JCC-v1.svg'], ultra: ['Ultra rare', 'Rareté_Ultra_rare_JCC.svg'], secret: ['Secrète rare', 'Rareté_Secrète_rare_JCC.svg'],
+  amazing: ['Magnifique rare', 'Rareté_Magnifique_rare_JCC.svg'], radiant: ['Radieux rare', 'Rareté_Radieux_rare_JCC.svg'],
+  shiny1: ['Chromatique rare', 'Rareté_Chromatique_rare_JCC-v1.svg'], shiny: ['Chromatique rare', 'Rareté_Chromatique_rare_JCC.svg'],
+  shinyV: ['Chromatique rare V', 'Rareté_Chromatique_rare_GX_JCC.svg'], shinyUltra: ['Chromatique ultra rare', 'Rareté_Chromatique_ultra_rare_JCC.svg'],
+  double: ['Double rare', 'Rareté_Double_rare_JCC.svg'], illus: ['Illustration rare', 'Rareté_Illustration_rare_JCC.svg'],
+  sir: ['Illustration spéciale rare', 'Rareté_Illustration_spéciale_rare_JCC.svg'], hyper: ['Hyper rare', 'Rareté_Hyper_rare_JCC.svg'],
+  ace: ['HIGH-TECH rare', 'Rareté_HIGH-TECH_rare_JCC.svg'], bwr: ['Noir Blanc rare', 'Rareté_Noir_Blanc_rare_JCC.svg'],
+  mur: ['Méga hyper rare', 'Rareté_Méga_hyper_rare_JCC.svg'], ma: ['Méga attaque rare', 'Rareté_Méga_attaque_rare_JCC.svg'],
+  pikachu: ['Pikachu rare', 'Rareté_Pikachu_rare_JCC.svg'], fur: ['Futuriste rare', 'Rareté_Futuriste_rare_JCC.svg'], rgb: ['RGB rare', 'Rareté_RGB_rare_JCC.png'],
+  classic: ['Collection Classique', 'Rareté_Collection_Classique_JCC.svg'], prism: ['Prisme Étoile rare', 'Rareté_Prisme_Étoile_rare_JCC.svg'],
+  gddHolo: ['Galerie des Dresseurs holographique rare', 'Rareté_Galerie_des_Dresseurs_holographique_rare_JCC.svg'],
+  gddV: ['Galerie des Dresseurs holographique rare V', 'Rareté_Galerie_des_Dresseurs_holographique_rare_V_JCC.svg'],
+  gddUltra: ['Galerie des Dresseurs ultra rare', 'Rareté_Galerie_des_Dresseurs_ultra_rare_JCC.svg'],
+  gddSecret: ['Galerie des Dresseurs secrète rare', 'Rareté_Galerie_des_Dresseurs_secrète_rare_JCC.svg'],
+  ggHolo: ['Galerie de Galar holographique rare', 'Rareté_Galerie_de_Galar_holographique_rare_JCC.svg'],
+  ggUltra: ['Galerie de Galar ultra rare', 'Rareté_Galerie_de_Galar_ultra_rare_JCC.svg'], ggSecret: ['Galerie de Galar secrète rare', 'Rareté_Galerie_de_Galar_secrète_rare_JCC.svg'],
+  promo: ['Promo', 'Symbole_Promo_JCC.png'],
+  // Japon (codes imprimés sur les cartes)
+  jC: ['C · Commune', 'Rareté_C_JCC.png'], jU: ['U · Peu commune', 'Rareté_U_JCC.png'], jR: ['R · Rare', 'Rareté_R_JCC.png'],
+  jRR: ['RR · Double rare', 'Rareté_RR_JCC.png'], jRRR: ['RRR · Triple rare', 'Rareté_RRR_JCC.png'], jSR: ['SR · Super rare', 'Rareté_SR_JCC.png'],
+  jUR: ['UR · Ultra rare', 'Rareté_UR_JCC.png'], jHR: ['HR · Hyper rare', 'Rareté_HR_JCC.png'], jAR: ['AR · Illustration rare', 'Rareté_AR_JCC.png'],
+  jSAR: ['SAR · Illustration spéciale rare', 'Rareté_SAR_JCC.png'], jS: ['S · Chromatique rare', 'Rareté_S_JCC.png'], jSSR: ['SSR · Chromatique ultra rare', 'Rareté_SSR_JCC.png'],
+  jCHR: ['CHR · Character rare', 'Rareté_CHR_JCC.png'], jCSR: ['CSR · Character super rare', 'Rareté_CSR_JCC.png'], jPR: ['PR · Prisme Étoile rare', 'Rareté_PR_JCC.png'],
+  jTR: ['TR · Trainer rare', 'Rareté_TR_JCC.png'], jACE: ['ACE SPEC', 'Rareté_ACE_JCC.png'], jK: ['K · Radieux', 'Rareté_K_JCC.png'], jA: ['A · Magnifique rare', 'Rareté_A_JCC.png'],
+  jHikaru: ['Brillant', 'Rareté_Hikaru_JCC.png'], jMUR: ['MUR · Méga hyper rare', 'Rareté_MUR_JCC.png'], jMA: ['MA · Méga attaque rare', 'Rareté_MA_JCC.png'],
+  jBWR: ['BWR · Noir Blanc rare', 'Rareté_BWR_JCC.png'], jFUR: ['FUR · Futuriste rare', 'Rareté_FUR_JCC.png']
+};
+// Rareté normalisée d'une carte : r = rareté brute, ctx = { sid (extension TCGdex), name, ocg (carte japonaise), tp (catalogue TCGplayer) }
+function rarKey(r, ctx = {}){
+  const l = String(r || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!l || /^(none|sans raret|un |une |deux |trois |quatre |couronne|crown|one |two |three |four )/.test(l)) return null;
+  const sid = String(ctx.sid || '').toLowerCase(), name = String(ctx.name || '');
+  const mod = /^(sv|me|30th|mep)/.test(sid), tg = /tg$/.test(sid), gg = /gg$/.test(sid);
+  if (ctx.ocg){
+    const J = { common: 'jC', 'common holo': 'jC', uncommon: 'jU', rare: 'jR', 'holo rare': 'jR', 'rare holo': 'jR', 'rare holo lv.x': 'jR', 'double rare': 'jRR',
+      'triple rare': 'jRRR', 'super rare': 'jSR', 'super rare holo': 'jSR', 'art rare': 'jAR', 'illustration rare': 'jAR', 'special art rare': 'jSAR',
+      'special illustration rare': 'jSAR', 'shiny rare': 'jS', 'shiny secret rare': 'jSSR', 'shiny ultra rare': 'jSSR', 'character rare': 'jCHR',
+      'character super rare': 'jCSR', 'prism rare': 'jPR', 'trainer rare': 'jTR', 'ace rare': 'jACE', 'ace spec rare': 'jACE', kagayaku: 'jK', 'radiant rare': 'jK',
+      'amazing rare': 'jA', shining: 'jHikaru', 'mega ultra rare': 'jMUR', 'mega hyper rare': 'jMUR', 'mega attack rare': 'jMA', 'black white rare': 'jBWR',
+      'futuristic rare': 'jFUR', 'pikachu rare': 'pikachu', 'rgb rare': 'rgb', 'classic collection': 'classic', 'rare holo legend': 'legend', promo: 'promo' };
+    // « Ultra Rare » : UR (or) chez TCGplayer, mais SR (argent) chez TCGdex ; « Hyper / Secret Rare » chez TCGdex = UR
+    if (l === 'ultra rare') return ctx.tp ? 'jUR' : 'jSR';
+    if (l === 'hyper rare') return ctx.tp ? 'jHR' : 'jUR';
+    if (l === 'secret rare') return 'jUR';
+    return J[l] || null;
+  }
+  if (/^(commune|common)$/.test(l)) return 'common';
+  if (/^(peu commune|uncommon)$/.test(l)) return 'uncommon';
+  if (l === 'rare') return mod ? 'rare' : 'rare1';
+  if (/^(holo rare|rare holo)$/.test(l)) return tg ? 'gddHolo' : gg ? 'ggHolo' : /[☆★]/.test(name) ? 'star' : /^ex\d/.test(sid) && /\sex$/.test(name) ? 'holoEx' : 'holo';
+  if (l === 'rare holo lv.x') return 'lvx';
+  if (/^holo rare v$/.test(l)) return tg ? 'gddV' : 'holoV';
+  if (/^holo rare vmax$/.test(l)) return tg ? 'gddV' : 'holoVMAX';
+  if (/^holo rare vstar$/.test(l)) return 'holoVSTAR';
+  if (l === 'ultra rare') return mod ? 'ultra' : tg ? 'gddUltra' : gg ? 'ggUltra' : 'ultra1';
+  if (/^(magnifique rare|secret rare|secrète rare)$/.test(l)) return mod ? 'hyper' : tg ? 'gddSecret' : gg ? 'ggSecret' : 'secret';
+  if (/^(magnifique|amazing rare)$/.test(l)) return 'amazing';
+  if (/^(radieux rare|radiant rare)$/.test(l)) return 'radiant';
+  if (/^(shiny rare|chromatique rare)$/.test(l)) return mod ? 'shiny' : 'shiny1';
+  if (/^shiny rare (v|vmax)$/.test(l)) return 'shinyV';
+  if (/^(chromatique ultra rare|shiny ultra rare)$/.test(l)) return 'shinyUltra';
+  if (l === 'double rare') return 'double';
+  if (l === 'illustration rare') return 'illus';
+  if (/^(illustration spéciale rare|special illustration rare)$/.test(l)) return 'sir';
+  if (l === 'hyper rare') return 'hyper';
+  if (/^(high-tech rare|ace spec rare)$/.test(l)) return 'ace';
+  if (/^(rare noir blanc|black white rare)$/.test(l)) return 'bwr';
+  if (/^m[ée]ga hyper rare$/.test(l)) return 'mur';
+  if (l === 'mega attack rare') return 'ma';
+  if (l === 'pikachu rare') return 'pikachu';
+  if (l === 'futuristic rare') return 'fur';
+  if (l === 'rgb rare') return 'rgb';
+  if (/^(collection classique|classic collection)$/.test(l)) return 'classic';
+  if (/^(légende|legend)$/.test(l)) return 'legend';
+  if (l === 'rare prime') return 'prime';
+  if (/^(dresseur full art|full art trainer)$/.test(l)) return 'gddUltra';
+  if (l === 'promo') return 'promo';
+  return null;
+}
+const rarCtx = c => ({ sid: c.sid || pkSid(c) || '', name: c.name || '', ocg: !!(c.ocg || c.tcgpj || c.lang === 'ja' || /^tcgpj-/.test(c.id || '')),
+  tp: !!(c.tcgpj || /^tcgpj-/.test(c.id || '')) });
+// Nom français corrigé de la rareté (sinon la rareté telle quelle)
+const rarName = (r, ctx) => { const k = rarKey(r, ctx); return k ? RK[k][0] : String(r || ''); };
+const rarIcon = (r, ctx) => { const k = rarKey(r, ctx); const f = k && RK[k][1];
+  return f && RAR[f] ? `<img class="ricon" src="data/rar/${encodeURIComponent(f)}" alt="${esc(RK[k][0])}" title="${esc(RK[k][0])}" loading="lazy" onerror="this.remove()">` : ''; };
+// Rareté d'une carte Pokémon pour l'affichage : icône + nom
+const rarFull = c => c && c.game !== 'ygo' && c.rarity ? `${rarIcon(c.rarity, rarCtx(c))}${esc(rarName(c.rarity, rarCtx(c)))}` : esc((c && c.rarity) || '');
+
 /* ========= Vues ========= */
 let view = 'wishlist';
 let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'' };
@@ -1280,7 +1390,7 @@ const ICON_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 function tileHTML(it, i){
   const price = shownPrice(it);
-  const rarity = [it.rarity + (it.extraPrint && it.extraPrint.ea ? ' (ill. étendue)' : ''), it.num || it.printCode].filter(Boolean).join(' · ');
+  const rarity = [(it.game === 'pkm' && it.rarity ? rarName(it.rarity, rarCtx(it)) : it.rarity) + (it.extraPrint && it.extraPrint.ea ? ' (ill. étendue)' : ''), it.num || it.printCode].filter(Boolean).join(' · ');
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
@@ -1288,7 +1398,7 @@ function tileHTML(it, i){
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div class="tinfo">
       <div class="tname">${esc(it.name)}</div>
-      <div class="tsub">${it.set ? setLabel(pkSid(it), it.set) : esc(GAMES[it.game].label)}</div>
+      <div class="tsub">${it.set ? setLabel(pkSid(it), it.set) : esc(GAMES[it.game].label)}${it.game === 'pkm' && it.rarity ? rarIcon(it.rarity, rarCtx(it)) : ''}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
@@ -1822,7 +1932,7 @@ function resultTiles(cards, mk){
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${esc(c.game === 'pkm' ? (c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) : (c.set || (c.prints ? c.prints.length + ' impression(s)' : '')))}</div></div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
@@ -1885,8 +1995,8 @@ function trendingHTML(){
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox(c.game === 'pkm' && c.fb ? { name: c.name, img: c.fb, baseImg: c.img, set: c.set, game: c.game } : { name: c.name, img: c.img, baseImg: c.fb, set: c.set, game: c.game }, false, '')}
-      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${setLabel(pkSid(c), c.set)}</div>` : ''}
-        <div class="tsub faint">${esc((c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
+      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${setLabel(pkSid(c), c.set)}${c.rarity ? rarIcon(c.rarity, rarCtx(c)) : ''}</div>` : ''}
+        <div class="tsub faint">${esc((c.game === 'pkm' && c.rarity ? rarName(c.rarity, rarCtx(c)) : c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
       <div class="tprice"><b title="${c.cm7 ? 'Moyenne des ventes Cardmarket sur 7 jours' : 'Prix du marché TCGplayer (converti en euros)'}">${c.cm7 ? eur(c.cm7) : c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}" title="Hausse TCGplayer sur 7 jours">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : `<span>${c.cm7 ? 'moy. 7 j' : 'TCGplayer'}</span>`}</div>
     </button>`).join('')}</div>`;
@@ -2323,6 +2433,26 @@ function archiveImg(id){
     return url ? { lo: url, hi: url } : {};
   });
 }
+// Rareté d'une carte d'après la liste de son extension sur Bulbapedia (« {{Setlist/entry|…|{{TCG ID|Set|Nom|n}}|Type|…|Rareté}} »)
+function bulbaRarity(id){
+  return cached(`brar1:${id}`, async () => {
+    const en = await API.getJSON(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(id)}`).catch(() => null);
+    const n = en && parseInt(en.localId, 10);
+    if (!en || !en.set || !en.name || !(n >= 0)) return '';
+    const J = u => fetch(u).then(r => r.json());
+    const s = await J(`${BULBAPEDIA}action=query&list=search&srlimit=5&srsearch=${encodeURIComponent(en.set.name + ' TCG')}`);
+    const titles = ((s.query && s.query.search) || []).map(x => x.title).filter(t => /\(TCG\)$/.test(t)).sort((a, b) => (b.startsWith(en.set.name) ? 1 : 0) - (a.startsWith(en.set.name) ? 1 : 0));
+    if (!titles.length) return '';
+    const w = await J(`${BULBAPEDIA}action=query&prop=revisions&rvprop=content&rvslots=main&titles=${encodeURIComponent(titles[0])}`);
+    const text = (Object.values(w.query.pages)[0].revisions || [{ slots: { main: { '*': '' } } }])[0].slots.main['*'];
+    const nm = String(en.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const line = text.split('\n').find(l => /^\{\{Setlist\//i.test(l) && new RegExp(`\\{\\{TCG ID\\|[^|}]+\\|${nm}\\|0*${n}\\}\\}`).test(l));
+    if (!line) return '';
+    const parts = line.replace(/\}\}\s*$/, '').split('|').map(x => x.trim());
+    const r = parts[parts.length - 1].replace(/\{\{[^}]*\}\}/g, '').trim();
+    return /^[A-Za-z][A-Za-z .-]+$/.test(r) && !/^none$/i.test(r) ? r : '';
+  });
+}
 // Une image existe-t-elle ? (chargement réel, 8 s maximum)
 const imgExists = u => new Promise(res => { const i = new Image(); const t = setTimeout(() => res(false), 8000);
   i.referrerPolicy = 'no-referrer'; i.onload = () => { clearTimeout(t); res(i.naturalWidth > 50); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = u; });
@@ -2601,7 +2731,7 @@ async function openPkmVersions(card, onPick){
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
         ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
-        <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${setLabel(v.tcgpj ? null : v.sid, v.set)}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity || '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
+        <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${setLabel(v.tcgpj ? null : v.sid, v.set)}${v.rarity ? rarIcon(v.rarity, rarCtx(v)) : ''}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity ? rarName(v.rarity, rarCtx(v)) : '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
   draw();
@@ -2627,7 +2757,8 @@ async function openPkmVersions(card, onPick){
       .then(d => d && !/^(none|sans raret[ée])$/i.test(d.rarity || '') ? (d.rarity || '') : '')).catch(() => '');
     if (tok !== edToken || !r) return;
     v.rarity = r;
-    const el = document.querySelector(`#pvgrid [data-rr="${CSS.escape(v.id)}"]`); if (el) el.textContent = r;
+    const el = document.querySelector(`#pvgrid [data-rr="${CSS.escape(v.id)}"]`); if (el) el.textContent = rarName(r, rarCtx(v));
+    const st = el && el.parentElement.querySelector('.st:not(:has(b))'); if (st && !st.querySelector('.ricon')) st.insertAdjacentHTML('beforeend', rarIcon(r, rarCtx(v)));
   });
 }
 
@@ -2663,7 +2794,7 @@ function renderConfigure(card, pre){
         <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Asie)' : 'TCG (international)'}</dd>
         ${card.set ? `<dt>Extension</dt><dd>${symHTML(pkSid(card), card.set)}${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
-        ${card.rarity ? `<dt>Rareté</dt><dd>${esc(card.rarity)}</dd>` : ''}
+        ${card.rarity ? `<dt>Rareté</dt><dd>${rarFull(card)}</dd>` : ''}
         <dt>${card.game === 'ygo' ? 'Prix Cardmarket' : card.priceSrc === 'tcgp' ? 'Prix TCGplayer' : 'Prix moyen (7 j)'}</dt><dd><b id="cpx">${eur(card.prices.normal)}</b>${card.prices.reverse != null && card.prices.reverse !== card.prices.normal ? ` · reverse ${eur(card.prices.reverse)}` : ''} <span class="hint">(${card.priceSrc === 'tcgp' ? 'TCGplayer, converti en euros' : 'Cardmarket'})</span></dd>
         ${card.trend && card.trend.normal != null ? `<dt>Tendance</dt><dd>${trendHTML(card.trend.normal)} <span class="hint">Cardmarket, ventes 7 j vs 30 j</span></dd>` : ''}
         ${card.cmFrom ? `<dt>Prix à partir de</dt><dd>${fromHTML(card, true)}</dd>` : ''}
@@ -2686,7 +2817,7 @@ function renderConfigure(card, pre){
   // Pokémon : version de la carte (extension, numéro) et accès aux autres versions
   if (card.game === 'pkm' && $('#clang')){
     $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
-      <div class="ppsum"><div class="t"><b>${card.set ? setLabel(pkSid(card), card.set) : '—'}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + esc(card.rarity) : ''}</span></div>
+      <div class="ppsum"><div class="t"><b>${card.set ? setLabel(pkSid(card), card.set) : '—'}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + (card.game === 'pkm' ? rarFull(card) : esc(card.rarity)) : ''}</span></div>
         <button type="button" class="btn sm" id="pvOpen">Voir les éditions</button></div></div>`);
     pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
@@ -2832,7 +2963,7 @@ function openDetail(i){
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
         ${it.set ? `<dt>Extension</dt><dd>${symHTML(pkSid(it), it.set)}${esc(it.set)}</dd>` : ''}
         ${it.num || it.printCode ? `<dt>Numéro</dt><dd>${esc(it.num || it.printCode)}</dd>` : ''}
-        ${it.rarity ? `<dt>Rareté</dt><dd>${esc(it.extraPrint && it.extraPrint.ocg ? rarityLabel(it.extraPrint) : it.rarity)}</dd>` : ''}
+        ${it.rarity ? `<dt>Rareté</dt><dd>${it.game === 'pkm' ? rarFull(it) : esc(it.extraPrint && it.extraPrint.ocg ? rarityLabel(it.extraPrint) : it.rarity)}</dd>` : ''}
         ${ro && it.note ? `<dt>Note</dt><dd>${esc(it.note)}</dd>` : ''}
       </dl>
       <div class="actions" style="margin-top:0">

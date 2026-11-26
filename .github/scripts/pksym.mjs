@@ -95,6 +95,27 @@ for (const [c, p] of Object.entries(PARENT)) if (!out[c] && out[p]){
   const i = miss.findIndex(m => m.startsWith(c + ' ')); if (i >= 0) miss.splice(i, 1);
 }
 await writeFile('data/sym.json', JSON.stringify(out));
+
+// 5) Icônes de rareté (page « Rareté » de Poképédia) : data/rar/<nom du fichier>
+await mkdir('data/rar', { recursive: true });
+let rfiles = [], rc = '';
+for (let k = 0; k < 5; k++){
+  const j = await J(`${API}action=query&list=allimages&aiprefix=${encodeURIComponent('Rareté_')}&ailimit=500&aiprop=url${rc}`);
+  rfiles.push(...j.query.allimages.filter(i => /_JCC/.test(i.name)));
+  if (!j.continue) break; rc = `&aicontinue=${encodeURIComponent(j.continue.aicontinue)}`;
+}
+const rar = {};
+for (const f of rfiles){
+  const r = await fetch(f.url, { headers: UA }).catch(() => null);
+  if (r && r.ok){ await writeFile(`data/rar/${f.name}`, Buffer.from(await r.arrayBuffer())); rar[f.name] = 1; }
+  await sleep(200);
+}
+// Symbole des cartes promo (à la place d'une rareté)
+{ const j = await J(`${API}action=query&prop=imageinfo&iiprop=url&titles=${encodeURIComponent('File:Symbole_Promo_JCC.png')}`).catch(() => null);
+  const u = j && Object.values(j.query.pages)[0].imageinfo; const r = u ? await fetch(u[0].url, { headers: UA }).catch(() => null) : null;
+  if (r && r.ok){ await writeFile('data/rar/Symbole_Promo_JCC.png', Buffer.from(await r.arrayBuffer())); rar['Symbole_Promo_JCC.png'] = 1; } }
+await writeFile('data/rar.json', JSON.stringify(rar));
+console.log(`Icônes de rareté : ${Object.keys(rar).length}`);
 console.log(`Symboles : ${Object.keys(out).length} extensions sur ${sets.length} — sans symbole : ${miss.length}`);
 await writeFile('data/sym-bilan.json', JSON.stringify({ date: new Date().toISOString().slice(0, 10), total: sets.length, avec: Object.keys(out).length, sans: miss }, null, 1));
 console.log(JSON.stringify(miss));
