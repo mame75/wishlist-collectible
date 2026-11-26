@@ -1,17 +1,24 @@
-// Sonde : PriceCharting Yu-Gi-Oh! japonais (liste des extensions, format des lignes)
-import { writeFile, mkdir } from 'node:fs/promises';
+// Sonde : raretés TCGdex (fr/en/ja) et icônes de rareté Poképédia
+import { writeFile, mkdir, readdir, readFile } from 'node:fs/promises';
 const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
-const get = async u => { const r = await fetch(u, { headers: UA }); return { s: r.status, t: await r.text() }; };
+const J = u => fetch(u, { headers: UA }).then(r => r.json());
 const out = {};
-const cat = await get('https://www.pricecharting.com/category/yugioh-cards');
-out.cat = { s: cat.s, consoles: [...new Set([...cat.t.matchAll(/href="\/console\/([^"?#]+)"/g)].map(m => m[1]))] };
-const set = await get('https://www.pricecharting.com/console/yugioh-japanese-limit-over-collection-rivals');
-out.rows = [];
-for (const chunk of set.t.split('<tr id="product-').slice(1, 40)){
-  const t = chunk.match(/<td class="title"[^>]*>\s*<a href="([^"]+)">([^<]+)<\/a>/);
-  const img = chunk.match(/images\.pricecharting\.com\/([^/"]+)\/\d+\.jpg/)?.[1] || null;
-  out.rows.push([t && t[2].trim(), t && t[1], img]);
+for (const l of ['fr', 'en', 'ja']) out['tcgdex_' + l] = await J(`https://api.tcgdex.net/v2/${l}/rarities`).catch(e => String(e));
+// comptage par rareté FR (échantillon : toutes les cartes fr, champ rarity absent de la liste → par rareté via filtre)
+out.counts_fr = {};
+for (const r of Array.isArray(out.tcgdex_fr) ? out.tcgdex_fr : []){
+  const l = await J(`https://api.tcgdex.net/v2/fr/cards?rarity=eq:${encodeURIComponent(r)}`).catch(() => []);
+  out.counts_fr[r] = Array.isArray(l) ? l.length : -1;
 }
-out.next = set.t.match(/name="cursor" value="(\d+)"/)?.[1];
+const rar = {};
+for (const f of await readdir('data/tcgpj')) for (const list of Object.values(JSON.parse(await readFile(`data/tcgpj/${f}`, 'utf8')))) for (const e of list) rar[e[3]] = (rar[e[3]] || 0) + 1;
+out.tcgpj = rar;
+let files = [], cont = '';
+for (let k = 0; k < 10; k++){
+  const j = await J(`https://www.pokepedia.fr/api.php?format=json&action=query&list=allimages&aiprefix=Rareté_&ailimit=500&aiprop=url|size${cont}`);
+  files.push(...j.query.allimages.map(i => [i.name, i.width, i.height, i.url]));
+  if (!j.continue) break; cont = `&aicontinue=${encodeURIComponent(j.continue.aicontinue)}`;
+}
+out.pokepedia = files;
 await mkdir('data/probe', { recursive: true });
-await writeFile('data/probe/pcy.json', JSON.stringify(out, null, 1));
+await writeFile('data/probe/rar.json', JSON.stringify(out, null, 1));
