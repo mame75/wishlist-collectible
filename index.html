@@ -1379,7 +1379,7 @@ function rarKey(r, ctx = {}){
   return null;
 }
 // Extension japonaise antérieure à Noir & Blanc : sigle TCGdex (PMCG, neo, e, VS, ADV, PCG, DP, DPt, L…) ou, chez TCGplayer, nom sans sigle / sigle ancien
-const OLD_JA = /^(pmcg|neo|vs|web|e\d|adv|pcg|dp|dpt|l\d|ll|mc|cp\d?$)/i;
+const OLD_JA = /^(pmcg|neo|vs|web|e\d|adv|pcg|dp|dpt|l\d|ll)/i;
 const rarCtx = c => {
   const ocg = !!(c.ocg || c.tcgpj || c.lang === 'ja' || /^tcgpj-/.test(c.id || '')), tp = !!(c.tcgpj || /^tcgpj-/.test(c.id || ''));
   const sid = c.sid || pkSid(c) || '', code = (String(c.set || '').match(/^([A-Za-z0-9+-]+):\s/) || [])[1];
