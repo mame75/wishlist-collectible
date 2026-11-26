@@ -269,8 +269,9 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
   .logo small{display:none}
   .hero{grid-template-columns:1fr;padding:22px 0 18px}
   .hero .acts{justify-content:flex-start}
-  .detail{grid-template-columns:1fr}
-  .detail .img{max-width:230px;margin:0 auto}
+  .detail,#cardPage .detail,#detScrim .detail{grid-template-columns:1fr;gap:18px}
+  .detail .img,#cardPage .detail .img,#detScrim .detail .img{max-width:260px;width:100%;margin:0 auto}
+  #cardScrim,#detScrim{padding-left:10px;padding-right:10px}
   .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .tile{padding:7px 7px 10px;gap:8px}
   .tname{font-size:13.5px}
