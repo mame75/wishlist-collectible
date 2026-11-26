@@ -1347,7 +1347,8 @@ function rarKey(r, ctx = {}){
   }
   if (/^(commune|common)$/.test(l)) return 'common';
   if (/^(peu commune|uncommon)$/.test(l)) return 'uncommon';
-  if (l === 'rare') return mod ? 'rare' : 'rare1';
+  // Galeries (cartes toutes holographiques) et Pokémon ☆ : TCGdex les classe parfois en simple « Rare »
+  if (l === 'rare') return tg ? 'gddHolo' : gg ? 'ggHolo' : /[☆★]/.test(name) ? 'star' : mod ? 'rare' : 'rare1';
   if (/^(holo rare|rare holo)$/.test(l)) return tg ? 'gddHolo' : gg ? 'ggHolo' : /[☆★]/.test(name) ? 'star' : /^ex\d/.test(sid) && /\sex$/.test(name) ? 'holoEx' : 'holo';
   if (l === 'rare holo lv.x') return 'lvx';
   if (/^holo rare v$/.test(l)) return tg ? 'gddV' : 'holoV';
