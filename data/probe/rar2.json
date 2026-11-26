@@ -1,0 +1,95 @@
+{
+ "Magnifique rare": "swsh6:35 sm12:35 swsh7:34 swsh10:27 sm2:24 sm3:22 sm8:22 sm11:22 swsh11:21 swsh5:20 swsh12:20 sm10:20 swsh8:20 swsh4:18 sm5:17 swsh2:17 sm6:15 sm7:15 sm9:15 sm1:14 swsh9:14 swsh1:14 sm4:13 swsh3:12 swsh10.5:10 sm7.5:8 sma:8 swsh3.5:7 bw9:6 sm3.5:5 xy7:5 xy12:5 bw4:4 bw10:4 bw6:4 bw7:4 xy5:4 swsh12.5gg:4 xy2:3 bw5:3 xy4:3 bw8:3 xy6:2 xy3:2 xy11:2 xy8:2 swsh4.5sv:2 swsh11tg:2 swsh9tg:2 swsh10tg:2 swsh12tg:2 cel25:1 sm115:1 swsh4.5:1 bw3:1 bw1:1 xy9:1 xy10:1 swsh12.5:1",
+ "Magnifique": "swsh4:6 swsh4.5:3",
+ "Shiny rare": "sv04.5:120 swsh4.5sv:104 sma:86",
+ "Holo Rare": "col1:33 ecard1:32 ecard2:32 swsh6:24 swsh11:22 swsh7:20 swsh12.5:20 swsh10:20 swsh4:19 swsh3:18 swsh2:18 pl1:17 swsh10.5:16 swsh5:16 ex5:15 swsh1:15 pl3:14 ex1:14 ex2:14 hgss1:14 swsh12:14 pl2:13 swsh8:13 ex4:12 hgss4:12 ex3:12 hgss2:11 swsh12tg:11 hgss3:10 swsh9:10 swsh3.5:10 cel25:5 swsh4.5:5",
+ "Rare Holo": "dp3:20 dp2:18 dp6:17 dp1:17 dp5:14 dp4:11 dp7:11",
+ "Ultra Rare": "sm12:43 sm11:40 swsh6:39 sm10:38 swsh7:38 sm9:34 sm8:33 swsh12.5gg:32 swsh10:31 sm3:30 sm7:28 xy10:28 xy5:28 sv04:28 sm2:26 swsh12:26 sv02:26 xy12:25 sm5:25 xy9:25 swsh11:25 xy8:24 xy7:23 sm1:23 xy6:22 swsh5:22 me01:22 sv10:22 g1:21 xy11:21 sm6:21 swsh9:21 sv06:21 sv08:21 swsh4:20 sv01:20 swsh8:20 sm4:19 me05:18 me04:18 me03:18 swsh2:18 sv05:18 me02:17 me06:17 swsh11tg:17 sv03.5:16 swsh1:16 swsh9tg:16 swsh10tg:16 xy2:15 xy4:15 xy1:14 xy3:14 swsh12.5:14 me02.5:14 swsh3:13 sm115:12 sm3.5:12 sm7.5:12 sv08.5:12 sv03:12 swsh4.5:11 sv07:11 sv09:11 sv06.5:10 bw7:9 swsh10.5:8 bw9:8 sv10.5b:8 sv10.5w:8 bw4:6 bw10:6 bw5:6 bw6:6 swsh3.5:5 bw3:5 bw8:5 sv04.5:5 det1:4 dc1:2 bw2:2 bw1:2 cel25:1 hgss1:1 swshp:1 hgss3:1 hgss2:1",
+ "Hyper rare": "sv02:9 sv04:7 sv05:6 sv06:6 sv10:6 sv04.5:6 sv08:6 sv01:6 sv06.5:5 sv08.5:5 sv07:3 sv09:3 sv03.5:3 sv03:3",
+ "Sans Rareté": "P-A:59 2019sm-fr:41 2018sm-fr:40 xy0:39 tk-bw-z:30 tk-bw-e:30 tk-hs-r:30 tk-hs-g:30 30th-c:30 2021swsh:25 2022swsh:15 2023sv:15 2024sv:15 tk-ex-m:12 tk-ex-p:12 tk-dp-m:12 2015xy:12 2011bw:12 2012bw:12 2017sm:12 2014xy:12 2016xy:12 2013bw:12 tk-dp-l:11 tk-ex-latia:10 tk-ex-latio:10 tk-xy-p:8 tk-sm-r:4 tk-xy-latia:3 tk-xy-su:3 tk-xy-latio:2 tk-xy-n:2 tk-xy-sy:2 tk-sm-l:2 A1:2 xy8:1",
+ "Couronne": "A1:3 B1:3 B2a:2 A2:2 A3:2 A4:2 A1a:1 A2a:1 A3a:1 A4a:1 A3b:1 A2b:1",
+ "Une Étoile": "A3:24 A2:24 A4:24 A1:24 B1:24 A3b:9 A1a:6 A3a:6 A4a:6 A2b:6 A2a:6 B2a:6 P-A:2",
+ "Deux Diamants": "A1:69 B1:69 A2:54 A4:51 A3:51 B2a:32 A2a:26 A3a:24 A3b:23 A1a:23 A4a:23 A2b:22",
+ "Promo": "swshp:299 smp:248 svp:220 xyp:216 mep:108 hgssp:25",
+ "Double rare": "me02.5:39 sv08.5:25 sv03:21 sv04:20 sv08:18 sv10:17 sv02:17 sv09:16 sv05:15 sv07:14 sv06:14 sv03.5:12 30th:12 sv01:12 sv04.5:10 me04:10 me01:10 me05:10 me02:10 me06:10 me03:9 sv10.5b:6 sv10.5w:6 sv06.5:6",
+ "Illustration rare": "sv10.5w:70 sv10.5b:69 sv02:36 sv04:34 me02.5:33 sv01:24 sv10:23 sv08:23 me01:22 sv05:22 sv06:21 30th:18 sv03.5:16 sv06.5:15 me06:14 me02:13 sv07:13 sv03:12 me05:11 me04:11 me03:11 sv09:11 sv04.5:3",
+ "Rare": "sm8:66 sm10:61 sm12:60 sm11:59 sm9:54 ex10:52 ecard2:51 ex13:50 bw8:47 bw7:47 ex11:45 ex16:45 ex6:44 bw9:44 neo4:43 ex9:43 bw6:43 sm2:43 xy5:43 ex8:42 sm5:42 xy1:42 ex14:41 sm6:41 ex12:40 ex15:40 sm3:40 pl3:40 ecard1:40 sm7:38 bw4:37 xy8:37 neo2:36 bw10:36 neo1:35 base5:35 xy4:35 bw3:35 bw5:34 swsh3:34 swsh12.5gg:34 swsh4:33 sm1:33 sm4:33 pl2:33 base2:32 base1:32 swsh2:32 swsh1:32 xy11:32 swsh8:32 bw2:31 bw1:31 base3:30 xy3:30 bwp:30 neo3:29 xy6:29 pl1:29 exu:28 xy2:28 swsh11:28 dp6:28 xy10:27 sv04:27 swsh9:26 sv02:25 me02.5:25 sv03.5:25 dp1:25 dp2:24 dp3:24 xy9:23 swsh6:23 dp7:23 swsh12.5:22 xy12:22 ex3:22 ex5:22 sm115:21 xy7:21 sv08.5:21 swsh12:21 swsh10:21 dp4:21 ex4:21 hgss1:21 sv01:21 ex1:21 dv1:20 swsh5:20 hgss4:20 dp5:20 ex2:20 swsh7:19 sv10:18 30th:18 g1:17 col1:17 sv09:16 sv04.5:16 sv08:16 hgss2:16 sv06:16 sv07:15 hgss3:15 sv05:14 sm3.5:13 cel25:12 sm7.5:12 me04:12 me01:12 swsh9tg:12 swsh10tg:12 me03:11 me05:11 swsh11tg:11 swsh4.5:10 me02:10 me06:10 sv10.5w:10 sv10.5b:10 sv03:10 pl4:9 pop3:7 pop2:7 pop1:7 sv06.5:7 pop4:6 det1:6 dc1:6 pop7:5 pop9:5 xya:4 tk-xy-n:2 tk-xy-latia:2 tk-xy-w:2 tk-xy-b:2 tk-xy-latio:2 tk-sm-r:1 tk-sm-l:1 swshp:1",
+ "Holo Rare V": "swsh9:20 swsh8:19 swsh10:18 swsh7:18 swsh1:17 swsh12.5:17 swsh2:16 swsh12:15 swsh6:15 swsh3:14 swsh5:12 swsh11:12 swsh3.5:11 swsh4:11 swsh4.5:7 swsh12tg:7 swsh10.5:6 cel25:4",
+ "Shiny rare V": "swsh4.5sv:9",
+ "Trois Étoiles": "A1:4 B1:3 A2:2 A3:2 A4:2 A1a:1 A3a:1 A4a:1 A3b:1 A2a:1 A2b:1 B2a:1",
+ "Un Chromatique": "B1:30 A3:20 A4:20 A3a:10 A4a:10 A3b:10 A2b:10 B2a:10",
+ "Dresseur Full Art": "swsh12tg:6",
+ "LÉGENDE": "hgss2:6 hgss3:4 hgss4:4 hgss1:4",
+ "Rare Prime": "hgss4:8 hgss3:6 hgss2:6 hgss1:6",
+ "Collection Classique": "cel25cc:25",
+ "cmp": {
+  "sv03.5": {
+   "Commune | Common": 66,
+   "Peu Commune | Uncommon": 62,
+   "Double rare | Double rare": 12,
+   "Rare | Rare": 25,
+   "Illustration rare | Illustration rare": 16,
+   "Ultra Rare | Ultra Rare": 16,
+   "Illustration spéciale rare | Special illustration rare": 7,
+   "Hyper rare | Hyper rare": 3
+  },
+  "swsh12": {
+   "Commune | Common": 53,
+   "Peu Commune | Uncommon": 56,
+   "Holo Rare | Holo Rare": 14,
+   "Holo Rare V | Holo Rare V": 15,
+   "Holo Rare VSTAR | Holo Rare VSTAR": 6,
+   "Rare | Rare": 21,
+   "Radieux Rare | Radiant Rare": 3,
+   "Holo Rare VMAX | Holo Rare VMAX": 1,
+   "Ultra Rare | Ultra Rare": 26,
+   "Magnifique rare | Secret Rare": 20
+  },
+  "sm12": {
+   "Ultra Rare | Ultra Rare": 43,
+   "Commune | Common": 67,
+   "Peu Commune | Uncommon": 66,
+   "Rare | Rare": 60,
+   "Magnifique rare | Secret Rare": 35
+  },
+  "xy12": {
+   "Ultra Rare | Ultra Rare": 25,
+   "Commune | Common": 33,
+   "Peu Commune | Uncommon": 28,
+   "Rare | Rare": 22,
+   "Magnifique rare | Secret Rare": 5
+  },
+  "bw7": {
+   "Commune | Common": 50,
+   "Peu Commune | Uncommon": 43,
+   "Rare | Rare": 47,
+   "Ultra Rare | Ultra Rare": 9,
+   "Magnifique rare | Secret Rare": 4
+  },
+  "dp1": {
+   "Rare Holo | Rare Holo": 17,
+   "Rare | Rare": 25,
+   "Peu Commune | Uncommon": 38,
+   "Commune | Common": 47,
+   "Rare Holo LV.X | Rare Holo LV.X": 3
+  },
+  "ex13": {
+   "Rare | Rare": 50,
+   "Peu Commune | Uncommon": 30,
+   "Commune | Common": 31
+  },
+  "neo1": {
+   "Rare | Rare": 35,
+   "Peu Commune | Uncommon": 35,
+   "Commune | Common": 41
+  },
+  "me01": {
+   "Commune | Common": 67,
+   "Double rare | Double rare": 10,
+   "Peu Commune | Uncommon": 43,
+   "Rare | Rare": 12,
+   "Illustration rare | Illustration rare": 4,
+   "null | null": 52
+  }
+ }
+}
