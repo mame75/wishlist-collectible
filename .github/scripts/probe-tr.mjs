@@ -1,24 +1,24 @@
-// Sonde : raretés TCGdex (fr/en/ja) et icônes de rareté Poképédia
-import { writeFile, mkdir, readdir, readFile } from 'node:fs/promises';
-const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
-const J = u => fetch(u, { headers: UA }).then(r => r.json());
+// Sonde : répartition des raretés TCGdex par extension (fr) et comparaison fr/en
+import { writeFile, mkdir } from 'node:fs/promises';
+const J = u => fetch(u).then(r => r.json());
 const out = {};
-for (const l of ['fr', 'en', 'ja']) out['tcgdex_' + l] = await J(`https://api.tcgdex.net/v2/${l}/rarities`).catch(e => String(e));
-// comptage par rareté FR (échantillon : toutes les cartes fr, champ rarity absent de la liste → par rareté via filtre)
-out.counts_fr = {};
-for (const r of Array.isArray(out.tcgdex_fr) ? out.tcgdex_fr : []){
+const rar = ['Magnifique rare','Magnifique','Shiny rare','Holo Rare','Rare Holo','Ultra Rare','Hyper rare','Sans Rareté','Couronne','Une Étoile','Deux Diamants','Promo','Double rare','Illustration rare','Rare','Holo Rare V','Shiny rare V','Trois Étoiles','Un Chromatique','Dresseur Full Art','LÉGENDE','Rare Prime','Collection Classique'];
+for (const r of rar){
   const l = await J(`https://api.tcgdex.net/v2/fr/cards?rarity=eq:${encodeURIComponent(r)}`).catch(() => []);
-  out.counts_fr[r] = Array.isArray(l) ? l.length : -1;
+  const sets = {}; for (const c of l) { const s = c.id.slice(0, c.id.lastIndexOf('-')); sets[s] = (sets[s] || 0) + 1; }
+  out[r] = Object.entries(sets).sort((a, b) => b[1] - a[1]).map(x => x.join(':')).join(' ');
 }
-const rar = {};
-for (const f of await readdir('data/tcgpj')) for (const list of Object.values(JSON.parse(await readFile(`data/tcgpj/${f}`, 'utf8')))) for (const e of list) rar[e[3]] = (rar[e[3]] || 0) + 1;
-out.tcgpj = rar;
-let files = [], cont = '';
-for (let k = 0; k < 10; k++){
-  const j = await J(`https://www.pokepedia.fr/api.php?format=json&action=query&list=allimages&aiprefix=Rareté_&ailimit=500&aiprop=url|size${cont}`);
-  files.push(...j.query.allimages.map(i => [i.name, i.width, i.height, i.url]));
-  if (!j.continue) break; cont = `&aicontinue=${encodeURIComponent(j.continue.aicontinue)}`;
+// fr vs en sur quelques extensions récentes et anciennes
+out.cmp = {};
+for (const s of ['sv03.5','swsh12','sm12','xy12','bw7','dp1','ex13','neo1','me01','sv08.5','swsh7','sm115','30th']){
+  const [f, e] = await Promise.all(['fr','en'].map(l => J(`https://api.tcgdex.net/v2/${l}/sets/${s}`).catch(() => null)));
+  if (!f || !e) continue;
+  const cnt = {};
+  for (const c of f.cards){
+    const [cf, ce] = await Promise.all(['fr','en'].map(l => J(`https://api.tcgdex.net/v2/${l}/cards/${c.id}`).catch(() => null)));
+    const k = `${cf && cf.rarity} | ${ce && ce.rarity}`; cnt[k] = (cnt[k] || 0) + 1;
+  }
+  out.cmp[s] = cnt;
 }
-out.pokepedia = files;
 await mkdir('data/probe', { recursive: true });
-await writeFile('data/probe/rar.json', JSON.stringify(out, null, 1));
+await writeFile('data/probe/rar2.json', JSON.stringify(out, null, 1));
