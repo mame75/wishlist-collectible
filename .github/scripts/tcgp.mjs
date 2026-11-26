@@ -64,7 +64,9 @@ if (jp){
         if (!ex.Number) continue;
         const k = key(cleanName(p.name)); if (!k) continue;
         const f = /[a-z]/.test(k[0]) ? k[0] : '0';
-        ((idx[f] ||= {})[k] ||= []).push([p.productId, g.name, String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0, /mirror|reverse/i.test(p.name) ? 1 : 0]);
+        // Numéro du nom (« Mew ex - 002/043 ») différent du champ Number (151/165) : réimpression d'un deck/coffret rangée dans l'extension du moment
+        const nn = (p.name.match(/ - ([A-Z]*\d+\/[A-Z]*\d+)\s*$/) || [])[1], odd = nn && nn !== String(ex.Number).trim();
+        ((idx[f] ||= {})[k] ||= []).push([p.productId, odd ? `Deck ou coffret (${g.name})` : g.name, odd ? nn : String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0, /mirror|reverse/i.test(p.name) ? 1 : 0, ...(odd ? [String(ex.Number).trim()] : [])]);
         if (!/mirror|reverse/i.test(p.name)) (jg[g.groupId] ||= []).push({ pid: p.productId, k, num: parseInt(String(ex.Number), 10) || 0 });   // versions miroir : même produit Cardmarket (prix reverse)
       }
     }

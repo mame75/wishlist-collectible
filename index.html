@@ -1155,7 +1155,7 @@ function makeItem(card, opts){
     cmImg: card.cmImg || null, cmPrice: !!card.cmPrice, manual: !!card.manual, userImg: card.userImg || null,
     cmFrom: card.cmFrom || null, cmFromPrev: null, priceSrc: card.priceSrc || null,
     editions: card.editions || null, edPrices: card.edPrices || null, edImgs: card.edImgs || null, edition: (card.editions || []).length ? (opts.edition || card.editions[0]) : null,
-    baseImg: card.cmImg ? (card.baseImg || null) : null, baseImgHi: card.cmImg ? (card.baseImgHi || null) : null
+    baseImg: card.cmImg || /^tcgpj-/.test(card.id || '') ? (card.baseImg || null) : null, baseImgHi: card.cmImg || /^tcgpj-/.test(card.id || '') ? (card.baseImgHi || null) : null
   };
 }
 const shownPrice = it => it.graded ? it.priceGraded : it.priceRaw;
@@ -2636,12 +2636,16 @@ async function pkmVersions(card){
       const trImg = (set, num) => { const t = trj[`${set}|${num}`], p = pcj[`${set}|${num}`];
         return t ? { img: `${TRJ}${t[0]}.l2_thumbnail.jpg`, imgHi: `${TRJ}${t[0]}` } : p ? { img: pcImg(p[0], 240), imgHi: pcImg(p[0], 1600) } : { img: null, imgHi: null }; };
       // catalogue TCGplayer : forme normale (« mew ») et ☆ (« Mew Star » → « mewstar »)
-      const tj = [...(idx[k] || []).map(e => [e, baseName]), ...(idx[k + 'star'] || []).map(e => [e, baseName + ' ☆'])].map(([[pid, set, num, rar, photo, mirror], nm]) => ({ id: 'tcgpj-' + pid, localId: num, name: nm, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
+      const tj = [...(idx[k] || []).map(e => [e, baseName]), ...(idx[k + 'star'] || []).map(e => [e, baseName + ' ☆'])].map(([[pid, set, num, rar, photo, mirror, num0], nm]) => ({ id: 'tcgpj-' + pid, localId: num, num0, name: nm, nameEn: en.name, set, rarity: rar, mirror: !!mirror, ocg: true, lang: 'ja', tcgpj: true,
         ...(photo ? { img: `${TCGP}${pid}_400w.jpg`, imgHi: `${TCGP}${pid}_in_1000x1000.jpg` } : trImg(set, num)) }))
         .sort((a, b) => (+!!b.img - +!!a.img) || b.id.localeCompare(a.id, undefined, { numeric: true }))
         // TCGplayer a parfois deux produits pour la même édition (1re édition / illimitée…) : une seule entrée, de préférence avec photo
         .filter((v, i, all) => all.findIndex(x => x.set === v.set && x.localId === v.localId && x.rarity === v.rarity && x.mirror === v.mirror) === i)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }));
+      // Photo TCGplayer annoncée mais absente (fiche vide, ex. Mew ex du Premium Trainer Box MEGA rangé dans M1L) :
+      // image de secours = la même carte (même numéro imprimé et rareté) dans une autre extension
+      tj.forEach(v => { if (!/^tcgpj-/.test(v.id) || !v.img) return; const o = tj.find(x => x !== v && x.img && x.localId === (v.num0 || v.localId) && x.rarity === v.rarity && x.mirror === v.mirror && x.set !== v.set);
+        if (o){ v.baseImg = o.img; v.baseImgHi = o.imgHi; } });
       // Mirror Holo : même produit Cardmarket que la version normale (le prix holo de Cardmarket est celui du Mirror)
       tj.forEach(v => { if (v.mirror){ const b = tj.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
       // Rapprochement avec les cartes japonaises de TCGdex : même numéro, et même sigle d'extension (« SV6: … ») ou même nombre de cartes
@@ -2750,7 +2754,7 @@ async function openPkmVersions(card, onPick){
       `<button class="chip ${mk === m ? 'on' : ''}" data-m="${m}">${l}<span>${n(m)}</span></button>`).join('');
     const rows = vs.filter(v => (mk === 'all' || (mk === 'ocg') === v.ocg) && (!q || `${v.set} ${v.localId} ${v.rarity || ''} ${v.name}`.toLowerCase().includes(q)));
     $('#pvgrid').innerHTML = rows.map(v => `<button class="ed ${v.id === card.id ? 'on' : ''}" data-i="${vs.indexOf(v)}">
-        ${imgBox({ name: v.name, img: v.img, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
+        ${imgBox({ name: v.name, img: v.img, baseImg: v.baseImg, set: v.set, game: "pkm", id: v.id, lang: v.lang }, false, v.ocg ? '<span class="bdg">OCG</span>' : '')}
         <div>${v.name !== card.name ? `<div class="st"><b>${esc(v.name)}</b></div>` : ''}<div class="st">${setLabel(v.tcgpj ? null : v.sid, v.set)}${v.rarity ? rarIcon(v.rarity, rarCtx(v)) : ''}</div><div class="rr" data-rr="${esc(v.id)}">${esc(v.rarity ? rarName(v.rarity, rarCtx(v)) : '')}</div>${v.mirror ? '<div class="rr">Mirror Holo</div>' : ''}</div></button>`).join('')
       || '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>';
   };
@@ -2857,7 +2861,7 @@ function renderConfigure(card, pre){
         const first = eur2(subs['1st Edition'] ?? subs['1st Edition Holofoil']), unl = eur2(subs['Unlimited'] ?? subs['Unlimited Holofoil']);
         const eds = first != null || unl != null ? [...(first != null ? ['1st'] : []), ...(unl != null ? ['unl'] : [])] : null;
         const bimg = v.img ? null : await bulbaImg(v);
-        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || v.img || bimg || null,
+        renderConfigure({ game:'pkm', id: v.id, lang:'ja', name: card.name, set: v.set, num: v.localId, rarity: v.rarity, img: v.img || bimg || null, imgHi: v.imgHi || v.img || bimg || null, baseImg: v.baseImg, baseImgHi: v.baseImgHi,
           prices: { normal: g ? (g[0] ?? g[1]) : null, reverse: g ? g[4] ?? null : null }, trend: g && g[0] && g[1] ? { normal: g[0] / g[1] - 1, reverse: null } : null,
           cmId: cmPid, cmPid, priceSrc: g ? 'cm7' : null, editions: eds, edPrices: eds ? { '1st': first, unl } : null,
           rarity: v.rarity + (v.mirror ? ' · Mirror Holo' : ''), variant: v.mirror ? 'reverse' : 'normal',
