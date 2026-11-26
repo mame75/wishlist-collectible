@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="8.6352844"
+   height="8.3540039"
+   viewBox="0 0 8.6352844 8.3540039"
+   sodipodi:docname="swsh4_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath1314">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-358.15901,56.079999)"
+         id="path1314" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-477.58859,-973.36206)">
+    <g
+       id="g1313">
+      <path
+         id="path1313"
+         d="m 3.2706875,-5.6485156 -0.6914062,2.15625 H 0.28240625 L 2.1574063,-2.0977344 1.4308438,0.11710937 3.2706875,-1.2539844 5.12225,0.11710937 4.4074063,-2.0977344 6.2589688,-3.4922656 H 3.950375 Z m 0,0"
+         style="fill:none;stroke:#231f20;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         aria-label="  ★"
+         transform="matrix(1.3333333,0,0,1.3333333,477.54533,981.22667)"
+         clip-path="url(#clipPath1314)" />
+    </g>
+  </g>
+</svg>

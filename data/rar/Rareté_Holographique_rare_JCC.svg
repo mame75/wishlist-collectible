@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="12.624985"
+   height="7.6875"
+   viewBox="0 0 12.624985 7.6875"
+   sodipodi:docname="swsh4_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-109.54689,-973.69531)">
+    <g
+       id="g1300"
+       aria-label=" ◆ = peu commune★ = rare&#10;★"
+       transform="matrix(1.3333333,0,0,1.3333333,546.55733,966.82667)">
+      <path
+         id="path1304"
+         d="m -324.76956,5.1514844 -0.69141,2.15625 h -2.29687 l 1.875,1.3945312 -0.72657,2.2148434 1.83985,-1.3710934 1.85156,1.3710934 -0.71484,-2.2148434 1.85156,-1.3945312 h -2.30859 z m 0,0"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+    </g>
+    <g
+       id="g1304">
+      <path
+         id="path1305"
+         d="M 0.48081875,-5.3907031 V -7.8125e-5 H 1.1019125 V -2.5196094 H 2.6136312 V -7.8125e-5 h 0.609375 V -5.3907031 h -0.609375 v 2.3085937 H 1.1019125 v -2.3085937 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         aria-label="H = holographique rare "
+         transform="matrix(1.3333333,0,0,1.3333333,117.87453,981.22667)"
+         sodipodi:nodetypes="ccccccccccccc" />
+      <g
+         id="g1305" />
+    </g>
+  </g>
+</svg>

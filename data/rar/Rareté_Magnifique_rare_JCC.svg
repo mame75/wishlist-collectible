@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="14.234375"
+   height="7.6875"
+   viewBox="0 0 14.234375 7.6875"
+   sodipodi:docname="swsh4_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-355.12891,-973.69531)">
+    <path
+       id="path1310"
+       d="m 3.2696609,-5.6485156 -0.6914062,2.15625 H 0.28137969 L 2.1563797,-2.0977344 1.4298172,0.11710937 3.2696609,-1.2539844 5.1212234,0.11710937 4.4063797,-2.0977344 6.2579422,-3.4922656 H 3.9493484 Z m 0,0"
+       style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       aria-label=" ★"
+       transform="matrix(1.3333333,0,0,1.3333333,354.75373,981.22667)" />
+    <g
+       id="g1311">
+      <path
+         id="path1311"
+         d="M 3.8549422,-7.8125e-5 H 4.4291609 L 4.1244734,-5.3907031 H 3.4330672 l -0.609375,2.4609375 C 2.6479109,-2.2032031 2.5307234,-1.6875781 2.4252547,-1.0782031 H 2.4018172 C 2.2846297,-1.6875781 2.1557234,-2.2149219 1.9682234,-2.9297656 L 1.3471297,-5.3907031 H 0.66744219 L 0.35103594,-7.8125e-5 H 0.90181719 L 1.0072859,-2.2852344 c 0.035156,-0.7617187 0.070312,-1.5117187 0.070312,-2.1445312 h 0.023437 c 0.1054688,0.6210937 0.2578125,1.2890625 0.4453125,1.96875 l 0.6210938,2.42578122 h 0.3984375 l 0.65625,-2.53125002 c 0.1757812,-0.6210937 0.3164062,-1.265625 0.4335937,-1.8632812 h 0.035156 c -0.023437,0.609375 0.011719,1.3945312 0.058594,2.109375 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         aria-label="M = Magnifque rare"
+         transform="matrix(1.3333333,0,0,1.3333333,363.45773,981.22667)"
+         sodipodi:nodetypes="ccccccccccccscccccccccc" />
+      <g
+         id="g1312" />
+    </g>
+  </g>
+</svg>

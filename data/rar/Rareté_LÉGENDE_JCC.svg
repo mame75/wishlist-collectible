@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="17.726562"
+   height="11.5"
+   viewBox="0 0 17.726562 11.5"
+   sodipodi:docname="hgss1_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <color-profile
+       inkscape:label="sRGB IEC61966-2.1"
+       name="sRGB-IEC61966-2.1"
+       id="color-profile2" />
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath500">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-314.39291,141.7528)"
+         id="path500" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-419.75391,-903.55469)">
+    <g
+       id="g487"
+       aria-label=" = Holographique rare = rareu = peu commune&#10; = commune &#10;P = rare Prime&#10;★L = LÉGENDE"
+       transform="matrix(1.3333333,0,0,1.3333333,419.19053,866.99627)"
+       clip-path="url(#clipPath500)">
+      <path
+         id="path498"
+         d="M 4.9108109,27.418816 3.8678422,30.653191 H 0.42252969 l 2.80078121,2.085937 -1.0898437,3.304688 2.7773437,-2.039063 2.765625,2.039063 -1.078125,-3.304688 2.7890625,-2.085937 H 5.9303422 Z m 0,0"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+      <path
+         id="path499"
+         d="m 10.506514,35.879753 h 3.210938 v -0.785156 h -2.285157 v -7.300781 h -0.925781 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         sodipodi:nodetypes="ccccccc" />
+    </g>
+  </g>
+</svg>

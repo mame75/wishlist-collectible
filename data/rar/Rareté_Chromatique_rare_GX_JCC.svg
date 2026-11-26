@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="14.899658"
+   height="7.3384094"
+   viewBox="0 0 14.899658 7.3384094"
+   sodipodi:docname="swsh45_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath4377">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-499.70601,509.63092)"
+         id="path4377" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-666.23706,-369.59644)">
+    <g
+       id="g4376">
+      <path
+         id="path4376"
+         d="M 5.4834531,-3.0116781 3.8545469,-1.8398031 4.4873594,0.08207187 2.8584531,-1.1015219 1.2178281,0.08207187 1.8506406,-1.8398031 0.22173438,-3.0116781 H 2.2256406 l 0.6328125,-1.9101563 0.6210938,1.9101563 z m 0,0"
+         style="fill:none;stroke:#231f20;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         aria-label=" ★"
+         transform="matrix(1.3333333,0,0,1.3333333,666.27467,376.49213)"
+         clip-path="url(#clipPath4377)" />
+    </g>
+    <g
+       id="g4377">
+      <path
+         id="path4378"
+         d="m 2.3911938,-0.52730313 c -0.1054688,0.046875 -0.28125,0.09375 -0.4921875,0.09375 -0.5742188,0 -1.1132813,-0.46875 -1.1132813,-1.92187497 0,-1.4414063 0.5976563,-1.921875 1.1015625,-1.921875 0.2460938,0 0.3632813,0.046875 0.46875,0.09375 L 2.473225,-4.6405844 c -0.082031,-0.058594 -0.2929687,-0.1171875 -0.5742187,-0.1171875 -0.75,0 -1.6757813,0.5976563 -1.6757813,2.4609375 0,1.60546877 0.66796875,2.34375002 1.5820313,2.34375002 0.2929687,0 0.5273437,-0.05859375 0.6796875,-0.12890625 z M 3.0327953,-4.7108969 V 4.0625e-5 H 3.5718578 V -2.2030844 H 4.8960766 V 4.0625e-5 H 5.4351391 V -4.7108969 H 4.8960766 v 2.015625 H 3.5718578 v -2.015625 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         aria-label="CH = chromatique rare V ou VMAX"
+         transform="matrix(1.3333333,0,0,1.3333333,673.88987,376.49213)"
+         sodipodi:nodetypes="csssccsssccccccccccccccc" />
+    </g>
+  </g>
+</svg>

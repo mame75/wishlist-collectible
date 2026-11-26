@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="14.30304"
+   height="9.1061401"
+   viewBox="0 0 14.30304 9.1061401"
+   sodipodi:docname="swsh125_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath2157">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-375.52871,29.028976)"
+         id="path2157" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-495.95312,-1008.6774)">
+    <path
+       id="path2155"
+       d="M 2.191625,-0.00127344 3.5744375,-5.9309609 H 2.847875 l -0.5625,2.765625 C 2.14475,-2.4622109 1.9806875,-1.6418984 1.8869375,-0.86846094 H 1.8635 C 1.7580312,-1.6301797 1.58225,-2.4856484 1.441625,-3.1536172 L 0.86740625,-5.9309609 h -0.7265625 l 1.35937495,5.92968746 z m 0,0"
+       style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       aria-label="V"
+       transform="matrix(1.3333333,0,0,1.3333333,495.76533,1017.2947)" />
+    <g
+       id="g2155">
+      <path
+         id="path2156"
+         d="M 6.9009875,-3.7981484 4.8502063,-2.3098672 5.6353625,0.10419531 3.5963,-1.3840859 1.5338,0.10419531 2.3189563,-2.3098672 0.27989375,-3.7981484 H 2.799425 L 3.5963,-6.2004922 4.3697375,-3.7981484 Z m 0,0"
+         style="fill:none;stroke:#231f20;stroke-width:0.525;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4.2;stroke-dasharray:none;stroke-opacity:1"
+         aria-label="★"
+         transform="matrix(1.3333333,0,0,1.3333333,500.70493,1017.2947)"
+         clip-path="url(#clipPath2157)" />
+    </g>
+  </g>
+</svg>

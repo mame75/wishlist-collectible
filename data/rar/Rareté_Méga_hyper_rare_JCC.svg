@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="11.242493"
+   height="11.24115"
+   viewBox="0 0 11.242493 11.24115"
+   sodipodi:docname="asc_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-671.83289,-982.73944)">
+    <g
+       id="g2405">
+      <path
+         id="path2405"
+         d="M 0,0 -1.29,2.359 -2.58,0 -4.939,-1.29 -2.58,-2.58 -1.29,-4.938 0,-2.58 2.359,-1.29 Z"
+         style="fill:#e0e90a;fill-opacity:1;fill-rule:nonzero;stroke:#e0e90a;stroke-width:1.134;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+         transform="matrix(1.3333333,0,0,-1.3333333,679.17413,986.64067)" />
+    </g>
+    <g
+       id="g2406">
+      <path
+         id="path2406"
+         d="M 0,0 -1.29,2.359 -2.58,0 -4.939,-1.29 -2.58,-2.58 -1.29,-4.938 0,-2.58 2.359,-1.29 Z"
+         style="fill:none;stroke:#231f20;stroke-width:0.35;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+         transform="matrix(1.3333333,0,0,-1.3333333,679.17413,986.64067)" />
+    </g>
+    <g
+       id="g2407">
+      <path
+         id="path2407"
+         d="M 0,0 0.721,1.319 1.443,0 2.762,-0.721 1.443,-1.443 0.721,-2.762 0,-1.443 -1.319,-0.721 Z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:#e0e90a;stroke-width:0.283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+         transform="matrix(1.3333333,0,0,-1.3333333,676.5156,987.4164)" />
+    </g>
+    <path
+       id="path2408"
+       d="M 0,0 -1.319,0.721 0,1.443 0.721,2.762 1.443,1.443 2.762,0.721 1.443,0 0.721,-1.319 Z"
+       style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:#f2ef1d;stroke-width:0.567;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+       transform="matrix(1.3333333,0,0,-1.3333333,676.5156,989.34)" />
+  </g>
+</svg>

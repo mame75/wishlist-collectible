@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="12.696533"
+   height="8.3540039"
+   viewBox="0 0 12.696533 8.3540039"
+   sodipodi:docname="swsh4_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath1317">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-450.50801,56.079999)"
+         id="path1317" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-600.71753,-973.36206)">
+    <g
+       id="g1316">
+      <path
+         id="path1316"
+         d="m 3.2683672,-5.6485156 -0.6914063,2.15625 H 0.28008594 L 2.1550859,-2.0977344 1.4285234,0.11710937 3.2683672,-1.2539844 5.1199297,0.11710937 4.4050859,-2.0977344 6.2566484,-3.4922656 H 3.9480547 Z m 0,0"
+         style="fill:none;stroke:#231f20;stroke-width:0.5;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         aria-label=" ★"
+         transform="matrix(1.3333333,0,0,1.3333333,600.67733,981.22667)"
+         clip-path="url(#clipPath1317)" />
+    </g>
+    <g
+       id="g1317">
+      <path
+         id="path1318"
+         d="M 3.0246469,-7.8125e-5 1.9113656,-2.7657031 l 1.0546875,-2.625 H 2.3449594 l -0.4335938,1.21875 c -0.09375,0.2695312 -0.1757812,0.5039062 -0.3046875,0.8789062 H 1.5949594 C 1.4777719,-3.6446094 1.3723031,-3.9024219 1.2785531,-4.1485156 L 0.79808438,-5.3907031 H 0.15355313 L 1.2199594,-2.7539844 0.11839688,-7.8125e-5 h 0.6328125 L 1.2199594,-1.2774219 c 0.09375,-0.2929687 0.1992187,-0.609375 0.3164062,-0.9609375 h 0.023437 c 0.1171875,0.3632813 0.2226563,0.6445313 0.3398438,0.9375 l 0.492188,1.300781275 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         aria-label="X = holographique rare VMAX"
+         transform="matrix(1.3333333,0,0,1.3333333,609.3812,981.22667)"
+         sodipodi:nodetypes="ccccccccccccccccccc" />
+    </g>
+  </g>
+</svg>

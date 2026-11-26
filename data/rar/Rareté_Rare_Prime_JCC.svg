@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="18.429688"
+   height="11.5"
+   viewBox="0 0 18.429688 11.5"
+   sodipodi:docname="hgss1_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <color-profile
+       inkscape:label="sRGB IEC61966-2.1"
+       name="sRGB-IEC61966-2.1"
+       id="color-profile2" />
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath500">
+      <path
+         d="M 0,0 H 612 V 792 H 0 Z"
+         transform="matrix(1,0,0,-1,-314.39291,141.7528)"
+         id="path500" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-566.42578,-880.67578)">
+    <g
+       id="g487"
+       aria-label=" = Holographique rare = rareu = peu commune&#10; = commune &#10;P = rare Prime&#10;★L = LÉGENDE"
+       transform="matrix(1.3333333,0,0,1.3333333,419.19053,866.99627)"
+       clip-path="url(#clipPath500)">
+      <path
+         id="path496"
+         d="m 114.91472,10.259636 -1.04297,3.234375 h -3.44531 l 2.80078,2.085937 -1.08985,3.304688 2.77735,-2.039063 2.76562,2.039063 -1.07812,-3.304688 2.78906,-2.085937 h -3.45703 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         sodipodi:nodetypes="ccccccccccc" />
+      <path
+         id="path497"
+         d="m 120.51042,18.720573 h 0.92578 v -3.316406 c 0.14063,0.01172 0.25781,0.01172 0.41016,0.01172 0.72656,0 1.46484,-0.292969 1.91015,-0.890625 0.31641,-0.410156 0.49219,-0.914063 0.49219,-1.664063 0,-0.691406 -0.21094,-1.277343 -0.59765,-1.664062 -0.42188,-0.421875 -1.04297,-0.597656 -1.79297,-0.597656 -0.52735,0 -0.97266,0.05859 -1.34766,0.152343 z m 0.92578,-7.3125 c 0.12891,-0.03516 0.30469,-0.05859 0.51563,-0.05859 1.01953,0 1.37109,0.75 1.37109,1.570312 0,1.148438 -0.60937,1.746094 -1.52344,1.746094 -0.15234,0 -0.24609,-0.01172 -0.36328,-0.03516 z"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         sodipodi:nodetypes="cccscssscccssscc" />
+    </g>
+  </g>
+</svg>

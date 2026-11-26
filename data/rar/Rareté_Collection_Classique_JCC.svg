@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="12.118408"
+   height="7.953125"
+   viewBox="0 0 12.118408 7.953125"
+   sodipodi:docname="30c_web_cardlist_fr.pdf"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+  <g
+     id="g1"
+     inkscape:groupmode="layer"
+     inkscape:label="1"
+     transform="translate(-669.05347,-976.75781)">
+    <path
+       id="path2084"
+       d="m 0,0 -0.882,-1.902 -2.08,-0.252 1.535,-1.425 -0.404,-2.057 H -1.83 L 0,-4.615 1.829,-5.636 H 1.83 l -0.403,2.057 1.536,1.424 v 10e-4 l -2.081,0.252 z"
+       style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+       transform="matrix(1.3333333,0,0,-1.3333333,673.0028,977.08507)" />
+    <g
+       id="g2084">
+      <path
+         id="path2085"
+         d="m 1.8047312,-5.8814406 c -0.91406245,0 -1.47656245,0.6679687 -1.47656245,1.7578125 v 2.53125 c 0,1.00781248 0.55078125,1.67578123 1.45312495,1.67578123 0.7851563,0 1.2421875,-0.38671875 1.3828125,-1.32421873 l -0.609375,-0.1875 c -0.1171875,0.60937498 -0.3164062,0.80859373 -0.703125,0.80859373 -0.4804687,0 -0.703125,-0.375 -0.703125,-0.98437503 v -2.5195312 c 0,-0.6796875 0.2226563,-1.0429688 0.703125,-1.0429688 0.3867188,0 0.5976563,0.2578125 0.6914063,0.75 l 0.6210937,-0.1875 C 3.0352,-5.3658156 2.519575,-5.8814406 1.8047312,-5.8814406 Z m 0,0"
+         style="fill:#231f20;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         aria-label="C"
+         transform="matrix(1.3333333,0,0,1.3333333,676.95307,984.59973)" />
+    </g>
+  </g>
+</svg>
