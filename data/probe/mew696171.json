@@ -1,0 +1,78 @@
+{
+ "groups": [
+  [
+   24399,
+   "m1L: Mega Brave",
+   "2025-08-01T00:00:00"
+  ],
+  [
+   23599,
+   "SV2a: Pokemon Card 151",
+   "2023-06-16T00:00:00"
+  ]
+ ],
+ "m1L: Mega Brave": [
+  {
+   "id": 696171,
+   "name": "Mew ex - 002/043",
+   "url": "https://www.tcgplayer.com/product/696171/pokemon-japan-m1l-mega-brave-mew-ex-002-043",
+   "img": "https://tcgplayer-cdn.tcgplayer.com/product/696171_200w.jpg",
+   "mod": "2026-06-02T12:12:13.953",
+   "ext": [
+    {
+     "name": "Rarity",
+     "displayName": "Rarity",
+     "value": "Double Rare"
+    },
+    {
+     "name": "Number",
+     "displayName": "Number",
+     "value": "151/165"
+    },
+    {
+     "name": "Description",
+     "displayName": "Description",
+     "value": "<strong>Ability: Restart</strong> Once during your turn, you may draw cards until you have 3 cards in your hand."
+    },
+    {
+     "name": "CardType",
+     "displayName": "Card Type",
+     "value": "Psychic"
+    },
+    {
+     "name": "HP",
+     "displayName": "HP",
+     "value": "180"
+    },
+    {
+     "name": "Stage",
+     "displayName": "Stage",
+     "value": "Basic"
+    },
+    {
+     "name": "Weakness",
+     "displayName": "Weakness",
+     "value": "Darkness x2"
+    },
+    {
+     "name": "Resistance",
+     "displayName": "Resistance",
+     "value": "Fighting -30"
+    },
+    {
+     "name": "Retreat Cost",
+     "displayName": "Retreat Cost",
+     "value": "0"
+    },
+    {
+     "name": "Attack 1",
+     "displayName": "Attack 1",
+     "value": "[Colorless][Colorless][Colorless] Genome Hacking<br> Choose 1 of your opponent's Active Pokémon's attacks and use it as this attack."
+    }
+   ]
+  }
+ ],
+ "m1L: Mega Brave prix": [],
+ "https://tcgplayer-cdn.tcgplayer.com/product/696171_in_1000x1000.jpg": 403,
+ "https://tcgplayer-cdn.tcgplayer.com/product/696171_200w.jpg": 403
+}
