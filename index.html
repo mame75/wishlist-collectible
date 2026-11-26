@@ -1207,6 +1207,8 @@ function imgBox(c, hi, badges){
   </div>`;
 }
 fetch('data/sym.json').then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
+// Logos Poképédia des extensions sans logo chez TCGdex (onglet Sets)
+fetch('data/logo.json').then(r => r.ok ? r.json() : {}).then(j => { LOGO = j || {}; if (Object.keys(LOGO).length && view === 'sets') try { render(); } catch (e){} }).catch(() => {});
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
 window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; } };
 /* ========= Visuel par édition (1re / illimitée) =========
@@ -1263,7 +1265,7 @@ new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) 
   .observe(document.documentElement, { childList: true, subtree: true });
 
 /* ========= Symboles d'extension (Poképédia, data/sym) ========= */
-let SYM = {};
+let SYM = {}, LOGO = {};
 const pkSid = c => !c || c.game === 'ygo' || c.manual || !c.id || /^tcgpj-/.test(c.id) ? null : String(c.id).slice(0, String(c.id).lastIndexOf('-'));
 const symHTML = (sid, name) => sid && SYM[sid] ? `<img class="sicon" src="data/sym/${encodeURIComponent(sid)}.png" alt="${esc(name || '')}" title="${esc(name || '')}" loading="lazy" onerror="this.remove()">` : '';
 // Extension : son symbole seul quand on l'a (nom en info-bulle), sinon son nom
@@ -1853,8 +1855,8 @@ function setsHTML(){
   }
   const block = (g, title, list) => setsGame !== 'all' && setsGame !== g ? '' : `<h3 class="xh">${title}</h3>
     <div class="sets">${list.map((x, i) => `<button class="settile" data-g="${g}" data-i="${i}">
-      <div class="lg"><img src="${esc(x.img || (g === 'ygo' ? `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : ''))}" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></div>
-      <div class="tname">${esc(x.name)}</div>
+      <div class="lg"><img src="${esc(g === 'pkm' && (x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img || (g === 'ygo' ? `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : ''))}" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></div>
+      <div class="tname">${g === 'pkm' ? symHTML(x.id, x.name) : ''}${esc(x.name)}</div>
       <div class="tsub">${[x.n ? x.n + ' cartes' : '', x.date ? new Date(x.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : ''].filter(Boolean).join(' · ')}</div>
     </button>`).join('') || '<div class="status">Indisponible pour le moment.</div>'}</div>`;
   return block('pkm', 'Dernières extensions Pokémon', homeSets.pkm) + block('ygo', 'Dernières extensions Yu-Gi-Oh!', homeSets.ygo);
