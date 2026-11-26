@@ -1220,7 +1220,7 @@ fetch('data/rar.json').then(r => r.ok ? r.json() : {}).then(j => { RAR = j || {}
 // Logos Poképédia des extensions sans logo chez TCGdex (onglet Sets)
 fetch('data/logo.json').then(r => r.ok ? r.json() : {}).then(j => { LOGO = j || {}; if (Object.keys(LOGO).length && view === 'sets') try { render(); } catch (e){} }).catch(() => {});
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
-window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; } };
+window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; }, get rarFull(){ return rarFull; }, get rarName(){ return rarName; } };
 /* ========= Visuel par édition (1re / illimitée) =========
    Les scans des séries anciennes portent presque toujours le tampon « Édition 1 ». Pour l'édition illimitée,
    on retire ce tampon du scan (il est repéré à gauche, juste sous l'illustration) ; sans tampon, le scan est gardé tel quel. */
