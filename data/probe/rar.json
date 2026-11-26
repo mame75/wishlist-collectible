@@ -1,0 +1,682 @@
+{
+ "tcgdex_fr": [
+  "Chromatique ultra rare",
+  "Collection Classique",
+  "Commune",
+  "Couronne",
+  "Deux Chromatiques",
+  "Deux Diamants",
+  "Deux Étoiles",
+  "Double rare",
+  "Dresseur Full Art",
+  "Futuristic Rare",
+  "HIGH-TECH rare",
+  "Holo Rare",
+  "Holo Rare V",
+  "Holo Rare VMAX",
+  "Holo Rare VSTAR",
+  "Hyper rare",
+  "Illustration rare",
+  "Illustration spéciale rare",
+  "LÉGENDE",
+  "Magnifique",
+  "Magnifique rare",
+  "Mega Attack Rare",
+  "Méga Hyper Rare",
+  "Peu Commune",
+  "Pikachu Rare",
+  "Promo",
+  "Quatre Diamants",
+  "RGB Rare",
+  "Radieux Rare",
+  "Rare",
+  "Rare Holo",
+  "Rare Holo LV.X",
+  "Rare Noir Blanc",
+  "Rare Prime",
+  "Sans Rareté",
+  "Shiny rare",
+  "Shiny rare V",
+  "Shiny rare VMAX",
+  "Trois Diamants",
+  "Trois Étoiles",
+  "Ultra Rare",
+  "Un Chromatique",
+  "Un Diamant",
+  "Une Étoile"
+ ],
+ "tcgdex_en": [
+  "ACE SPEC Rare",
+  "Amazing Rare",
+  "Black White Rare",
+  "Classic Collection",
+  "Common",
+  "Crown",
+  "Double rare",
+  "Four Diamond",
+  "Full Art Trainer",
+  "Futuristic Rare",
+  "Holo Rare",
+  "Holo Rare V",
+  "Holo Rare VMAX",
+  "Holo Rare VSTAR",
+  "Hyper rare",
+  "Illustration rare",
+  "LEGEND",
+  "Mega Attack Rare",
+  "Mega Hyper Rare",
+  "None",
+  "One Diamond",
+  "One Shiny",
+  "One Star",
+  "Pikachu Rare",
+  "Promo",
+  "RGB Rare",
+  "Radiant Rare",
+  "Rare",
+  "Rare Holo",
+  "Rare Holo LV.X",
+  "Rare PRIME",
+  "Secret Rare",
+  "Shiny Ultra Rare",
+  "Shiny rare",
+  "Shiny rare V",
+  "Shiny rare VMAX",
+  "Special illustration rare",
+  "Three Diamond",
+  "Three Star",
+  "Two Diamond",
+  "Two Shiny",
+  "Two Star",
+  "Ultra Rare",
+  "Uncommon"
+ ],
+ "tcgdex_ja": [
+  "ACE SPEC Rare",
+  "Black White Rare",
+  "Character Rare",
+  "Character Super Rare",
+  "Classic Collection",
+  "Common",
+  "Double rare",
+  "Futuristic Rare",
+  "Holo Rare",
+  "Hyper rare",
+  "Illustration rare",
+  "Mega Hyper Rare",
+  "None",
+  "Promo",
+  "RGB Rare",
+  "Radiant Rare",
+  "Rare",
+  "Rare Holo",
+  "Secret Rare",
+  "Shiny Ultra Rare",
+  "Shiny rare",
+  "Special illustration rare",
+  "Triple Rare",
+  "Ultra Rare",
+  "Uncommon"
+ ],
+ "counts_fr": {
+  "Chromatique ultra rare": 12,
+  "Collection Classique": 25,
+  "Commune": 5470,
+  "Couronne": 20,
+  "Deux Chromatiques": 48,
+  "Deux Diamants": 467,
+  "Deux Étoiles": 229,
+  "Double rare": 339,
+  "Dresseur Full Art": 6,
+  "Futuristic Rare": 2,
+  "HIGH-TECH rare": 33,
+  "Holo Rare": 531,
+  "Holo Rare V": 239,
+  "Holo Rare VMAX": 89,
+  "Holo Rare VSTAR": 33,
+  "Hyper rare": 74,
+  "Illustration rare": 525,
+  "Illustration spéciale rare": 238,
+  "LÉGENDE": 18,
+  "Magnifique": 9,
+  "Magnifique rare": 602,
+  "Mega Attack Rare": 7,
+  "Méga Hyper Rare": 9,
+  "Peu Commune": 4631,
+  "Pikachu Rare": 30,
+  "Promo": 1116,
+  "Quatre Diamants": 101,
+  "RGB Rare": 3,
+  "Radieux Rare": 15,
+  "Rare": 3617,
+  "Rare Holo": 108,
+  "Rare Holo LV.X": 53,
+  "Rare Noir Blanc": 4,
+  "Rare Prime": 26,
+  "Sans Rareté": 579,
+  "Shiny rare": 310,
+  "Shiny rare V": 9,
+  "Shiny rare VMAX": 7,
+  "Trois Diamants": 245,
+  "Trois Étoiles": 20,
+  "Ultra Rare": 1518,
+  "Un Chromatique": 120,
+  "Un Diamant": 638,
+  "Une Étoile": 167
+ },
+ "tcgpj": {
+  "None": 7704,
+  "Art Rare": 569,
+  "Uncommon": 3782,
+  "Rare": 1639,
+  "Common": 7512,
+  "": 1966,
+  "Super Rare": 1178,
+  "Holo Rare": 614,
+  "Classic Collection": 25,
+  "Triple Rare": 134,
+  "Ultra Rare": 342,
+  "Hyper Rare": 332,
+  "Shiny Rare": 298,
+  "Character Rare": 58,
+  "Special Art Rare": 270,
+  "Super Rare Holo": 48,
+  "Double Rare": 888,
+  "ACE Rare": 33,
+  "Promo": 287,
+  "Shiny Secret Rare": 79,
+  "Trainer Rare": 36,
+  "Prism Rare": 49,
+  "Futuristic Rare": 12,
+  "Character Super Rare": 48,
+  "Amazing Rare": 9,
+  "Ultra-Rare Common": 1,
+  "Ultra-Rare Uncommon": 1,
+  "Common Holo": 3,
+  "Rare Holo LEGEND": 34,
+  "Rare Holo LV.X": 6,
+  "RGB Rare": 3,
+  "Mega Attack Rare": 10,
+  "Mega Ultra Rare": 8,
+  "Shining": 9,
+  "Pikachu Rare": 30,
+  "Black White Rare": 2,
+  "Kagayaku": 19
+ },
+ "pokepedia": [
+  [
+   "Rareté_ACE_JCC.png",
+   36,
+   16,
+   "https://www.pokepedia.fr/images/4/49/Raret%C3%A9_ACE_JCC.png"
+  ],
+  [
+   "Rareté_AR_JCC.png",
+   28,
+   16,
+   "https://www.pokepedia.fr/images/c/c2/Raret%C3%A9_AR_JCC.png"
+  ],
+  [
+   "Rareté_Amazing_rare_(carte)_JCC.png",
+   30,
+   30,
+   "https://www.pokepedia.fr/images/c/c4/Raret%C3%A9_Amazing_rare_%28carte%29_JCC.png"
+  ],
+  [
+   "Rareté_Arc-en-ciel_rare_JCC.svg",
+   11,
+   7,
+   "https://www.pokepedia.fr/images/4/43/Raret%C3%A9_Arc-en-ciel_rare_JCC.svg"
+  ],
+  [
+   "Rareté_BWR_JCC.png",
+   45,
+   16,
+   "https://www.pokepedia.fr/images/d/df/Raret%C3%A9_BWR_JCC.png"
+  ],
+  [
+   "Rareté_Brillant_rare_JCC.svg",
+   16,
+   8,
+   "https://www.pokepedia.fr/images/f/f3/Raret%C3%A9_Brillant_rare_JCC.svg"
+  ],
+  [
+   "Rareté_CHR_JCC.png",
+   41,
+   16,
+   "https://www.pokepedia.fr/images/0/08/Raret%C3%A9_CHR_JCC.png"
+  ],
+  [
+   "Rareté_CSR_JCC.png",
+   36,
+   16,
+   "https://www.pokepedia.fr/images/c/ca/Raret%C3%A9_CSR_JCC.png"
+  ],
+  [
+   "Rareté_C_JCC.png",
+   14,
+   16,
+   "https://www.pokepedia.fr/images/d/d1/Raret%C3%A9_C_JCC.png"
+  ],
+  [
+   "Rareté_Chromatique_rare_GX_JCC.svg",
+   15,
+   7,
+   "https://www.pokepedia.fr/images/9/92/Raret%C3%A9_Chromatique_rare_GX_JCC.svg"
+  ],
+  [
+   "Rareté_Chromatique_rare_JCC-v1.svg",
+   15,
+   7,
+   "https://www.pokepedia.fr/images/a/ad/Raret%C3%A9_Chromatique_rare_JCC-v1.svg"
+  ],
+  [
+   "Rareté_Chromatique_rare_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/d/d9/Raret%C3%A9_Chromatique_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Chromatique_ultra_rare_JCC.svg",
+   15,
+   11,
+   "https://www.pokepedia.fr/images/1/1c/Raret%C3%A9_Chromatique_ultra_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Collection_Classique_JCC-v1.svg",
+   12,
+   8,
+   "https://www.pokepedia.fr/images/9/97/Raret%C3%A9_Collection_Classique_JCC-v1.svg"
+  ],
+  [
+   "Rareté_Collection_Classique_JCC.svg",
+   12,
+   8,
+   "https://www.pokepedia.fr/images/e/ea/Raret%C3%A9_Collection_Classique_JCC.svg"
+  ],
+  [
+   "Rareté_Commune_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/8/83/Raret%C3%A9_Commune_JCC.svg"
+  ],
+  [
+   "Rareté_Double_rare_JCC.svg",
+   15,
+   10,
+   "https://www.pokepedia.fr/images/a/a8/Raret%C3%A9_Double_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Emblème_1_PM.png",
+   74,
+   28,
+   "https://www.pokepedia.fr/images/3/30/Raret%C3%A9_Embl%C3%A8me_1_PM.png"
+  ],
+  [
+   "Rareté_Emblème_2_PM.png",
+   74,
+   28,
+   "https://www.pokepedia.fr/images/f/f0/Raret%C3%A9_Embl%C3%A8me_2_PM.png"
+  ],
+  [
+   "Rareté_Emblème_3_PM.png",
+   74,
+   28,
+   "https://www.pokepedia.fr/images/d/dc/Raret%C3%A9_Embl%C3%A8me_3_PM.png"
+  ],
+  [
+   "Rareté_Emblème_4_PM.png",
+   74,
+   28,
+   "https://www.pokepedia.fr/images/4/46/Raret%C3%A9_Embl%C3%A8me_4_PM.png"
+  ],
+  [
+   "Rareté_FUR_JCC.png",
+   36,
+   16,
+   "https://www.pokepedia.fr/images/1/1f/Raret%C3%A9_FUR_JCC.png"
+  ],
+  [
+   "Rareté_Futuriste_rare_(Mewtwo-ex)_JCC.svg",
+   10,
+   9,
+   "https://www.pokepedia.fr/images/7/74/Raret%C3%A9_Futuriste_rare_%28Mewtwo-ex%29_JCC.svg"
+  ],
+  [
+   "Rareté_Futuriste_rare_JCC.svg",
+   10,
+   9,
+   "https://www.pokepedia.fr/images/4/4e/Raret%C3%A9_Futuriste_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_de_Galar_holographique_rare_JCC.svg",
+   24,
+   8,
+   "https://www.pokepedia.fr/images/4/47/Raret%C3%A9_Galerie_de_Galar_holographique_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_de_Galar_secrète_rare_JCC.svg",
+   23,
+   8,
+   "https://www.pokepedia.fr/images/6/6a/Raret%C3%A9_Galerie_de_Galar_secr%C3%A8te_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_de_Galar_ultra_rare_JCC.svg",
+   24,
+   8,
+   "https://www.pokepedia.fr/images/5/5b/Raret%C3%A9_Galerie_de_Galar_ultra_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_des_Dresseurs_holographique_rare_JCC.svg",
+   24,
+   8,
+   "https://www.pokepedia.fr/images/d/d5/Raret%C3%A9_Galerie_des_Dresseurs_holographique_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_des_Dresseurs_holographique_rare_V_JCC.svg",
+   25,
+   9,
+   "https://www.pokepedia.fr/images/7/7e/Raret%C3%A9_Galerie_des_Dresseurs_holographique_rare_V_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_des_Dresseurs_secrète_rare_JCC.svg",
+   23,
+   8,
+   "https://www.pokepedia.fr/images/4/40/Raret%C3%A9_Galerie_des_Dresseurs_secr%C3%A8te_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Galerie_des_Dresseurs_ultra_rare_JCC.svg",
+   24,
+   8,
+   "https://www.pokepedia.fr/images/6/64/Raret%C3%A9_Galerie_des_Dresseurs_ultra_rare_JCC.svg"
+  ],
+  [
+   "Rareté_HIGH-TECH_rare_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/1/1a/Raret%C3%A9_HIGH-TECH_rare_JCC.svg"
+  ],
+  [
+   "Rareté_HR_JCC.png",
+   27,
+   16,
+   "https://www.pokepedia.fr/images/2/2c/Raret%C3%A9_HR_JCC.png"
+  ],
+  [
+   "Rareté_Hikaru_JCC.png",
+   35,
+   36,
+   "https://www.pokepedia.fr/images/1/1b/Raret%C3%A9_Hikaru_JCC.png"
+  ],
+  [
+   "Rareté_Holographique_(carte)_JCC.png",
+   220,
+   218,
+   "https://www.pokepedia.fr/images/7/7b/Raret%C3%A9_Holographique_%28carte%29_JCC.png"
+  ],
+  [
+   "Rareté_Holographique_brillant_JCC.png",
+   14,
+   13,
+   "https://www.pokepedia.fr/images/5/56/Raret%C3%A9_Holographique_brillant_JCC.png"
+  ],
+  [
+   "Rareté_Holographique_ex_rare_JCC.svg",
+   22,
+   11,
+   "https://www.pokepedia.fr/images/d/d9/Raret%C3%A9_Holographique_ex_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_EX_JCC.svg",
+   9,
+   9,
+   "https://www.pokepedia.fr/images/a/a4/Raret%C3%A9_Holographique_rare_EX_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_GX_JCC.svg",
+   9,
+   8,
+   "https://www.pokepedia.fr/images/b/b4/Raret%C3%A9_Holographique_rare_GX_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_JCC.svg",
+   13,
+   8,
+   "https://www.pokepedia.fr/images/8/87/Raret%C3%A9_Holographique_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_VMAX_JCC.svg",
+   13,
+   8,
+   "https://www.pokepedia.fr/images/0/09/Raret%C3%A9_Holographique_rare_VMAX_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_VSTAR_JCC.svg",
+   14,
+   9,
+   "https://www.pokepedia.fr/images/f/f6/Raret%C3%A9_Holographique_rare_VSTAR_JCC.svg"
+  ],
+  [
+   "Rareté_Holographique_rare_☆_JCC.svg",
+   13,
+   13,
+   "https://www.pokepedia.fr/images/1/1c/Raret%C3%A9_Holographique_rare_%E2%98%86_JCC.svg"
+  ],
+  [
+   "Rareté_Hyper_rare_JCC.svg",
+   15,
+   13,
+   "https://www.pokepedia.fr/images/e/e2/Raret%C3%A9_Hyper_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Illustration_rare_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/4/44/Raret%C3%A9_Illustration_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Illustration_spéciale_rare_JCC.svg",
+   15,
+   10,
+   "https://www.pokepedia.fr/images/2/27/Raret%C3%A9_Illustration_sp%C3%A9ciale_rare_JCC.svg"
+  ],
+  [
+   "Rareté_K_JCC.png",
+   16,
+   16,
+   "https://www.pokepedia.fr/images/5/58/Raret%C3%A9_K_JCC.png"
+  ],
+  [
+   "Rareté_LÉGENDE_(carte)_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/8/8a/Raret%C3%A9_L%C3%89GENDE_%28carte%29_JCC.svg"
+  ],
+  [
+   "Rareté_LÉGENDE_JCC.svg",
+   18,
+   12,
+   "https://www.pokepedia.fr/images/e/e0/Raret%C3%A9_L%C3%89GENDE_JCC.svg"
+  ],
+  [
+   "Rareté_MA_JCC.png",
+   33,
+   16,
+   "https://www.pokepedia.fr/images/5/51/Raret%C3%A9_MA_JCC.png"
+  ],
+  [
+   "Rareté_MUR_JCC.png",
+   46,
+   16,
+   "https://www.pokepedia.fr/images/4/49/Raret%C3%A9_MUR_JCC.png"
+  ],
+  [
+   "Rareté_Magnifique_rare_(carte)_JCC.png",
+   30,
+   30,
+   "https://www.pokepedia.fr/images/f/fb/Raret%C3%A9_Magnifique_rare_%28carte%29_JCC.png"
+  ],
+  [
+   "Rareté_Magnifique_rare_JCC.svg",
+   14,
+   8,
+   "https://www.pokepedia.fr/images/2/20/Raret%C3%A9_Magnifique_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Méga_attaque_rare_JCC.svg",
+   15,
+   10,
+   "https://www.pokepedia.fr/images/5/56/Raret%C3%A9_M%C3%A9ga_attaque_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Méga_hyper_rare_JCC.svg",
+   11,
+   11,
+   "https://www.pokepedia.fr/images/1/12/Raret%C3%A9_M%C3%A9ga_hyper_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Noir_Blanc_rare_JCC.svg",
+   11,
+   8,
+   "https://www.pokepedia.fr/images/5/5e/Raret%C3%A9_Noir_Blanc_rare_JCC.svg"
+  ],
+  [
+   "Rareté_PR_JCC.png",
+   25,
+   16,
+   "https://www.pokepedia.fr/images/9/96/Raret%C3%A9_PR_JCC.png"
+  ],
+  [
+   "Rareté_Peu_commune_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/7/70/Raret%C3%A9_Peu_commune_JCC.svg"
+  ],
+  [
+   "Rareté_Pikachu_rare_JCC.svg",
+   11,
+   8,
+   "https://www.pokepedia.fr/images/9/9b/Raret%C3%A9_Pikachu_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Prisme_Étoile_rare_JCC.svg",
+   11,
+   7,
+   "https://www.pokepedia.fr/images/2/2f/Raret%C3%A9_Prisme_%C3%89toile_rare_JCC.svg"
+  ],
+  [
+   "Rareté_RGB_rare_JCC.png",
+   28,
+   28,
+   "https://www.pokepedia.fr/images/8/8c/Raret%C3%A9_RGB_rare_JCC.png"
+  ],
+  [
+   "Rareté_RRR_JCC.png",
+   39,
+   16,
+   "https://www.pokepedia.fr/images/e/e4/Raret%C3%A9_RRR_JCC.png"
+  ],
+  [
+   "Rareté_RR_JCC.png",
+   26,
+   16,
+   "https://www.pokepedia.fr/images/f/f5/Raret%C3%A9_RR_JCC.png"
+  ],
+  [
+   "Rareté_R_JCC.png",
+   16,
+   16,
+   "https://www.pokepedia.fr/images/d/d3/Raret%C3%A9_R_JCC.png"
+  ],
+  [
+   "Rareté_Radieux_rare_JCC.svg",
+   24,
+   9,
+   "https://www.pokepedia.fr/images/c/c5/Raret%C3%A9_Radieux_rare_JCC.svg"
+  ],
+  [
+   "Rareté_Rare_HIGH-TECH_JCC.svg",
+   10,
+   7,
+   "https://www.pokepedia.fr/images/2/25/Raret%C3%A9_Rare_HIGH-TECH_JCC.svg"
+  ],
+  [
+   "Rareté_Rare_JCC-v1.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/2/24/Raret%C3%A9_Rare_JCC-v1.svg"
+  ],
+  [
+   "Rareté_Rare_JCC.svg",
+   8,
+   8,
+   "https://www.pokepedia.fr/images/6/63/Raret%C3%A9_Rare_JCC.svg"
+  ],
+  [
+   "Rareté_Rare_Prime_JCC.svg",
+   18,
+   12,
+   "https://www.pokepedia.fr/images/e/e0/Raret%C3%A9_Rare_Prime_JCC.svg"
+  ],
+  [
+   "Rareté_SAR_JCC.png",
+   38,
+   16,
+   "https://www.pokepedia.fr/images/6/68/Raret%C3%A9_SAR_JCC.png"
+  ],
+  [
+   "Rareté_SR_JCC.png",
+   25,
+   16,
+   "https://www.pokepedia.fr/images/e/ec/Raret%C3%A9_SR_JCC.png"
+  ],
+  [
+   "Rareté_SSR_JCC.png",
+   36,
+   16,
+   "https://www.pokepedia.fr/images/3/3d/Raret%C3%A9_SSR_JCC.png"
+  ],
+  [
+   "Rareté_S_JCC.png",
+   13,
+   16,
+   "https://www.pokepedia.fr/images/7/7b/Raret%C3%A9_S_JCC.png"
+  ],
+  [
+   "Rareté_Secrète_rare_JCC.svg",
+   10,
+   7,
+   "https://www.pokepedia.fr/images/b/b8/Raret%C3%A9_Secr%C3%A8te_rare_JCC.svg"
+  ],
+  [
+   "Rareté_TR_JCC.png",
+   25,
+   16,
+   "https://www.pokepedia.fr/images/4/43/Raret%C3%A9_TR_JCC.png"
+  ],
+  [
+   "Rareté_UR_JCC.png",
+   27,
+   16,
+   "https://www.pokepedia.fr/images/4/40/Raret%C3%A9_UR_JCC.png"
+  ],
+  [
+   "Rareté_U_JCC.png",
+   16,
+   16,
+   "https://www.pokepedia.fr/images/7/78/Raret%C3%A9_U_JCC.png"
+  ],
+  [
+   "Rareté_Ultra_rare_JCC-v1.svg",
+   13,
+   8,
+   "https://www.pokepedia.fr/images/0/01/Raret%C3%A9_Ultra_rare_JCC-v1.svg"
+  ],
+  [
+   "Rareté_Ultra_rare_JCC.svg",
+   15,
+   10,
+   "https://www.pokepedia.fr/images/0/0e/Raret%C3%A9_Ultra_rare_JCC.svg"
+  ]
+ ]
+}
