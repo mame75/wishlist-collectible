@@ -497,6 +497,7 @@ const API = {
       imgHi: c.image ? c.image + '/high.webp' : (CUSTOM_IMG[c.id] || null),
       set: c.set ? c.set.name : '', num: c.localId + (official ? '/' + official : ''),
       rarity: /^(none|sans raret[ée])$/i.test(c.rarity || '') ? '' : (c.rarity || ''),
+      variants: c.variants && !Array.isArray(c.variants) ? { holo: !!c.variants.holo, normal: !!c.variants.normal, reverse: !!c.variants.reverse } : undefined,
       // Prix affiché : moyenne des ventes Cardmarket sur 7 jours (le « plus bas » mélange les langues : une copie étrangère isolée le fausse)
       prices: { normal: pick('avg7','avg1','avg30','avg','trend','low'), reverse: c.variants && c.variants.reverse === false ? null : pick('avg7-holo','avg1-holo','avg30-holo','avg-holo','trend-holo','low-holo') },
       trend: { normal: ratio(cm.avg7, cm.avg30), reverse: ratio(cm['avg7-holo'], cm['avg30-holo']) },
@@ -515,7 +516,7 @@ const API = {
     const has = x => x.image || CUSTOM_IMG[x.id] ? 1 : 0;
     return list.filter(b => !isPocketCard(b.id)).map(b => ({id:b.id, name:b.name, image:b.image})).sort((a, b) => has(b) - has(a));
   },
-  pkmCard(id, lang){ return cached(`pc32:${lang}:${id}`, () => this._pkmCard(id, lang)); },
+  pkmCard(id, lang){ return cached(`pc33:${lang}:${id}`, () => this._pkmCard(id, lang)); },
   async _pkmCard(id, lang){
     const c = await this.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`);
     if (!c) return null;
@@ -1321,7 +1322,12 @@ const RK = {   // clé → [nom français, icône]
   jBWR: ['BWR · Noir Blanc rare', 'Rareté_BWR_JCC.png'], jFUR: ['FUR · Futuriste rare', 'Rareté_FUR_JCC.png']
 };
 // Rareté normalisée d'une carte : r = rareté brute, ctx = { sid (extension TCGdex), name, ocg (carte japonaise), tp (catalogue TCGplayer) }
+// TCGdex note « Rare » des cartes qui n'existent qu'en holographique (ex. Mewtwo du Set de Base) : on les reclasse en Holographique rare
 function rarKey(r, ctx = {}){
+  const k = rarKey0(r, ctx);
+  return ctx.holoOnly && (k === 'rare' || k === 'rare1') ? 'holo' : k;
+}
+function rarKey0(r, ctx = {}){
   const l = String(r || '').trim().toLowerCase().replace(/\s+/g, ' ');
   if (!l || /^(none|sans raret|un |une |deux |trois |quatre |couronne|crown|one |two |three |four )/.test(l)) return null;
   const sid = String(ctx.sid || '').toLowerCase(), name = String(ctx.name || '');
@@ -1385,7 +1391,8 @@ const rarCtx = c => {
   const ocg = !!(c.ocg || c.tcgpj || c.lang === 'ja' || /^tcgpj-/.test(c.id || '')), tp = !!(c.tcgpj || /^tcgpj-/.test(c.id || ''));
   const sid = c.sid || pkSid(c) || '', code = (String(c.set || '').match(/^([A-Za-z0-9+-]+):\s/) || [])[1];
   const old = ocg && (sid && !tp ? OLD_JA.test(sid) : !code || /^(l\d|ll|dp|dpt|pcg|adv)/i.test(code));
-  return { sid, name: c.name || '', ocg, tp, old };
+  const v = c.variants, holoOnly = !!(v && !Array.isArray(v) && v.holo && !v.normal && !v.reverse);
+  return { sid, name: c.name || '', ocg, tp, old, holoOnly };
 };
 // Nom français corrigé de la rareté (sinon la rareté telle quelle)
 const rarName = (r, ctx) => { const k = rarKey(r, ctx); return k ? RK[k][0] : String(r || ''); };
