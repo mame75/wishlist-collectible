@@ -1,6 +1,6 @@
 // Sonde : produit TCGplayer 696171 (Mew ex 151/165 rangé dans M1L: Mega Brave)
 import { writeFile, mkdir } from 'node:fs/promises';
-const J = u => fetch(u).then(r => r.json());
+const J = u => fetch(u, { headers: { 'User-Agent': 'WishlistCollectible/1.0 (github.com/mame75/wishlist-collectible)' } }).then(r => r.json());
 const out = {};
 const g = (await J('https://tcgcsv.com/tcgplayer/85/groups')).results;
 out.groups = g.filter(x => /Mega Brave|151|M1L/i.test(x.name)).map(x => [x.groupId, x.name, x.publishedOn]);
