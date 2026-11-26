@@ -1316,7 +1316,7 @@ const RK = {   // clé → [nom français, icône]
   jUR: ['UR · Ultra rare', 'Rareté_UR_JCC.png'], jHR: ['HR · Hyper rare', 'Rareté_HR_JCC.png'], jAR: ['AR · Illustration rare', 'Rareté_AR_JCC.png'],
   jSAR: ['SAR · Illustration spéciale rare', 'Rareté_SAR_JCC.png'], jS: ['S · Chromatique rare', 'Rareté_S_JCC.png'], jSSR: ['SSR · Chromatique ultra rare', 'Rareté_SSR_JCC.png'],
   jCHR: ['CHR · Character rare', 'Rareté_CHR_JCC.png'], jCSR: ['CSR · Character super rare', 'Rareté_CSR_JCC.png'], jPR: ['PR · Prisme Étoile rare', 'Rareté_PR_JCC.png'],
-  jTR: ['TR · Trainer rare', 'Rareté_TR_JCC.png'], jACE: ['ACE SPEC', 'Rareté_ACE_JCC.png'], jK: ['K · Radieux', 'Rareté_K_JCC.png'], jA: ['A · Magnifique rare', 'Rareté_A_JCC.png'],
+  jTR: ['TR · Trainer rare', 'Rareté_TR_JCC.png'], jACE: ['ACE SPEC', 'Rareté_ACE_JCC.png'], jK: ['K · Radieux', 'Rareté_K_JCC.png'], jA: ['A · Magnifique rare', 'Rareté_Amazing_rare_(carte)_JCC.png'],
   jHikaru: ['Brillant', 'Rareté_Hikaru_JCC.png'], jMUR: ['MUR · Méga hyper rare', 'Rareté_MUR_JCC.png'], jMA: ['MA · Méga attaque rare', 'Rareté_MA_JCC.png'],
   jBWR: ['BWR · Noir Blanc rare', 'Rareté_BWR_JCC.png'], jFUR: ['FUR · Futuriste rare', 'Rareté_FUR_JCC.png']
 };
@@ -1326,6 +1326,12 @@ function rarKey(r, ctx = {}){
   if (!l || /^(none|sans raret|un |une |deux |trois |quatre |couronne|crown|one |two |three |four )/.test(l)) return null;
   const sid = String(ctx.sid || '').toLowerCase(), name = String(ctx.name || '');
   const mod = /^(sv|me|30th|mep)/.test(sid), tg = /tg$/.test(sid), gg = /gg$/.test(sid);
+  // Cartes japonaises d'avant Noir & Blanc : mêmes symboles qu'à l'international (● ◆ ★), pas encore de codes C / U / R
+  if (ctx.ocg && ctx.old){
+    const O = { common: 'common', 'common holo': 'common', uncommon: 'uncommon', rare: 'rare1', 'holo rare': 'holo', 'rare holo': 'holo',
+      'rare holo lv.x': 'lvx', 'rare holo legend': 'legend', 'super rare': 'ultra1', 'ultra rare': 'ultra1', 'secret rare': 'secret', promo: 'promo' };
+    if (O[l]) return O[l];
+  }
   if (ctx.ocg){
     const J = { common: 'jC', 'common holo': 'jC', uncommon: 'jU', rare: 'jR', 'holo rare': 'jR', 'rare holo': 'jR', 'rare holo lv.x': 'jR', 'double rare': 'jRR',
       'triple rare': 'jRRR', 'super rare': 'jSR', 'super rare holo': 'jSR', 'art rare': 'jAR', 'illustration rare': 'jAR', 'special art rare': 'jSAR',
@@ -1372,8 +1378,14 @@ function rarKey(r, ctx = {}){
   if (l === 'promo') return 'promo';
   return null;
 }
-const rarCtx = c => ({ sid: c.sid || pkSid(c) || '', name: c.name || '', ocg: !!(c.ocg || c.tcgpj || c.lang === 'ja' || /^tcgpj-/.test(c.id || '')),
-  tp: !!(c.tcgpj || /^tcgpj-/.test(c.id || '')) });
+// Extension japonaise antérieure à Noir & Blanc : sigle TCGdex (PMCG, neo, e, VS, ADV, PCG, DP, DPt, L…) ou, chez TCGplayer, nom sans sigle / sigle ancien
+const OLD_JA = /^(pmcg|neo|vs|web|e\d|adv|pcg|dp|dpt|l\d|ll|mc|cp\d?$)/i;
+const rarCtx = c => {
+  const ocg = !!(c.ocg || c.tcgpj || c.lang === 'ja' || /^tcgpj-/.test(c.id || '')), tp = !!(c.tcgpj || /^tcgpj-/.test(c.id || ''));
+  const sid = c.sid || pkSid(c) || '', code = (String(c.set || '').match(/^([A-Za-z0-9+-]+):\s/) || [])[1];
+  const old = ocg && (sid && !tp ? OLD_JA.test(sid) : !code || /^(l\d|ll|dp|dpt|pcg|adv)/i.test(code));
+  return { sid, name: c.name || '', ocg, tp, old };
+};
 // Nom français corrigé de la rareté (sinon la rareté telle quelle)
 const rarName = (r, ctx) => { const k = rarKey(r, ctx); return k ? RK[k][0] : String(r || ''); };
 const rarIcon = (r, ctx) => { const k = rarKey(r, ctx); const f = k && RK[k][1];
