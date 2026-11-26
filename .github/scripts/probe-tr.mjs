@@ -1,24 +1,19 @@
-// Sonde : répartition des raretés TCGdex par extension (fr) et comparaison fr/en
+// Sonde : raretés manquantes (TCGdex) et format des listes Bulbapedia
 import { writeFile, mkdir } from 'node:fs/promises';
-const J = u => fetch(u).then(r => r.json());
-const out = {};
-const rar = ['Magnifique rare','Magnifique','Shiny rare','Holo Rare','Rare Holo','Ultra Rare','Hyper rare','Sans Rareté','Couronne','Une Étoile','Deux Diamants','Promo','Double rare','Illustration rare','Rare','Holo Rare V','Shiny rare V','Trois Étoiles','Un Chromatique','Dresseur Full Art','LÉGENDE','Rare Prime','Collection Classique'];
-for (const r of rar){
-  const l = await J(`https://api.tcgdex.net/v2/fr/cards?rarity=eq:${encodeURIComponent(r)}`).catch(() => []);
-  const sets = {}; for (const c of l) { const s = c.id.slice(0, c.id.lastIndexOf('-')); sets[s] = (sets[s] || 0) + 1; }
-  out[r] = Object.entries(sets).sort((a, b) => b[1] - a[1]).map(x => x.join(':')).join(' ');
+const J = u => fetch(u, { headers: { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' } }).then(r => r.json());
+const out = { nullBySet: {} };
+const sets = (await J('https://api.tcgdex.net/v2/fr/sets')).filter(s => !/^([AB]\d|P-A)/.test(s.id));
+for (const s of sets){
+  const d = await J(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(s.id)}`).catch(() => null);
+  if (!d) continue;
+  // la liste de l'extension ne donne pas la rareté : on échantillonne les dernières cartes (secrètes / illustrations)
+  const tail = d.cards.slice(-25);
+  let n = 0;
+  for (const c of tail){ const x = await J(`https://api.tcgdex.net/v2/fr/cards/${encodeURIComponent(c.id)}`).catch(() => null); if (x && !x.rarity) n++; }
+  if (n) out.nullBySet[s.id] = `${n}/${tail.length} (sur ${d.cards.length})`;
 }
-// fr vs en sur quelques extensions récentes et anciennes
-out.cmp = {};
-for (const s of ['sv03.5','swsh12','sm12','xy12','bw7','dp1','ex13','neo1','me01','sv08.5','swsh7','sm115','30th']){
-  const [f, e] = await Promise.all(['fr','en'].map(l => J(`https://api.tcgdex.net/v2/${l}/sets/${s}`).catch(() => null)));
-  if (!f || !e) continue;
-  const cnt = {};
-  for (const c of f.cards){
-    const [cf, ce] = await Promise.all(['fr','en'].map(l => J(`https://api.tcgdex.net/v2/${l}/cards/${c.id}`).catch(() => null)));
-    const k = `${cf && cf.rarity} | ${ce && ce.rarity}`; cnt[k] = (cnt[k] || 0) + 1;
-  }
-  out.cmp[s] = cnt;
-}
+const bp = await J('https://bulbapedia.bulbagarden.net/w/api.php?format=json&action=query&prop=revisions&rvprop=content&rvslots=main&titles=' + encodeURIComponent('Mega Evolution (TCG)'));
+const t = Object.values(bp.query.pages)[0].revisions[0].slots.main['*'];
+out.bulba = t.split('\n').filter(l => /Setlist/.test(l)).slice(0, 12).concat(t.split('\n').filter(l => /Setlist/.test(l)).slice(-30));
 await mkdir('data/probe', { recursive: true });
-await writeFile('data/probe/rar2.json', JSON.stringify(out, null, 1));
+await writeFile('data/probe/rar3.json', JSON.stringify(out, null, 1));
