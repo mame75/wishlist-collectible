@@ -2103,7 +2103,7 @@ function pkVars(c){
     if (!v || v.normal || !v.holo) out.push({ k: 'normal', price: c.prices.normal });
     if (v && v.holo) out.push({ k: 'holo', price: v.normal ? null : c.prices.normal });
   }
-  if ((!v || v.reverse) && c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });
+  if (v ? v.reverse : c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });   // version connue même sans prix relevé
   return out;
 }
 function varsHTML(c){
