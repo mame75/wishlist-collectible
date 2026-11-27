@@ -213,10 +213,10 @@ select.field option{background:var(--surface)}
 .bloc{margin:0 0 14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
 .bloc:hover{border-color:var(--line2)}
 .bloc[open]{border-color:var(--line2);box-shadow:0 18px 40px -28px rgba(0,0,0,.9)}
-.bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:16px 22px;min-height:96px}
+.bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:0 22px;height:108px;box-sizing:border-box}
 .bloc>summary::-webkit-details-marker{display:none}
-.bloc>summary h3{margin:0;font-size:20px;font-weight:800;display:flex;align-items:center;min-height:64px}
-.blogo{width:240px;height:auto;max-height:84px;max-width:60vw;object-fit:contain;object-position:left center;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+.bloc>summary h3{margin:0;font-size:20px;font-weight:800;display:flex;align-items:center;height:100%}
+.blogo{width:240px;height:auto;max-height:80px;max-width:60vw;object-fit:contain;object-position:left center;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
 .bloc>summary .hint{margin-left:auto;text-align:right;font-weight:600}
 .bloc>summary::after{content:'';width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .25s;margin:0 4px 4px 6px;flex:none}
 .bloc[open]>summary::after{transform:rotate(225deg);margin-bottom:-4px}
@@ -224,7 +224,7 @@ select.field option{background:var(--surface)}
 .bloc .sets{margin:0;padding:20px 22px 24px;animation:blocIn .3s ease}
 @keyframes blocIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.bloc .sets{animation:none}}
-@media (max-width:640px){.bloc>summary{padding:12px 14px;min-height:76px}.blogo{width:170px;max-height:60px}.bloc .sets{padding:14px}}
+@media (max-width:640px){.bloc>summary{padding:0 14px;height:80px}.blogo{width:170px;max-height:58px}.bloc .sets{padding:14px}}
 .tile{position:relative}
 /* Versions d'une carte (pastilles sous la tuile) */
 .vars{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px}
