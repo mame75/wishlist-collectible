@@ -2239,7 +2239,7 @@ function expandYgo(cards, mk, onlySet){
     if (mk !== 'asia') (c.prints || []).forEach(pr => add(pr, false));
     if (c.eaPick && !c.eaPick.ocg && mk !== 'asia') add(c.eaPick, false);
     if (mk !== 'intl') (c.ocgPrints || []).forEach(pr => add({ ...pr, ocg: true }, true));
-    let gs = [...groups.values()].filter(g => !xf.rarity || g.prints.some(x => sameRarity(x.rarity, xf.rarity)));
+    let gs = [...groups.values()].filter(g => (!xf.rarity || g.prints.some(x => sameRarity(x.rarity, xf.rarity))) && (!xf.ea || g.prints.some(x => x.ea)));
     if (!gs.length){ if (!(c.prints || []).length && !(c.ocgPrints || []).length) out.push(c); continue; }
     gs.sort((a, b) => (a.ocg - b.ocg) || (dates[b.set] || '').localeCompare(dates[a.set] || ''));
     for (const g of gs){
