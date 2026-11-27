@@ -209,6 +209,7 @@ select.field option{background:var(--surface)}
 .var:hover{border-color:#4a4f5c;color:var(--ink)}
 .var.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
 .var svg{width:20px;height:20px;display:block}
+.vinl svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px;color:var(--muted)}
 .vlab{font-size:11.5px;font-weight:700;color:var(--muted);margin-left:3px;white-space:nowrap}
 .img.rev::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;
   background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.28) 28%,rgba(140,210,255,.22) 34%,transparent 44%,transparent 58%,rgba(255,190,240,.2) 66%,rgba(255,255,255,.26) 71%,transparent 80%);
@@ -1204,7 +1205,7 @@ function makeItem(card, opts){
   if (ua) card = { ...card, img: ua, imgHi: ua, printArt: true, userImg: ua, cmImg: null };
   if (print && print.img && !card.cmImg && !ua){ card = { ...card, img: print.img, imgHi: print.img, printArt: true }; }
   return {
-    uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name,
+    uid: uid(), game: card.game, id: card.id, lang: card.lang, name: card.name, special: card.special || null,
     img: card.img, imgHi: card.imgHi, imgLang: card.imgLang || null, holo: ua ? null : (card.holo || null), holoR: ua ? null : (card.holoR || null),
     set: print ? print.set : card.set, num: card.num, rarity: print ? print.rarity : card.rarity,
     printCode: print ? print.code : '', printKey: printKey(print), prints: (card.prints || []).filter(p => !p.link && !p.ocg),
@@ -1497,7 +1498,8 @@ function tileHTML(it, i){
   const rarity = [(it.game === 'pkm' ? '' : it.rarity || '') + (it.extraPrint && it.extraPrint.ea ? (it.game === 'pkm' ? 'Ill. étendue' : ' (ill. étendue)') : ''), it.num || it.printCode].filter(Boolean).join(' · ');
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
-        ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
+        ${it.variant === 'reverse' && !it.special ? '<span class="bdg">Reverse</span>' : ''}
+        ${it.special ? `<span class="bdg">${esc(it.special.label)}</span>` : ''}
         ${it.edition === '1st' ? '<span class="bdg">1re éd.</span>' : ''}
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div class="tinfo">
@@ -2093,7 +2095,45 @@ const VICON = {
   '1st': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="#111" stroke="#f2f2f4" stroke-width="1.6"/><path d="M10.2 8.9l2.6-1.7v9.6M10.4 16.8h4.8" stroke="#f2f2f4" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   unl: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12c-1.3-1.6-2.4-2.3-3.4-2.3a2.3 2.3 0 000 4.6c1 0 2.1-.7 3.4-2.3zm0 0c1.3 1.6 2.4 2.3 3.4 2.3a2.3 2.3 0 000-4.6c-1 0-2.1.7-3.4 2.3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'
 };
+Object.assign(VICON, {
+  cosmos: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#26215C"/><circle cx="9" cy="7" r="1.1" fill="#FAC775"/><circle cx="15" cy="9" r="1.4" fill="#F1EFE8"/><circle cx="10.5" cy="13" r=".9" fill="#F1EFE8"/><circle cx="14.5" cy="16" r="1.2" fill="#FAC775"/><circle cx="8.5" cy="18" r=".8" fill="#F1EFE8"/></svg>',
+  cracked: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#B5D4F4"/><path d="M7 6l4 4-2 4 5 2-1 4M11 10l5-3M9 14l-2 3M14 16l3-1" stroke="#fff" stroke-width="1.1" fill="none" stroke-linejoin="round"/></svg>',
+  pday: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="13.5" r="5" fill="#FAEEDA" stroke="#BA7517" stroke-width="1.4"/><path d="M12 10.7l.8 1.7 1.9.2-1.4 1.3.4 1.9-1.7-1-1.7 1 .4-1.9-1.4-1.3 1.9-.2z" fill="#BA7517"/></svg>',
+  prerelease: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7" y="10" width="10" height="6" rx="1.5" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.2"/><path d="M9.3 14.2v-2.4h1.1a.75.75 0 010 1.5H9.3M12.6 14.2v-2.4h1.1a.75.75 0 010 1.5h-1.1l1.2 .9" stroke="#0F6E56" stroke-width="1" fill="none" stroke-linecap="round"/></svg>',
+  staff: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="6.6" y="10.5" width="10.8" height="5" rx="1.2" fill="#FCEBEB" stroke="#A32D2D" stroke-width="1.2"/><path d="M8.6 13h6.8" stroke="#A32D2D" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  pokeball: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#F1EFE8" stroke="#888780" stroke-width="1.2"/><circle cx="12" cy="13.5" r="5" fill="#fff" stroke="#2C2C2A" stroke-width="1.2"/><path d="M7 13.5a5 5 0 0110 0z" fill="#E24B4A"/><path d="M7 13.5h10" stroke="#2C2C2A" stroke-width="1.2"/><circle cx="12" cy="13.5" r="1.4" fill="#fff" stroke="#2C2C2A" stroke-width="1"/></svg>',
+  masterball: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#F1EFE8" stroke="#888780" stroke-width="1.2"/><circle cx="12" cy="13.5" r="5" fill="#fff" stroke="#2C2C2A" stroke-width="1.2"/><path d="M7 13.5a5 5 0 0110 0z" fill="#7F77DD"/><path d="M7 13.5h10" stroke="#2C2C2A" stroke-width="1.2"/><circle cx="12" cy="13.5" r="1.4" fill="#fff" stroke="#2C2C2A" stroke-width="1"/><path d="M10 10.3l.7 1 .7-1 .6 1 .7-1" stroke="#fff" stroke-width=".7" fill="none"/></svg>',
+  ball: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#F1EFE8" stroke="#888780" stroke-width="1.2"/><circle cx="12" cy="13.5" r="5" fill="#fff" stroke="#2C2C2A" stroke-width="1.2"/><path d="M7 13.5a5 5 0 0110 0z" fill="#1D9E75"/><path d="M7 13.5h10" stroke="#2C2C2A" stroke-width="1.2"/><circle cx="12" cy="13.5" r="1.4" fill="#fff" stroke="#2C2C2A" stroke-width="1"/></svg>',
+  energy: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="#F1EFE8" stroke="#888780" stroke-width="1.2"/><circle cx="12" cy="13" r="5.2" fill="#FAC775" stroke="#BA7517" stroke-width="1.1"/><path d="M12.8 9.6l-3 4h2.2l-.8 3.2 3-4h-2.2z" fill="#633806"/></svg>',
+  pcenter: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.5" y="9.5" width="9" height="8" rx="1.2" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1.2"/><path d="M12 11.3v4.4M9.8 13.5h4.4" stroke="#E24B4A" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  event: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8.5l1.3 2.8 3 .4-2.2 2.1.6 3-2.7-1.5-2.7 1.5.6-3-2.2-2.1 3-.4z" fill="none" stroke="#378ADD" stroke-width="1.3" stroke-linejoin="round"/></svg>'
+});
 const VLABEL = { normal: 'Normale', holo: 'Holo', reverse: 'Reverse', '1st': '1re édition', unl: 'Illimitée' };
+const BALL_FR = { dusk: 'Sombre Ball', love: 'Love Ball', friend: 'Copain Ball', quick: 'Rapide Ball', great: 'Super Ball', ultra: 'Hyper Ball', premier: 'Honor Ball',
+  heal: 'Soin Ball', timer: 'Chrono Ball', nest: 'Faiblo Ball', repeat: 'Bis Ball', luxury: 'Luxe Ball', net: 'Filet Ball', level: 'Niveau Ball', moon: 'Lune Ball', fast: 'Speed Ball',
+  lure: 'Appât Ball', heavy: 'Masse Ball', dream: 'Rêve Ball', beast: 'Ultra Ball', safari: 'Safari Ball', sport: 'Compét\'Ball', park: 'Parc Ball', dive: 'Scuba Ball', cherish: 'Mémoire Ball' };
+const specLabel = (k, l) => k === 'ball' ? 'Reverse ' + (BALL_FR[String(l).toLowerCase().split(' ')[0]] || l)
+  : k === 'event' ? String(l).replace(/^Pokemon League$|^League Promo$/i, 'Tampon Ligue').replace(/Regional Championships?/i, 'Tampon Régionaux').replace(/(\w+) Stamped$/i, 'Tampon $1')
+    .replace(/(\d+)(st|nd|rd|th) (Celebration|Anniversary)/i, 'Tampon $1e anniversaire') : l;
+// Versions spéciales (data/tcgpv) et prix TCGplayer du jour (data/tcgpp), chargés à la demande
+let TCGPV = null;
+fetch('data/tcgpv.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { TCGPV = j || {}; }).catch(() => { TCGPV = {}; });
+const _pv = {}, _pp = {};
+const tcgpvSet = sid => _pv[sid] ||= fetch(`data/tcgpv/${encodeURIComponent(sid)}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+const tpPrice = async pid => { const b = Math.floor(pid / 20000);
+  const m = await (_pp[b] ||= fetch(`data/tcgpp/${b}.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})));
+  return m[pid] ? Math.round(m[pid][0] * FX * 100) / 100 : null; };
+const pkNumKey = c => String(c.num || c.localId || String(c.id).split('-').pop()).split('/')[0].trim().toLowerCase().replace(/^([a-z]*)0+(\d)/, '$1$2');
+// Complète la carte avec ses versions spéciales (une seule par type et libellé, de préférence avec photo)
+async function loadSpecials(c){
+  if (c.spec !== undefined || c.game !== 'pkm') return c.spec || [];
+  const sid = pkSid(c); if (!sid || !TCGPV || !TCGPV[sid]){ c.spec = []; return []; }
+  const list = ((await tcgpvSet(sid))[pkNumKey(c)] || []).slice().sort((a, b) => b[3] - a[3]);
+  const seen = new Set(), out = [];
+  for (const [k, l, pid, photo] of list){ const lab = specLabel(k, l); if (seen.has(k + lab)) continue; seen.add(k + lab);
+    out.push({ k: 's' + pid, kind: k, label: lab, pid, img: photo ? `${TCGP}${pid}_400w.jpg` : null, imgHi: photo ? `${TCGP}${pid}_in_1000x1000.jpg` : null, price: await tpPrice(pid) }); }
+  c.spec = out; return out;
+}
 function pkVars(c){
   if (!c || c.game !== 'pkm' || !c.prices) return [];
   const v = c.variants, out = [];
@@ -2104,26 +2144,35 @@ function pkVars(c){
     if (v && v.holo) out.push({ k: 'holo', price: v.normal ? null : c.prices.normal });
   }
   if (v ? v.reverse : c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });   // version connue même sans prix relevé
-  return out;
+  return out.concat(c.spec || []);
 }
 // Version montrée d'abord : la première qui a un prix (ex. Illimitée si la 1re édition n'a pas de prix relevé)
 const varFirst = c => { const vs = pkVars(c); return vs.find(x => x.price != null) || vs[0] || null; };
 function varsHTML(c){
   const vs = pkVars(c), f = varFirst(c); if (!vs.length) return '';
-  return `<div class="vars">${vs.map(x => `<span class="var ${x === f ? 'on' : ''}" role="button" data-var="${x.k}" title="${VLABEL[x.k]}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.k]}</span>`).join('')}<span class="vlab">${VLABEL[f.k]}</span></div>`;
+  return `<div class="vars">${vs.map(x => `<span class="var ${x === f ? 'on' : ''}" role="button" data-var="${x.k}" title="${esc(x.label || VLABEL[x.k])}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.kind || x.k]}</span>`).join('')}<span class="vlab">${esc(f.label || VLABEL[f.k])}</span></div>`;
 }
 // Clic sur une pastille : photo, prix et libellé de la tuile changent ; l'ouverture de la carte suivra cette version
 function pickVar(tile, c, k){
   const x = pkVars(c).find(y => y.k === k); if (!x) return;
   tile.dataset.var = k;
   tile.querySelectorAll('.var').forEach(b => b.classList.toggle('on', b.dataset.var === k));
-  const lab = tile.querySelector('.vlab'); if (lab) lab.textContent = VLABEL[k];
-  const box = tile.querySelector('.img'); if (box) box.classList.toggle('rev', k === 'reverse');
+  const lab = tile.querySelector('.vlab'); if (lab) lab.textContent = x.label || VLABEL[k];
+  const box = tile.querySelector('.img'); if (box) box.classList.toggle('rev', k === 'reverse' || (!x.img && /ball|energy/.test(x.kind || '')));
   const im = box && box.querySelector('img');
   if (im){ const src = x.img || c.img; if (src && im.getAttribute('src') !== src) im.src = src; }
   const pb = tile.querySelector('.tprice b'); if (pb) pb.textContent = eur(x.price);
 }
-const varPre = k => !k ? null : k === 'reverse' ? { variant: 'reverse' } : k === '1st' || k === 'unl' ? { edition: k } : null;
+const varPre = (k, c) => { if (!k) return null; if (k === 'reverse') return { variant: 'reverse' }; if (k === '1st' || k === 'unl') return { edition: k };
+  const s = c && (c.spec || []).find(x => x.k === k); return s ? { special: s } : null; };
+// Après affichage des tuiles : ajoute les pastilles des versions spéciales
+function fillSpecials(cards, gridSel){
+  if (!TCGPV){ setTimeout(() => fillSpecials(cards, gridSel), 400); return; }
+  cards.forEach((c, i) => { if (c.game !== 'pkm' || c.spec !== undefined) return;
+    loadSpecials(c).then(sp => { if (!sp.length) return; const t = document.querySelector(`${gridSel} .tile[data-r="${i}"]`); if (!t) return;
+      const cur = t.dataset.var, box = t.querySelector('.vars'); if (!box) return;
+      box.outerHTML = varsHTML(c); if (cur) pickVar(t, c, cur); }); });
+}
 
 function resultTiles(cards, mk, sset){
   return `<div class="results" id="rgrid">${cards.map((c, i) => { const ok = sset ? ownKey(sset.g, sset.x.name, c.id) : null, has = ok && owned()[ok]; return `
@@ -2307,6 +2356,7 @@ function renderResults(msg){
       + ((s.ygoAll || []).length >= 60 && s.q ? '<div class="hint" style="margin-top:10px">Yu-Gi-Oh! : 60 premiers résultats, précise ta recherche.</div>' : '');
   }
   box.innerHTML = head + body;
+  if (cards.length) fillSpecials(cards, '#rgrid');
   const openResult = c => {
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
@@ -2323,7 +2373,7 @@ function renderResults(msg){
     if (vb){ e.stopPropagation(); const t = vb.closest('.tile'); pickVar(t, cards[+t.dataset.r], vb.dataset.var); return; }
     const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
-    if (c.game === 'pkm' && t.dataset.var){ renderConfigure(c, varPre(t.dataset.var)); return; }
+    if (c.game === 'pkm' && t.dataset.var){ renderConfigure(c, varPre(t.dataset.var, c)); return; }
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
@@ -3011,6 +3061,10 @@ function renderConfigure(card, pre){
   const o = { variant: pre.variant || 'normal', graded: !!pre.graded, grader: pre.grader || 'PSA', grade: pre.grade || '10',
               priceGraded: pre.priceGraded ?? null, note: pre.note || '', printCode: pre.printCode || '', printKey: pre.printKey || '',
               cmLinkInput: pre.cmLink || '', edition: pre.edition || null };
+  // Version spéciale (Holo Cosmos, tampon…) : sa photo et son prix TCGplayer
+  if (pre.special){ const s = pre.special;
+    card = { ...card, special: { k: s.kind, label: s.label, pid: s.pid }, img: s.img || card.img, imgHi: s.imgHi || s.img || card.imgHi, printArt: !!s.img,
+      prices: { normal: s.price, reverse: null }, priceSrc: 'tcgp', trend: null, editions: null, edPrices: null }; }
   // 1re édition / illimitée : le prix affiché suit l'édition choisie
   if ((card.editions || []).length > 1 && card.edPrices){ const ed = o.edition || card.editions[0];
     card = { ...card, prices: { ...card.prices, normal: card.edPrices[ed] }, priceSrc: 'tcgp', trend: null, edition: ed }; }
@@ -3024,6 +3078,7 @@ function renderConfigure(card, pre){
       <div class="hint" id="artNote"></div>
       <dl class="kv">
         <dt>Jeu</dt><dd>${GAMES[card.game].label}</dd>
+        ${card.special ? `<dt>Version</dt><dd><span class="vinl">${VICON[card.special.k] || ''}</span>${esc(card.special.label)} <span class="hint">prix TCGplayer</span></dd>` : ''}
         <dt>Marché</dt><dd>${market === 'asia' ? 'OCG (Asie)' : 'TCG (international)'}</dd>
         ${card.set ? `<dt>Extension</dt><dd>${symHTML(pkSid(card), card.set)}${esc(card.set)}</dd>` : ''}
         ${card.num ? `<dt>Numéro</dt><dd>${esc(card.num)}</dd>` : ''}
@@ -3194,6 +3249,7 @@ function openDetail(i){
       ${dayHTML(it) ? `<div style="margin-top:4px">${dayHTML(it)} <span class="hint">depuis le relevé précédent (${eur(it.prevPrice)})</span></div>` : ''}
       <dl class="kv" style="margin-top:12px">
         <dt>Jeu</dt><dd>${GAMES[it.game].label}</dd>
+        ${it.special ? `<dt>Version</dt><dd><span class="vinl">${VICON[it.special.k] || ''}</span>${esc(it.special.label)}</dd>` : ''}
         <dt>Langue</dt><dd>${esc(langLabel(it.game, it.lang))}</dd>
         <dt>Prix à partir de</dt><dd>${it.cmFrom ? fromHTML(it, true) : '<span class="hint">sur la fiche Cardmarket (filtrée dans ta langue), clique sur ton favori « + Wishlist » pour relever le premier prix</span>'}</dd>
         ${it.nameJa ? `<dt>Nom japonais</dt><dd>${esc(it.nameJa)}</dd>` : ''}
@@ -3292,7 +3348,7 @@ async function refreshOne(it, full){
   if (it.manual){ if (!(await applyCmGuide(it).catch(() => false))){ it.pv = 3; it.priceAt = Date.now(); } return; }   // carte créée depuis Cardmarket, absente de nos bases
   const c = await API.card(it.game, it.id, it.lang);
   if (!c) return;
-  const viaGuide = await applyCmGuide(it).catch(() => false);   // produit Cardmarket exact connu : son guide des prix
+  const viaGuide = it.special ? false : await applyCmGuide(it).catch(() => false);   // version spéciale : prix TCGplayer (plus bas)   // produit Cardmarket exact connu : son guide des prix
   if (viaGuide){}
   else if (!it.cmPrice){
     const p = c.prices[it.variant] ?? c.prices.normal ?? it.priceRaw;
@@ -3304,6 +3360,10 @@ async function refreshOne(it, full){
   if (c.editions){ it.editions = c.editions; it.edPrices = c.edPrices; it.edImgs = c.edImgs || null;
     if (it.edition && c.editions.length > 1 && c.edPrices){ it.priceRaw = c.edPrices[it.edition] ?? null; it.priceSrc = it.priceRaw != null ? 'tcgp' : null; } }
   it.hasReverse = c.prices.reverse != null;
+  if (it.special && it.special.pid){   // version spéciale : prix TCGplayer de son produit
+    const sp = await tpPrice(it.special.pid).catch(() => null);
+    if (sp != null){ it.priceRaw = sp; it.priceSrc = 'tcgp'; it.trend = null; }
+  }
   if (!it.printArt){ it.img = c.img || it.img; it.imgHi = c.imgHi || it.imgHi; it.imgLang = c.img ? (c.imgLang || null) : it.imgLang; }
   if (full){   // après un changement de langue : nom et infos dans la nouvelle langue
     it.name = c.name; it.nameJa = c.nameJa || null;
@@ -3329,8 +3389,8 @@ function buildShareLink(){
   const cl = curList(), src = cl ? state.items.filter(it => inList(it, cl.id)) : state.items;
   const payload = { o: state.owner || '', ...(cl ? { l: cl.name } : {}), c: src.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printKey || it.printCode || '',
     it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '', it.cmLink || 0,
-    (it.cmImg || it.cmPrice || it.manual) ? { i: it.cmImg || 0, p: it.cmPrice ? it.priceRaw : 0,
-      m: it.manual ? { n: it.name, s: it.set, r: it.rarity, u: it.num } : 0 } : 0]) };
+    (it.cmImg || it.cmPrice || it.manual || it.special) ? { i: it.cmImg || 0, p: it.cmPrice ? it.priceRaw : 0,
+      m: it.manual ? { n: it.name, s: it.set, r: it.rarity, u: it.num } : 0, ...(it.special ? { v: [it.special.k, it.special.label, it.special.pid, it.printArt ? it.img : 0] } : {}) } : 0]) };
   return location.href.split('#')[0] + '#share=' + b64e(JSON.stringify(payload));
 }
 function renderShare(){
@@ -3367,6 +3427,8 @@ async function openShared(hash){
     let card = c;
     if (x.i) card = { ...card, img: x.i, imgHi: x.i, printArt: true, cmImg: x.i };
     if (x.p) card = { ...card, prices: { ...card.prices, normal: x.p }, cmPrice: true };
+    if (x.v){ const [k, label, pid, img] = x.v; card = { ...card, special: { k, label, pid }, prices: { normal: await tpPrice(pid).catch(() => null), reverse: null }, priceSrc: 'tcgp',
+      ...(img ? { img, imgHi: img.replace('_400w.jpg', '_in_1000x1000.jpg'), printArt: true } : {}) }; }
     if (game === 'ygo' && printCode && !printCode.startsWith('@') && !findPrint(c.prints, printCode)){
       const op = [...(await tcgVariants(c.nameEn || c.name)), ...(await ocgPrints(c.nameEn || c.name))].find(p => printKey(p) === printCode);
       if (op) card = { ...card, extraPrint: op };
