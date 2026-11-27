@@ -286,6 +286,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 /* Symbole d'extension devant son nom (fond clair : les symboles noirs restent lisibles en thème sombre) */
 .sicon{height:1.6em;width:auto;max-width:3.2em;object-fit:contain;vertical-align:middle;margin-right:6px;
   filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)}
+.sabbr{display:inline-block;vertical-align:middle;margin-right:6px;padding:1px 5px;border-radius:4px;background:#f2f2f4;color:#111;font-weight:800;font-size:.74em;letter-spacing:.05em;line-height:1.35}
 .ricon{height:1.15em;width:auto;max-width:3em;object-fit:contain;vertical-align:middle;margin:0 5px 0 2px;
   filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)}
 .rr .ricon,dd .ricon,.ppsum .ricon{margin-left:0}
@@ -1280,6 +1281,9 @@ const pkSid = c => !c || c.game === 'ygo' || c.manual || !c.id || /^tcgpj-/.test
 const symHTML = (sid, name) => sid && SYM[sid] ? `<img class="sicon" src="data/sym/${encodeURIComponent(sid)}.png" alt="${esc(name || '')}" title="${esc(name || '')}" loading="lazy" onerror="this.remove()">` : '';
 // Extension : son symbole seul quand on l'a (nom en info-bulle), sinon son nom
 const setLabel = (sid, name) => symHTML(sid, name) || esc(name || '');
+// Yu-Gi-Oh! : pas d'icônes d'extension, on affiche le sigle du code d'impression (« MAMS-EN050 » → MAMS), nom complet en infobulle
+const ygoAbbr = (code, name) => { const a = (String(code || '').match(/^([A-Z0-9]{2,6})-/i) || [])[1];
+  return a ? `<span class="sabbr" title="${esc(name || '')}">${esc(a.toUpperCase())}</span>` : esc(name || ''); };
 
 /* ========= Raretés Pokémon : nom français corrigé et icône (Poképédia, page « Rareté », data/rar) =========
    TCGdex mélange les noms (anglais / français) et a des erreurs connues : « Magnifique rare » y désigne en réalité
@@ -1410,7 +1414,8 @@ const ICON_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 function tileHTML(it, i){
   const price = shownPrice(it);
-  const rarity = [(it.game === 'pkm' && it.rarity ? rarName(it.rarity, rarCtx(it)) : it.rarity) + (it.extraPrint && it.extraPrint.ea ? ' (ill. étendue)' : ''), it.num || it.printCode].filter(Boolean).join(' · ');
+  // Pokémon : la rareté est donnée par son icône (nom en infobulle), on ne garde que le numéro
+  const rarity = [(it.game === 'pkm' ? '' : it.rarity || '') + (it.extraPrint && it.extraPrint.ea ? (it.game === 'pkm' ? 'Ill. étendue' : ' (ill. étendue)') : ''), it.num || it.printCode].filter(Boolean).join(' · ');
   return `<button class="tile" data-i="${i}">
     ${imgBox(it, false, `<span class="bdg">${esc(langLabel(it.game, it.lang))}</span>
         ${it.variant === 'reverse' ? '<span class="bdg">Reverse</span>' : ''}
@@ -1418,7 +1423,7 @@ function tileHTML(it, i){
         ${it.graded ? `<span class="bdg grade">${esc(it.grader)} ${esc(it.grade)}</span>` : ''}`)}
     <div class="tinfo">
       <div class="tname">${esc(it.name)}</div>
-      <div class="tsub">${it.set ? setLabel(pkSid(it), it.set) : esc(GAMES[it.game].label)}${it.game === 'pkm' && it.rarity ? rarIcon(it.rarity, rarCtx(it)) : ''}</div>
+      <div class="tsub">${it.game === 'ygo' && it.printCode ? ygoAbbr(it.printCode, it.set) : it.set ? setLabel(pkSid(it), it.set) : esc(GAMES[it.game].label)}${it.game === 'pkm' && it.rarity ? rarIcon(it.rarity, rarCtx(it)) : ''}</div>
       ${rarity ? `<div class="tsub faint">${esc(rarity)}</div>` : ''}
     </div>
     ${fromHTML(it)}
@@ -1952,7 +1957,7 @@ function resultTiles(cards, mk){
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`).join('')}
     </div>`;
@@ -2015,8 +2020,8 @@ function trendingHTML(){
       <span class="hint">Pokémon et Yu-Gi-Oh! qui montent sur ${esc(trending.source || 'Cardmarket')} ces 7 derniers jours${day ? ' · mis à jour le ' + day : ''}</span></div>
     <div class="results" id="tgrid">${list.map((c, i) => `<button class="tile" data-t="${i}">
       ${imgBox(c.game === 'pkm' && c.fb ? { name: c.name, img: c.fb, baseImg: c.img, set: c.set, game: c.game } : { name: c.name, img: c.img, baseImg: c.fb, set: c.set, game: c.game }, false, '')}
-      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${setLabel(pkSid(c), c.set)}${c.rarity ? rarIcon(c.rarity, rarCtx(c)) : ''}</div>` : ''}
-        <div class="tsub faint">${esc((c.game === 'pkm' && c.rarity ? rarName(c.rarity, rarCtx(c)) : c.rarity || '') + (c.ea ? ' · ill. étendue' : '') + (/reverse/i.test(c.sub || '') ? ' · reverse' : ''))}</div></div>
+      <div><div class="tname">${esc(c.name)}</div>${c.game === 'pkm' && c.set ? `<div class="tsub">${setLabel(pkSid(c), c.set)}${c.rarity ? rarIcon(c.rarity, rarCtx(c)) : ''}</div>` : c.game === 'ygo' && (c.number || c.set) ? `<div class="tsub">${ygoAbbr(c.number, c.set)}</div>` : ''}
+        <div class="tsub faint">${esc([c.game === 'pkm' ? '' : c.rarity || '', c.ea ? 'ill. étendue' : '', /reverse/i.test(c.sub || '') ? 'reverse' : ''].filter(Boolean).join(' · '))}</div></div>
       <div class="tprice"><b title="${c.cm7 ? 'Moyenne des ventes Cardmarket sur 7 jours' : 'Prix du marché TCGplayer (converti en euros)'}">${c.cm7 ? eur(c.cm7) : c.cur === 'USD' ? c.price.toLocaleString('fr-FR', { style:'currency', currency:'USD' }) : eur(c.price)}</b>${c.change != null && Math.abs(c.change) >= 0.01
         ? `<span class="tr ${c.change > 0 ? 'pricier' : 'cheaper'}" title="Hausse TCGplayer sur 7 jours">${c.change > 0 ? '▲ +' : '▼ '}${Math.round(c.change * 100)} %</span>` : `<span>${c.cm7 ? 'moy. 7 j' : 'TCGplayer'}</span>`}</div>
     </button>`).join('')}</div>`;
