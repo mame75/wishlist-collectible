@@ -2141,7 +2141,8 @@ function pkVars(c){
     c.editions.forEach(e => out.push({ k: e, price: c.edPrices ? c.edPrices[e] ?? null : (e === c.editions[0] ? c.prices.normal : null), img: c.edImgs && c.edImgs[e] ? c.edImgs[e].lo : null }));
   } else {
     if (!v || v.normal || !v.holo) out.push({ k: 'normal', price: c.prices.normal });
-    if (v && v.holo) out.push({ k: 'holo', price: v.normal ? null : c.prices.normal });
+    // TCGdex note « holo » des communes qui n'existent en holo qu'en Holo Cosmos (decks, coffrets) : la pastille Cosmos suffit
+    if (v && v.holo && !(v.normal && (c.spec || []).some(s => s.kind === 'cosmos'))) out.push({ k: 'holo', price: v.normal ? null : c.prices.normal });
   }
   if (v ? v.reverse : c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });   // version connue même sans prix relevé
   return out.concat(c.spec || []);
