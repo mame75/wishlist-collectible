@@ -2254,7 +2254,9 @@ function expandYgo(cards, mk, onlySet){
 let YDATES = null; getYgoDates().then(d => { YDATES = d || {}; }).catch(() => { YDATES = {}; });
 function ygVarsHTML(e){
   const g = e.yg; if (!g) return '';
-  return `<div class="vars">${g.prints.map((pr, j) => `<span class="var txt ${j === e.ygSel ? 'on' : ''}" role="button" data-var="${j}" title="${esc(pr.code || '')} · ${esc(pr.rarity || '')}${pr.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(pr))}</span>`).join('')}
+  // Même rareté sous plusieurs numéros (decks de structure…) : on ajoute le numéro
+  const dup = ab => g.prints.filter(x => yRarAb(x) === ab).length > 1, numOf = pr => (String(pr.code || '').match(/(\d+)$/) || [])[1] || '';
+  return `<div class="vars">${g.prints.map((pr, j) => `<span class="var txt ${j === e.ygSel ? 'on' : ''}" role="button" data-var="${j}" title="${esc(pr.code || '')} · ${esc(pr.rarity || '')}${pr.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(pr) + (dup(yRarAb(pr)) && numOf(pr) ? ' ' + numOf(pr) : ''))}</span>`).join('')}
     <span class="vlab">${esc(g.prints[e.ygSel] ? g.prints[e.ygSel].code || '' : '')}</span></div>`;
 }
 // Photo et prix d'une impression : scan Yugipedia (OCG) / photo TCGplayer, prix TCGplayer du jour
