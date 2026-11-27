@@ -66,6 +66,8 @@ if (jp){
   const key = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
   const jgroups = (await get(`https://tcgcsv.com/tcgplayer/${jp.categoryId}/groups`)).results || [];
   const idx = {}, jg = {};   // jg : extension japonaise TCGplayer → cartes (pour le lien avec Cardmarket)
+  // Par sigle d'extension et numéro (« sv-p » → { 216: n° produit }) : photo d'une carte japonaise de TCGdex sans visuel
+  const byNum = {}, gcode = n => ((String(n).match(/^([A-Za-z0-9+-]+)(?::|\s+Promotional)/i) || [])[1] || '').replace(/\+$/, 'p').toLowerCase();
   const q = jgroups.slice();
   await Promise.all(Array.from({ length: 4 }, async () => {
     while (q.length){
@@ -79,12 +81,16 @@ if (jp){
         // Numéro du nom (« Mew ex - 002/043 ») différent du champ Number (151/165) : réimpression d'un deck/coffret rangée dans l'extension du moment
         const nn = (p.name.match(/ - ([A-Z]*\d+\/[A-Z]*\d+)\s*$/) || [])[1], tot = s => parseInt(String(s).split('/')[1], 10), odd = nn && tot(nn) !== tot(ex.Number);   // total différent seulement (sinon simple faute de frappe)
         ((idx[f] ||= {})[k] ||= []).push([p.productId, odd ? `Deck ou coffret (${g.name})` : g.name, odd ? nn : String(ex.Number), ex.Rarity || '', p.imageCount > 0 ? 1 : 0, /mirror|reverse/i.test(p.name) ? 1 : 0, ...(odd ? [String(ex.Number).trim()] : [])]);
+        { const gc = gcode(g.name), n = parseInt(String(ex.Number), 10);
+          if (gc && n && p.imageCount > 0 && !/mirror|reverse/i.test(p.name)){ const m = (byNum[gc] ||= {}); if (!m[n]) m[n] = p.productId; } }
         if (!/mirror|reverse/i.test(p.name)) (jg[g.groupId] ||= []).push({ pid: p.productId, k, num: parseInt(String(ex.Number), 10) || 0 });   // versions miroir : même produit Cardmarket (prix reverse)
       }
     }
   }));
   await mkdir('data/tcgpj', { recursive: true });
   for (const [f, m] of Object.entries(idx)) await writeFile(`data/tcgpj/${f}.json`, JSON.stringify(m));
+  await rm('data/tcgpjn', { recursive: true, force: true }); await mkdir('data/tcgpjn', { recursive: true });
+  for (const [c, m] of Object.entries(byNum)) await writeFile(`data/tcgpjn/${encodeURIComponent(c)}.json`, JSON.stringify(m));
   console.log('Pokémon japonais :', jgroups.length, 'extensions');
 
   // ---- Lien avec Cardmarket : data/cmjp/<tranche>.json (n° de produit TCGplayer japonais → n° de produit Cardmarket)
