@@ -185,6 +185,28 @@ select.field option{background:var(--surface)}
 .settile:hover{transform:translateY(-3px);border-color:var(--line2)}
 .settile .lg{height:72px;display:flex;align-items:center;justify-content:center;background:var(--inset);border-radius:10px;overflow:hidden;margin-bottom:4px}
 .settile .lg img{max-height:62px;max-width:90%;object-fit:contain}
+.settile .lg img.ybanner{max-height:none;max-width:none;width:100%;height:100%;object-fit:cover}
+/* Progression de la collection */
+.prog{height:6px;border-radius:99px;background:var(--inset);overflow:hidden;margin-top:4px}
+.prog i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .35s ease}
+.prog.full i{background:#3ecf8e}
+.progn{font-size:12px;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;gap:8px}
+.progn b{color:var(--ink);font-variant-numeric:tabular-nums}
+.setprog{min-width:220px;flex:1;max-width:360px}
+.bloc{margin:0 0 26px}
+.bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.bloc>summary::-webkit-details-marker{display:none}
+.bloc>summary h3{margin:0;font-size:18px}
+.bloc>summary .hint{margin-left:auto}
+.bloc>summary::after{content:'▾';color:var(--muted);transition:transform .2s}
+.bloc:not([open])>summary::after{transform:rotate(-90deg)}
+.bloc .sets{margin-bottom:10px}
+.tile{position:relative}
+.own{position:absolute;top:18px;right:18px;z-index:3;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(10,11,14,.55);color:transparent;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(3px)}
+.own:hover{color:rgba(255,255,255,.7)}
+.own.on{background:#3ecf8e;border-color:#3ecf8e;color:#08140e}
+.tile.owned .img{opacity:1}
+.tile.missing .img img{filter:grayscale(.15) brightness(.8)}
 /* Overlay fiche carte */
 .modal.xl{width:min(1180px,100%)}
 #cardPage .mhead h2,#detScrim .mhead h2{font-size:15px;color:var(--muted);font-weight:700}
@@ -318,7 +340,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
       <button data-view="explore">Explore</button>
       <button data-view="sets">Sets</button>
       <button data-view="wishlist" class="on">Wishlist</button>
-      <button data-view="collection">Collection<em>bientôt</em></button>
+      <button data-view="collection">Collection</button>
     </nav>
     <div class="sp"></div>
     <button class="btn ghost" id="shareBtn">Partager</button>
@@ -1240,6 +1262,7 @@ function imgBox(c, hi, badges){
     <div class="badges">${badges || ''}</div>
   </div>`;
 }
+fetch('data/ygogrp.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null).then(j => { if (j && j.c){ YGRP = j; if (view === 'sets' || view === 'collection') try { render(); } catch (e){} } }).catch(() => {});
 fetch('data/sym.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
 fetch('data/rar.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { RAR = j || {}; if (Object.keys(RAR).length) try { render(); } catch (e){} }).catch(() => {});
 // Logos Poképédia des extensions sans logo chez TCGdex (onglet Sets)
@@ -1300,7 +1323,20 @@ new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) 
   .observe(document.documentElement, { childList: true, subtree: true });
 
 /* ========= Symboles d'extension (Poképédia, data/sym) ========= */
-let SYM = {}, LOGO = {};
+let SYM = {}, LOGO = {}, YGRP = { c: {}, n: {} };
+// Visuel d'une extension Yu-Gi-Oh! : image publique de Collectr, rangée sous le numéro d'extension TCGplayer
+const ygoSetImg = x => { const g = YGRP.c[String(x.code || '').toUpperCase()] || YGRP.n[String(x.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')];
+  return g ? `https://public.getcollectr.com/public-assets/catalog-groups/group_${g}.png?optimizer=image&format=webp&width=480&quality=80` : null; };
+/* ---- Collection : cartes possédées, par extension (« pkm:<id de carte> », « ygo:<nom d'extension>|<id> ») ---- */
+const owned = () => (state.owned ||= {});
+const ownKey = (g, set, id) => g === 'pkm' ? `pkm:${id}` : `ygo:${set}|${id}`;
+const ownPrefix = (g, x) => g === 'pkm' ? `pkm:${x.id}-` : `ygo:${x.name}|`;
+const ownCount = (g, x) => { const p = ownPrefix(g, x); let n = 0; for (const k in owned()) if (k.startsWith(p)) n++; return n; };
+function progHTML(n, total){
+  const pc = total ? Math.min(100, n / total * 100) : 0;
+  return `<div class="progn"><span><b>${n}</b> / ${total || '?'}</span><span>${total ? Math.round(pc) + ' %' : ''}</span></div>
+    <div class="prog ${total && n >= total ? 'full' : ''}"><i style="width:${pc}%"></i></div>`;
+}
 const pkSid = c => !c || c.game === 'ygo' || c.manual || !c.id || /^tcgpj-/.test(c.id) ? null : String(c.id).slice(0, String(c.id).lastIndexOf('-'));
 const symHTML = (sid, name) => sid && SYM[sid] ? `<img class="sicon" src="data/sym/${encodeURIComponent(sid)}.png" alt="${esc(name || '')}" title="${esc(name || '')}" loading="lazy" onerror="this.remove()">` : '';
 // Extension : son symbole seul quand on l'a (nom en info-bulle), sinon son nom
@@ -1579,8 +1615,18 @@ function render(){
   if (view === 'card'){ if (!$('#cardBody')){ view = 'explore'; renderExplore(); } return; }   // page carte : gérée par renderConfigure
 
   if (view === 'collection'){
-    main.innerHTML = `<div class="wip"><div class="cone"></div><h2 style="margin:0 0 6px">Collection — en travaux</h2>
-      <p style="color:var(--muted);margin:0">Bientôt : ajouter les cartes que tu possèdes et partager ta collection pour voir ce qu'il manque.</p></div>`;
+    const n = Object.keys(owned()).length;
+    if (!n){ main.innerHTML = `<div class="wip"><h2 style="margin:0 0 6px">Ta collection est vide</h2>
+      <p style="color:var(--muted);margin:0 0 16px">Ouvre une extension dans <b>Sets</b> et coche ✓ sur les cartes que tu possèdes : la progression de chaque extension se met à jour.</p>
+      <button class="btn primary" id="toSets">Voir les extensions</button></div>`;
+      $('#toSets').onclick = () => goView('sets'); return; }
+    // Extensions commencées (mémorisées quand on coche une carte), les plus avancées d'abord
+    const mine = Object.entries(state.ownSets || {}).map(([k, v]) => [v.g, v.x, k]).filter(([g, x]) => ownCount(g, x))
+      .sort((a, b) => ownCount(b[0], b[1]) / (b[1].n || 1) - ownCount(a[0], a[1]) / (a[1].n || 1));
+    main.innerHTML = `<section class="hero"><div><div class="lbl">Ma collection</div><div class="val">${n} carte${n > 1 ? 's' : ''}</div>
+        <div class="meta"><span><b>${mine.length}</b> extension${mine.length > 1 ? 's' : ''} commencée${mine.length > 1 ? 's' : ''}</span></div></div></section>
+      <section style="padding:20px 0 80px"><div class="sets" id="colSets">${mine.map(([g, x, k]) => setTileHTML(g, x, k)).join('')}</div></section>`;
+    $('#colSets').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, state.ownSets[b.dataset.k].x));
     return;
   }
 
@@ -2022,58 +2068,75 @@ function bindXSide(){
     el.onchange = () => renderResults(); });
 }
 
-function resultTiles(cards, mk){
-  return `<div class="results" id="rgrid">${cards.map((c, i) => `
-      <button class="tile" data-r="${i}">
+function resultTiles(cards, mk, sset){
+  return `<div class="results" id="rgrid">${cards.map((c, i) => { const ok = sset ? ownKey(sset.g, sset.x.name, c.id) : null, has = ok && owned()[ok]; return `
+      <button class="tile${sset ? (has ? ' owned' : ' missing') : ''}" data-r="${i}">
+        ${sset ? `<span class="own ${has ? 'on' : ''}" data-own="${esc(ok)}" role="checkbox" aria-checked="${has ? 'true' : 'false'}" title="Je l'ai">✓</span>` : ''}
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
         <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
-      </button>`).join('')}
+      </button>`; }).join('')}
     </div>`;
 }
 
 /* ---- Accueil d'Explore : dernières extensions ---- */
+// Séries Pokémon hors blocs principaux : affichées à la fin
+const SIDE_SERIES = ['misc', 'pop', 'tk', 'mc'];
 async function getHomeSets(){
   const today = new Date().toISOString().slice(0, 10);
-  const [ps, ys] = await Promise.all([
+  const [ps, ys, series] = await Promise.all([
     cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => []),
-    cached('home2:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
-      ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 40)
-          .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => [])
+    cached('home3:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
+      ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 48)
+          .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => []),
+    cached('home3:pseries', async () => { const l = await API.getJSON('https://api.tcgdex.net/v2/fr/series');
+      return (await Promise.all((l || []).filter(s => s.id !== 'tcgp').map(s => API.getJSON(`https://api.tcgdex.net/v2/fr/series/${encodeURIComponent(s.id)}`).catch(() => null)))).filter(Boolean)
+        .map(s => ({ id: s.id, name: s.name, date: s.releaseDate || '', sets: (s.sets || []).map(x => ({ id: x.id, name: x.name, n: x.cardCount && (x.cardCount.total || x.cardCount.official), img: x.logo ? x.logo + '.png' : '' })) })); }).catch(() => [])
   ]);
-  // Pokémon : la liste est dans l'ordre de sortie ; le détail des dernières donne la date et un visuel (logo, sinon une carte de l'extension)
+  // Dates de sortie des dernières extensions (pour écarter celles annoncées mais pas encore sorties)
   const recent = await Promise.all((ps || []).filter(x => !POCKET_SET.test(x.id)).slice(-30).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
     .then(d => d && { id: d.id, name: d.name, date: d.releaseDate || '', n: d.cardCount && (d.cardCount.total || d.cardCount.official),
       img: d.logo ? d.logo + '.png' : (((d.cards || []).find(c => c.image) || {}).image || '') && ((d.cards || []).find(c => c.image).image + '/low.webp'), card: !d.logo }))
     .catch(() => null)));
-  return {
-    pkm: recent.filter(x => x && (!x.date || x.date <= today)).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 24),
-    ygo: (ys || []).filter(x => x.date <= today).slice(0, 24)
-  };
+  const dates = Object.fromEntries(recent.filter(Boolean).map(x => [x.id, x]));
+  const blocs = (series || []).map(s => ({ ...s, sets: s.sets.filter(x => x.n && !(dates[x.id] && dates[x.id].date > today))
+      .map(x => ({ ...x, date: dates[x.id] ? dates[x.id].date : '', img: x.img || (dates[x.id] && dates[x.id].img) || '', card: !x.img && !!(dates[x.id] && dates[x.id].img) })).reverse() }))
+    .filter(s => s.sets.length)
+    .sort((a, b) => (SIDE_SERIES.includes(a.id) - SIDE_SERIES.includes(b.id)) || b.date.localeCompare(a.date));
+  return { blocs, pkm: blocs.flatMap(s => s.sets), ygo: (ys || []).filter(x => x.date <= today).slice(0, 36) };
 }
 let homeSets = null, setsGame = 'all';
+function setTileHTML(g, x, k){
+  const yimg = g === 'ygo' ? ygoSetImg(x) : null, alt = g === 'ygo' ? x.img || `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : null;
+  const src = g === 'pkm' ? ((x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img) : yimg || alt;
+  return `<button class="settile" data-g="${g}" data-k="${esc(k)}">
+      <div class="lg">${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer"${yimg ? ` class="ybanner" data-fb="${esc(alt)}"` : ''} onerror="if(this.dataset.fb){this.src=this.dataset.fb;this.className='';delete this.dataset.fb}else this.remove()">` : g === 'pkm' ? symHTML(x.id, x.name) : ''}</div>
+      <div class="tname">${g === 'pkm' ? symHTML(x.id, x.name) : x.code ? `<span class="sabbr">${esc(x.code)}</span>` : ''}${esc(x.name)}</div>
+      <div class="tsub">${[x.date ? new Date(x.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : ''].filter(Boolean).join(' · ')}</div>
+      ${progHTML(ownCount(g, x), x.n)}
+    </button>`;
+}
 function setsHTML(){
   if (!homeSets){
-    getHomeSets().then(d => { homeSets = d; if (view === 'sets') render(); });
-    return '<div class="status">Chargement des dernières extensions…</div>';
+    getHomeSets().then(d => { homeSets = d; if (view === 'sets' || view === 'collection') render(); });
+    return '<div class="status">Chargement des extensions…</div>';
   }
-  const block = (g, title, list) => setsGame !== 'all' && setsGame !== g ? '' : `<h3 class="xh">${title}</h3>
-    <div class="sets">${list.map((x, i) => `<button class="settile" data-g="${g}" data-i="${i}">
-      <div class="lg"><img src="${esc(g === 'pkm' && (x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img || (g === 'ygo' ? `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : ''))}" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></div>
-      <div class="tname">${g === 'pkm' ? symHTML(x.id, x.name) : ''}${esc(x.name)}</div>
-      <div class="tsub">${[x.n ? x.n + ' cartes' : '', x.date ? new Date(x.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : ''].filter(Boolean).join(' · ')}</div>
-    </button>`).join('') || '<div class="status">Indisponible pour le moment.</div>'}</div>`;
-  return block('pkm', 'Dernières extensions Pokémon', homeSets.pkm) + block('ygo', 'Dernières extensions Yu-Gi-Oh!', homeSets.ygo);
+  const pk = setsGame === 'ygo' ? '' : (homeSets.blocs || []).map((s, i) => { const own = s.sets.reduce((t, x) => t + ownCount('pkm', x), 0), tot = s.sets.reduce((t, x) => t + (x.n || 0), 0);
+    return `<details class="bloc" ${i < 2 ? 'open' : ''}><summary><h3>${esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
+      <div class="sets">${s.sets.map(x => setTileHTML('pkm', x, x.id)).join('')}</div></details>`; }).join('') || (setsGame === 'pkm' ? '<div class="status">Indisponible pour le moment.</div>' : '');
+  const yg = setsGame === 'pkm' ? '' : `<h3 class="xh">Dernières extensions Yu-Gi-Oh!</h3>
+    <div class="sets">${(homeSets.ygo || []).map((x, i) => setTileHTML('ygo', x, i)).join('') || '<div class="status">Indisponible pour le moment.</div>'}</div>`;
+  return (setsGame === 'all' && pk ? '<h2 class="xh" style="font-size:20px">Pokémon</h2>' : '') + pk + (setsGame === 'all' ? '<h2 class="xh" style="font-size:20px;margin-top:10px">Yu-Gi-Oh!</h2>' : '') + yg;
 }
-// Onglet « Sets » : dernières extensions des deux jeux
+const setOf = (g, k) => g === 'pkm' ? (homeSets.pkm || []).find(x => x.id === k) : homeSets.ygo[+k];
 function renderSets(){
-  $('#main').innerHTML = `<section class="xhead"><div class="gridhead" style="margin:0"><h2 style="margin:0;font-size:22px">Dernières extensions</h2>
+  $('#main').innerHTML = `<section class="xhead"><div class="gridhead" style="margin:0"><h2 style="margin:0;font-size:22px">Extensions</h2>
       <div class="chips" id="setsG">${[['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']].map(([v, l]) => `<button class="chip ${setsGame === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div></section>
     <section style="padding:20px 0 80px" id="setsBody">${setsHTML()}</section>`;
   $('#setsG').onclick = e => { const c = e.target.closest('.chip'); if (c){ setsGame = c.dataset.v; renderSets(); } };
-  $('#setsBody').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, homeSets[b.dataset.g][+b.dataset.i]));
+  $('#setsBody').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, setOf(b.dataset.g, b.dataset.k)));
 }
 
 /* ---- Accueil d'Explore : cartes tendance (fichier data/trending.json, compilé chaque jour) ---- */
@@ -2115,7 +2178,7 @@ async function openTrending(c){
 // Ouvrir une extension : toutes ses cartes dans les résultats d'Explore
 async function openSet(g, x){
   const s = search, tok = ++s.token;
-  resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name; s.isSet = true;
+  resetResults(s); s.mode = 'query'; s.q = ''; s.label = x.name; s.isSet = true; s.set = { g, x };
   xf = { ...xf, game: g, set: '', rarity: '', autoGame: true };
   view = 'explore'; render();
   window.scrollTo(0, 0);
@@ -2174,14 +2237,16 @@ function renderResults(msg){
   const moreMk = xf.game === 'ygo' ? null : xf.market !== 'all' ? (s.groups[xf.market].shown < s.groups[xf.market].briefs.length ? xf.market : null)
     : ['intl','asia'].find(m => s.groups[m].shown < s.groups[m].briefs.length) || null;
   const busy = [s.pkmBusy && 'Pokémon', s.ygoLoading && 'Yu-Gi-Oh!', s.ocgLoading && 'éditions OCG', s.eaLoading && 'illustrations étendues'].filter(Boolean);
+  const sset = s.isSet && s.set, stotal = sset ? Math.max(sset.x.n || 0, list.length) : 0;
   const head = `<div class="gridhead">${s.isSet ? '<button class="btn ghost sm" id="setBack">← Sets</button>' : ''}<h3 class="xh" style="margin:0">${esc(s.label)}</h3>
       <span class="count">${cards.length} carte${cards.length > 1 ? 's' : ''}</span>
+      ${sset ? `<div class="setprog" id="setprog" title="Cartes de l'extension que tu possèdes : coche ✓ sur chaque carte">${progHTML(ownCount(sset.g, sset.x), stotal)}</div>` : ''}
       ${busy.length ? `<span class="hint">Recherche : ${busy.join(', ')}…</span>` : ''}</div>`;
   let body;
   if (!cards.length) body = `<div class="status">${busy.length ? 'Recherche…' : 'Aucune carte ne correspond. Modifie la recherche ou les filtres.'}</div>`;
   else {
     const left = moreMk ? s.groups[moreMk].briefs.length - s.groups[moreMk].shown : 0;
-    body = resultTiles(cards, xf.market) + (moreMk ? `<div style="text-align:center;margin-top:16px"><button class="btn" id="moreBtn">Voir plus de cartes Pokémon (${left} restantes${xf.market === 'all' ? ' en ' + MARKET_LABEL[moreMk] : ''})</button></div>` : '')
+    body = resultTiles(cards, xf.market, sset || null) + (moreMk ? `<div style="text-align:center;margin-top:16px"><button class="btn" id="moreBtn">Voir plus de cartes Pokémon (${left} restantes${xf.market === 'all' ? ' en ' + MARKET_LABEL[moreMk] : ''})</button></div>` : '')
       + ((s.ygoAll || []).length >= 60 && s.q ? '<div class="hint" style="margin-top:10px">Yu-Gi-Oh! : 60 premiers résultats, précise ta recherche.</div>' : '');
   }
   box.innerHTML = head + body;
@@ -2189,7 +2254,15 @@ function renderResults(msg){
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
       c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
-  if ($('#rgrid')) $('#rgrid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
+  if ($('#rgrid')) $('#rgrid').onclick = e => {
+    const ob = e.target.closest('.own');
+    if (ob){ e.stopPropagation(); const k = ob.dataset.own, on = !owned()[k];
+      if (on) owned()[k] = 1; else delete owned()[k];
+      { const x = sset.x; (state.ownSets ||= {})[ownPrefix(sset.g, x)] = { g: sset.g, x: { id: x.id, name: x.name, code: x.code, n: stotal, img: x.img || '', card: x.card, date: x.date || '' } }; }
+      save(); ob.classList.toggle('on', on); ob.closest('.tile').classList.toggle('owned', on); ob.closest('.tile').classList.toggle('missing', !on);
+      if ($('#setprog')) $('#setprog').innerHTML = progHTML(ownCount(sset.g, sset.x), stotal);
+      return; }
+    const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
