@@ -203,6 +203,18 @@ select.field option{background:var(--surface)}
 .bloc:not([open])>summary::after{transform:rotate(-90deg)}
 .bloc .sets{margin-bottom:10px}
 .tile{position:relative}
+/* Versions d'une carte (pastilles sous la tuile) */
+.vars{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px}
+.var{width:32px;height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--inset);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);padding:0;transition:border-color .15s,background .15s}
+.var:hover{border-color:#4a4f5c;color:var(--ink)}
+.var.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.var svg{width:20px;height:20px;display:block}
+.vlab{font-size:11.5px;font-weight:700;color:var(--muted);margin-left:3px;white-space:nowrap}
+.img.rev::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.28) 28%,rgba(140,210,255,.22) 34%,transparent 44%,transparent 58%,rgba(255,190,240,.2) 66%,rgba(255,255,255,.26) 71%,transparent 80%);
+  mix-blend-mode:screen;background-size:220% 220%;animation:revShine 3.2s ease-in-out infinite}
+@keyframes revShine{0%,100%{background-position:0% 0%}50%{background-position:100% 100%}}
+@media (prefers-reduced-motion:reduce){.img.rev::after{animation:none}}
 .own{position:absolute;top:18px;right:18px;z-index:3;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(10,11,14,.55);color:transparent;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(3px)}
 .own:hover{color:rgba(255,255,255,.7)}
 .own.on{background:#3ecf8e;border-color:#3ecf8e;color:#08140e}
@@ -331,6 +343,10 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Egyptian+Hieroglyphs&display=swap">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="vgRainbow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6b9a"/><stop offset=".3" stop-color="#ffd25e"/><stop offset=".55" stop-color="#6ff0b4"/><stop offset=".8" stop-color="#6fb7ff"/><stop offset="1" stop-color="#c38bff"/></linearGradient>
+  <linearGradient id="vgHolo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fe7ff"/><stop offset=".5" stop-color="#e7c6ff"/><stop offset="1" stop-color="#ffe3a3"/></linearGradient>
+</defs></svg>
 <header>
   <div class="wrap top">
     <div class="logo">
@@ -2069,6 +2085,44 @@ function bindXSide(){
     el.onchange = () => renderResults(); });
 }
 
+/* ---- Versions d'une carte Pokémon : Normale, Holo, Reverse, 1re édition / Illimitée ---- */
+const VICON = {
+  normal: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.6" y="5.2" width="8.8" height="6.6" rx="1" fill="currentColor" opacity=".35"/><path d="M7.8 14.6h8.4M7.8 17.2h5.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  holo: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.6" y="5.2" width="8.8" height="6.6" rx="1" fill="url(#vgHolo)"/><path d="M12 13.2l1 2.3 2.4.3-1.8 1.6.5 2.4-2.1-1.2-2.1 1.2.5-2.4-1.8-1.6 2.4-.3z" fill="#ffd25e"/></svg>',
+  reverse: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="url(#vgRainbow)"/><rect x="7.6" y="5.2" width="8.8" height="6.6" rx="1" fill="#14161c"/><path d="M6 20.5L18 8.5" stroke="#fff" stroke-width="1.4" opacity=".7"/><path d="M8.8 21.3L19 11" stroke="#fff" stroke-width=".8" opacity=".55"/></svg>',
+  '1st': '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="#111" stroke="#f2f2f4" stroke-width="1.6"/><path d="M10.2 8.9l2.6-1.7v9.6M10.4 16.8h4.8" stroke="#f2f2f4" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  unl: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12c-1.3-1.6-2.4-2.3-3.4-2.3a2.3 2.3 0 000 4.6c1 0 2.1-.7 3.4-2.3zm0 0c1.3 1.6 2.4 2.3 3.4 2.3a2.3 2.3 0 000-4.6c-1 0-2.1.7-3.4 2.3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'
+};
+const VLABEL = { normal: 'Normale', holo: 'Holo', reverse: 'Reverse', '1st': '1re édition', unl: 'Illimitée' };
+function pkVars(c){
+  if (!c || c.game !== 'pkm' || !c.prices) return [];
+  const v = c.variants, out = [];
+  if ((c.editions || []).length){
+    c.editions.forEach(e => out.push({ k: e, price: c.edPrices ? c.edPrices[e] ?? null : (e === c.editions[0] ? c.prices.normal : null), img: c.edImgs && c.edImgs[e] ? c.edImgs[e].lo : null }));
+  } else {
+    if (!v || v.normal || !v.holo) out.push({ k: 'normal', price: c.prices.normal });
+    if (v && v.holo) out.push({ k: 'holo', price: v.normal ? null : c.prices.normal });
+  }
+  if ((!v || v.reverse) && c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });
+  return out;
+}
+function varsHTML(c){
+  const vs = pkVars(c); if (!vs.length) return '';
+  return `<div class="vars">${vs.map((x, j) => `<span class="var ${j ? '' : 'on'}" role="button" data-var="${x.k}" title="${VLABEL[x.k]}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.k]}</span>`).join('')}<span class="vlab">${VLABEL[vs[0].k]}</span></div>`;
+}
+// Clic sur une pastille : photo, prix et libellé de la tuile changent ; l'ouverture de la carte suivra cette version
+function pickVar(tile, c, k){
+  const x = pkVars(c).find(y => y.k === k); if (!x) return;
+  tile.dataset.var = k;
+  tile.querySelectorAll('.var').forEach(b => b.classList.toggle('on', b.dataset.var === k));
+  const lab = tile.querySelector('.vlab'); if (lab) lab.textContent = VLABEL[k];
+  const box = tile.querySelector('.img'); if (box) box.classList.toggle('rev', k === 'reverse');
+  const im = box && box.querySelector('img');
+  if (im){ const src = x.img || c.img; if (src && im.getAttribute('src') !== src) im.src = src; }
+  const pb = tile.querySelector('.tprice b'); if (pb) pb.textContent = eur(x.price);
+}
+const varPre = k => !k ? null : k === 'reverse' ? { variant: 'reverse' } : k === '1st' || k === 'unl' ? { edition: k } : null;
+
 function resultTiles(cards, mk, sset){
   return `<div class="results" id="rgrid">${cards.map((c, i) => { const ok = sset ? ownKey(sset.g, sset.x.name, c.id) : null, has = ok && owned()[ok]; return `
       <button class="tile${sset ? (has ? ' owned' : ' missing') : ''}" data-r="${i}">
@@ -2076,8 +2130,8 @@ function resultTiles(cards, mk, sset){
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div></div>
-        <div class="tprice"><b>${eur(c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div>${c.game === 'pkm' ? varsHTML(c) : ''}</div>
+        <div class="tprice"><b>${eur(c.game === 'pkm' && pkVars(c).length ? pkVars(c)[0].price : c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`; }).join('')}
     </div>`;
 }
@@ -2263,8 +2317,11 @@ function renderResults(msg){
       save(); ob.classList.toggle('on', on); ob.closest('.tile').classList.toggle('owned', on); ob.closest('.tile').classList.toggle('missing', !on);
       if ($('#setprog')) $('#setprog').innerHTML = progHTML(ownCount(sset.g, sset.x), stotal);
       return; }
+    const vb = e.target.closest('.var');
+    if (vb){ e.stopPropagation(); const t = vb.closest('.tile'); pickVar(t, cards[+t.dataset.r], vb.dataset.var); return; }
     const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
+    if (c.game === 'pkm' && t.dataset.var){ renderConfigure(c, varPre(t.dataset.var)); return; }
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
