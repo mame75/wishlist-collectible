@@ -2339,9 +2339,9 @@ async function getHomeSets(){
   const today = new Date().toISOString().slice(0, 10);
   const [ps, ys, series] = await Promise.all([
     cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => []),
-    cached('home4:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
+    cached('home5:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
       ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 160)
-          .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => []),
+          .map(x => ({ name: String(x.set_name).replace(/&apos;|&#0?39;/g, "'").replace(/&amp;/g, '&'), code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => []),
     cached('home3:pseries', async () => { const l = await API.getJSON('https://api.tcgdex.net/v2/fr/series');
       return (await Promise.all((l || []).filter(s => s.id !== 'tcgp').map(s => API.getJSON(`https://api.tcgdex.net/v2/fr/series/${encodeURIComponent(s.id)}`).catch(() => null)))).filter(Boolean)
         .map(s => ({ id: s.id, name: s.name, date: s.releaseDate || '', sets: (s.sets || []).map(x => ({ id: x.id, name: x.name, n: x.cardCount && (x.cardCount.total || x.cardCount.official), img: x.logo ? x.logo + '.png' : '' })) })); }).catch(() => [])
@@ -2357,7 +2357,7 @@ async function getHomeSets(){
     .filter(s => s.sets.length)
     .sort((a, b) => (SIDE_SERIES.includes(a.id) - SIDE_SERIES.includes(b.id)) || b.date.localeCompare(a.date));
   // Yu-Gi-Oh! : extensions classiques (boosters, decks, coffrets…) et extensions de tournoi (packs OTS, lots de tournoi, cartes de championnat…)
-  const yr = (ys || []).filter(x => x.date <= today).map(x => ({ ...x, tour: YGO_TOURNEY.test(x.name) || /^(OP|UP|TP|CH|WI|TYP|YCS|WCS|WCP)\d/i.test(x.code || '') }));
+  const yr = (ys || []).filter(x => x.date <= today).map(x => ({ ...x, tour: YGO_TOURNEY.test(x.name) || /^(OP|UP|TP|WI|TYP|YCS|WCS|WCP)\d/i.test(x.code || '') }));
   return { blocs, pkm: blocs.flatMap(s => s.sets), ygo: [...yr.filter(x => !x.tour).slice(0, 36), ...yr.filter(x => x.tour).slice(0, 18)] };
 }
 let homeSets = null, setsGame = 'all';
