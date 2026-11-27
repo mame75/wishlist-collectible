@@ -3189,7 +3189,8 @@ async function pkmReprints(card){
     if (v.id === ref.id) return true;
     if (/^tcgpj-/.test(v.id)) return null;   // décidé plus bas (version miroir d'une édition retenue)
     const vl = v.ocg ? 'ja' : v.lang, o = await pkSigOf(v.id, vl);
-    if (o.none || o.c !== me.c) return false;
+    // rareté connue par TCGplayer (édition japonaise sans rareté chez TCGdex, ex. SSR) : même famille d'illustration exigée
+    if (o.none || o.c !== me.c || (v.rarity && artCls(rarName(v.rarity, rarCtx(v))) !== me.c && artCls(v.rarity) !== me.c)) return false;
     if (vl === rl) return o.s === me.s;
     // Autre langue : texte traduit, on compare le reste ; l'illustrateur seulement s'il est connu des deux côtés
     return o.l === me.l && (!o.il || !me.il || o.il === me.il);
