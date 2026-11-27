@@ -2751,7 +2751,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
       + rows.map(p => `<button class="ed ${groups[p._g].some(x => x.key === selKey) ? 'on' : ''}" data-k="${esc(p.key)}" data-g="${p._g}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo, holoR: p.rarity }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${p.code ? ygoAbbr(p.code, p.set) : ''}${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div>
-            ${p._n > 1 ? `<div class="vars">${groups[p._g].map((x, j) => `<span class="var txt ${x === p ? 'on' : ''}" role="button" data-j="${j}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(groups[p._g], x))}</span>`).join('')}</div>` : ''}</div>
+            ${p._n ? `<div class="vars">${groups[p._g].map((x, j) => `<span class="var txt ${x === p ? 'on' : ''}" role="button" data-j="${j}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(groups[p._g], x))}</span>`).join('')}</div>` : ''}</div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
   };
