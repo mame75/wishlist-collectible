@@ -216,7 +216,7 @@ select.field option{background:var(--surface)}
 .bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:16px 22px;min-height:96px}
 .bloc>summary::-webkit-details-marker{display:none}
 .bloc>summary h3{margin:0;font-size:20px;font-weight:800;display:flex;align-items:center;min-height:64px}
-.blogo{height:64px;width:320px;max-width:60vw;object-fit:contain;object-position:left center;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
+.blogo{width:240px;height:auto;max-height:84px;max-width:60vw;object-fit:contain;object-position:left center;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))}
 .bloc>summary .hint{margin-left:auto;text-align:right;font-weight:600}
 .bloc>summary::after{content:'';width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .25s;margin:0 4px 4px 6px;flex:none}
 .bloc[open]>summary::after{transform:rotate(225deg);margin-bottom:-4px}
@@ -224,7 +224,7 @@ select.field option{background:var(--surface)}
 .bloc .sets{margin:0;padding:20px 22px 24px;animation:blocIn .3s ease}
 @keyframes blocIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.bloc .sets{animation:none}}
-@media (max-width:640px){.bloc>summary{padding:12px 14px;min-height:76px}.blogo{height:46px;width:200px}.bloc .sets{padding:14px}}
+@media (max-width:640px){.bloc>summary{padding:12px 14px;min-height:76px}.blogo{width:170px;max-height:60px}.bloc .sets{padding:14px}}
 .tile{position:relative}
 /* Versions d'une carte (pastilles sous la tuile) */
 .vars{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px}
@@ -1379,6 +1379,8 @@ new MutationObserver(ms => { for (const m of ms) for (const nd of m.addedNodes) 
   .observe(document.documentElement, { childList: true, subtree: true });
 
 /* ========= Symboles d'extension (Poképédia, data/sym) ========= */
+let SERIE = {};   // logos des blocs Pokémon rognés à leurs bords (data/serie)
+fetch('data/serie.json').then(r => r.ok ? r.json() : {}).then(j => { SERIE = j || {}; if (view === 'sets') try { render(); } catch (e){} }).catch(() => {});
 let SYM = {}, LOGO = {}, YGRP = { c: {}, n: {} };
 // Visuel d'une extension Yu-Gi-Oh! : image publique de Collectr, rangée sous le numéro d'extension TCGplayer
 const ygoSetImg = x => { const g = YGRP.c[String(x.code || '').toUpperCase()] || YGRP.n[String(x.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')];
@@ -2396,7 +2398,7 @@ function setsHTML(){
     return '<div class="status">Chargement des extensions…</div>';
   }
   const pk = setsGame === 'ygo' ? '' : (homeSets.blocs || []).map((s, i) => { const own = s.sets.reduce((t, x) => t + ownCount('pkm', x), 0), tot = s.sets.reduce((t, x) => t + (x.n || 0), 0);
-    return `<details class="bloc" ${openBlocs.has(s.id) ? 'open' : ''} data-b="${esc(s.id)}"><summary><h3 title="${esc(s.name)}">${s.logo ? `<img class="blogo" src="${esc(s.logo)}" alt="${esc(s.name)}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">` : esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
+    return `<details class="bloc" ${openBlocs.has(s.id) ? 'open' : ''} data-b="${esc(s.id)}"><summary><h3 title="${esc(s.name)}">${s.logo || SERIE[s.id] ? `<img class="blogo" src="${esc(SERIE[s.id] ? `data/serie/${s.id}.png` : s.logo)}" alt="${esc(s.name)}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">` : esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
       <div class="sets">${s.sets.map(x => setTileHTML('pkm', x, x.id)).join('')}</div></details>`; }).join('') || (setsGame === 'pkm' ? '<div class="status">Indisponible pour le moment.</div>' : '');
   const ygBlock = (title, tour, open) => { const l = (homeSets.ygo || []).map((x, i) => [x, i]).filter(([x]) => !!x.tour === tour);
     return l.length ? `<details class="bloc" ${openBlocs.has('ygo' + tour) ? 'open' : ''} data-b="ygo${tour}"><summary><h3>${title}</h3><span class="hint">${l.length} extension${l.length > 1 ? 's' : ''}</span></summary>
