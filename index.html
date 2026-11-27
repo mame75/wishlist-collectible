@@ -200,6 +200,16 @@ select.field option{background:var(--surface)}
 .var.got{position:relative}
 .var.got::after{content:'';position:absolute;right:-3px;top:-3px;width:10px;height:10px;border-radius:50%;background:#3ecf8e;border:2px solid var(--surface)}
 .own.part{border-color:#3ecf8e}
+.gamepick{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.gametile{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:8px;cursor:pointer;color:var(--ink);text-align:left;transition:transform .15s,border-color .15s;min-height:220px}
+.gametile:hover{transform:translateY(-3px);border-color:var(--line2)}
+.gametile.pkm{background:linear-gradient(160deg,rgba(255,207,58,.12),transparent 60%),var(--surface)}
+.gametile.ygo{background:linear-gradient(160deg,rgba(167,139,250,.14),transparent 60%),var(--surface)}
+.gametile .gl{flex:1;display:flex;align-items:center;gap:12px;min-height:90px}
+.gametile .gl img{max-height:64px;max-width:31%;object-fit:contain;border-radius:6px}
+.gametile.ygo .gl img{background:#fff;padding:3px}
+.gametile .gn{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.gametile .gs{font-size:13px;color:var(--muted);font-weight:600}
 .bloc{margin:0 0 26px}
 .bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .bloc>summary::-webkit-details-marker{display:none}
@@ -2361,7 +2371,7 @@ async function getHomeSets(){
   const yr = (ys || []).filter(x => x.date <= today).map(x => ({ ...x, tour: YGO_TOURNEY.test(x.name) || /^(OP|UP|TP|WI|TYP|YCS|WCS|WCP)\d/i.test(x.code || '') }));
   return { blocs, pkm: blocs.flatMap(s => s.sets), ygo: [...yr.filter(x => !x.tour).slice(0, 36), ...yr.filter(x => x.tour).slice(0, 18)] };
 }
-let homeSets = null, setsGame = 'all';
+let homeSets = null, setsGame = null;   // null : choix du jeu d'abord
 function setTileHTML(g, x, k){
   const yimg = g === 'ygo' ? ygoSetImg(x) : null, alt = g === 'ygo' ? x.img || `https://images.ygoprodeck.com/images/sets/${x.code}.jpg` : null;
   const src = g === 'pkm' ? ((x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img) : yimg || alt;
@@ -2385,14 +2395,29 @@ function setsHTML(){
     return l.length ? `<details class="bloc" ${open ? 'open' : ''}><summary><h3>${title}</h3><span class="hint">${l.length} extension${l.length > 1 ? 's' : ''}</span></summary>
       <div class="sets">${l.map(([x, i]) => setTileHTML('ygo', x, i)).join('')}</div></details>` : ''; };
   const yg = setsGame === 'pkm' ? '' : (ygBlock('Extensions classiques', false, true) + ygBlock('Extensions de tournoi', true, true)) || '<div class="status">Indisponible pour le moment.</div>';
-  return (setsGame === 'all' && pk ? '<h2 class="xh" style="font-size:20px">Pokémon</h2>' : '') + pk + (setsGame === 'all' ? '<h2 class="xh" style="font-size:20px;margin-top:10px">Yu-Gi-Oh!</h2>' : '') + yg;
+  return pk + yg;
 }
 const setOf = (g, k) => g === 'pkm' ? (homeSets.pkm || []).find(x => x.id === k) : homeSets.ygo[+k];
+// Choix du jeu (comme Collectr) : une grande tuile par jeu, avec ses dernières extensions
+function gamePickHTML(){
+  const pk = homeSets ? homeSets.pkm || [] : [], yg = homeSets ? homeSets.ygo || [] : [];
+  const logos = (g, l) => l.slice(0, 3).map(x => { const src = g === 'pkm' ? ((x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img) : ygoSetImg(x) || x.img;
+    return src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''; }).join('');
+  const tile = (g, name, l, sub) => `<button class="gametile ${g}" data-g="${g}">
+      <div class="gl">${homeSets ? logos(g, l) : ''}</div>
+      <div class="gn">${name}</div>
+      <div class="gs">${homeSets ? sub : 'Chargement…'}</div></button>`;
+  return `<div class="gamepick">${tile('pkm', 'Pokémon', pk, `${pk.length} extensions · ${(homeSets && homeSets.blocs || []).length} blocs`)}${tile('ygo', 'Yu-Gi-Oh!', yg, `${yg.length} dernières extensions · classiques et tournoi`)}</div>`;
+}
 function renderSets(){
-  $('#main').innerHTML = `<section class="xhead"><div class="gridhead" style="margin:0"><h2 style="margin:0;font-size:22px">Extensions</h2>
-      <div class="chips" id="setsG">${[['all','Tous'],['pkm','Pokémon'],['ygo','Yu-Gi-Oh!']].map(([v, l]) => `<button class="chip ${setsGame === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div></section>
-    <section style="padding:20px 0 80px" id="setsBody">${setsHTML()}</section>`;
-  $('#setsG').onclick = e => { const c = e.target.closest('.chip'); if (c){ setsGame = c.dataset.v; renderSets(); } };
+  if (!homeSets) getHomeSets().then(d => { homeSets = d; if (view === 'sets') renderSets(); });
+  const title = setsGame === 'pkm' ? 'Pokémon' : setsGame === 'ygo' ? 'Yu-Gi-Oh!' : 'Extensions';
+  $('#main').innerHTML = `<section class="xhead"><div class="gridhead" style="margin:0">
+      ${setsGame ? '<button class="btn ghost sm" id="setsBackG">← Jeux</button>' : ''}<h2 style="margin:0;font-size:22px">${title}</h2>
+      ${setsGame ? '' : '<span class="hint">Choisis un jeu pour voir ses extensions</span>'}</div></section>
+    <section style="padding:20px 0 80px" id="setsBody">${setsGame ? setsHTML() : gamePickHTML()}</section>`;
+  if ($('#setsBackG')) $('#setsBackG').onclick = () => { setsGame = null; renderSets(); window.scrollTo(0, 0); };
+  $('#setsBody').querySelectorAll('.gametile').forEach(b => b.onclick = () => { setsGame = b.dataset.g; renderSets(); window.scrollTo(0, 0); });
   $('#setsBody').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, setOf(b.dataset.g, b.dataset.k)));
 }
 
@@ -3835,6 +3860,7 @@ async function importFromCm(d){
 /* ========= Navigation & démarrage ========= */
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.view === 'explore' && view === 'explore' && search.mode !== 'home'){ search.mode = 'home'; search.q = ''; search.token++; resetResults(search); xf = { ...xf, set:'', rarity:'' }; }
+  if (b.dataset.view === 'sets' && view === 'sets') setsGame = null;   // re-clic sur « Sets » : retour au choix du jeu
   goView(b.dataset.view); };
 load();
 cachePrune(false);
