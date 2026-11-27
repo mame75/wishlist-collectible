@@ -2732,7 +2732,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     $('#edm').innerHTML = [['all','Toutes'],['tcg','TCG'],['ocg','OCG']].map(([m, l]) =>
       `<button class="chip ${mkt===m?'on':''}" data-m="${m}">${l}<span>${m === 'ocg' && ocgState === 'loading' ? '…' : n(m)}</span></button>`).join('');
     $('#edinfo').textContent = ocgState === 'loading' ? 'Recherche des éditions japonaises sur Yugipedia…'
-      : mkt === 'ocg' ? 'Éditions japonaises et scans : Yugipedia' : 'De la plus rare à la moins rare';
+      : mkt === 'ocg' ? 'Éditions japonaises et scans : Yugipedia' : 'Une tuile par extension, de la plus récente à la plus ancienne · clique une rareté pour la voir';
   };
   const draw = () => {
     chips();
