@@ -193,7 +193,13 @@ select.field option{background:var(--surface)}
 .prog.full i{background:#3ecf8e}
 .progn{font-size:12px;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;gap:8px}
 .progn b{color:var(--ink);font-variant-numeric:tabular-nums}
-.setprog{min-width:220px;flex:1;max-width:360px}
+.setprog{min-width:220px;flex:1;max-width:360px;display:flex;flex-direction:column;gap:6px}
+.prog.master i{background:#a78bfa}
+.progn i{font-style:normal;color:var(--faint);margin-right:2px}
+.settile .prog.master{height:4px}
+.var.got{position:relative}
+.var.got::after{content:'';position:absolute;right:-3px;top:-3px;width:10px;height:10px;border-radius:50%;background:#3ecf8e;border:2px solid var(--surface)}
+.own.part{border-color:#3ecf8e}
 .bloc{margin:0 0 26px}
 .bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .bloc>summary::-webkit-details-marker{display:none}
@@ -454,7 +460,7 @@ function listPickHTML(sel){
 }
 function bindListPick(){ const b = $('#lpick'); if (b) b.onclick = e => { const c = e.target.closest('.chip'); if (c) c.classList.toggle('on'); }; }
 const readListPick = () => [...document.querySelectorAll('#lpick .chip.on')].map(c => c.dataset.l);
-function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
+function save(){ migrateOwned(); try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
 
 /* ========= Cache local (24 h) =========
    Garde dans le navigateur les cartes et recherches déjà consultées : moins d'appels aux bases,
@@ -1349,11 +1355,36 @@ const ygoSetImg = x => { const g = YGRP.c[String(x.code || '').toUpperCase()] ||
 const owned = () => (state.owned ||= {});
 const ownKey = (g, set, id) => g === 'pkm' ? `pkm:${id}` : `ygo:${set}|${id}`;
 const ownPrefix = (g, x) => g === 'pkm' ? `pkm:${x.id}-` : `ygo:${x.name}|`;
-const ownCount = (g, x) => { const p = ownPrefix(g, x); let n = 0; for (const k in owned()) if (k.startsWith(p)) n++; return n; };
-function progHTML(n, total){
+// Pokémon : une clé par version possédée (« pkm:<id>#base », « #reverse », « #s<n° TCGplayer> »… ; « base » = première version de la carte)
+const cardOf = k => k.split('#')[0];
+// Cartes de l'extension dont on a au moins une version
+const ownCount = (g, x) => { const p = ownPrefix(g, x), s = new Set(); for (const k in owned()) if (k.startsWith(p)) s.add(cardOf(k)); return s.size; };
+// Versions possédées (master set)
+const verCount = (g, x) => { const p = ownPrefix(g, x); let n = 0; for (const k in owned()) if (k.startsWith(p)) n++; return n; };
+const hasCard = key => { for (const k in owned()) if (k === key || k.startsWith(key + '#')) return true; return false; };
+const verKey = (c, k) => { const b = pkVars(c)[0]; return !k || (b && b.k === k) ? 'base' : k; };
+const ownFull = (sset, c, k) => ownKey(sset.g, sset.x.name, c.id) + (sset.g === 'pkm' ? '#' + verKey(c, k) : '');
+// Anciennes coches (avant les versions) : comptées comme la version de base
+function migrateOwned(){ const o = state.owned || {};
+  if (Object.keys(o).some(k => k.startsWith('pkm:') && !k.includes('#')))
+    state.owned = Object.fromEntries(Object.entries(o).map(([k, v]) => [k.startsWith('pkm:') && !k.includes('#') ? k + '#base' : k, v])); }
+function progHTML(n, total, label){
   const pc = total ? Math.min(100, n / total * 100) : 0;
-  return `<div class="progn"><span><b>${n}</b> / ${total || '?'}</span><span>${total ? Math.round(pc) + ' %' : ''}</span></div>
-    <div class="prog ${total && n >= total ? 'full' : ''}"><i style="width:${pc}%"></i></div>`;
+  return `<div class="progn"><span>${label ? `<i>${label}</i> ` : ''}<b>${n}</b> / ${total || '?'}</span><span>${total ? Math.round(pc) + ' %' : ''}</span></div>
+    <div class="prog ${total && n >= total ? 'full' : ''}${label === 'Master set' ? ' master' : ''}"><i style="width:${pc}%"></i></div>`;
+}
+// Total « master set » (toutes les versions de toutes les cartes) : calculé en ouvrant l'extension, puis mémorisé
+const masterTot = (g, x) => g === 'pkm' && state.master && state.master[x.id] ? state.master[x.id] : null;
+const masterHTML = (g, x) => { const t = masterTot(g, x); return t ? progHTML(verCount(g, x), t, 'Master set') : ''; };
+async function computeMaster(x, briefs, onDone){
+  const spec = TCGPV && TCGPV[x.id] ? await tcgpvSet(x.id) : {};
+  let tot = 0;
+  await mapLimit(briefs, 6, async b => { const c = await API.pkmCard(b.id, 'fr').catch(() => null) || await API.pkmCard(b.id, 'en').catch(() => null);
+    if (!c){ tot += 1; return; }
+    const seen = new Set(); ((spec[pkNumKey(c)]) || []).forEach(([k, l]) => seen.add(k + '|' + specLabel(k, l)));
+    const base = pkVars({ ...c, spec: [...seen].map(s => ({ kind: s.split('|')[0] })) }).length - seen.size;
+    tot += base + seen.size; });
+  (state.master ||= {})[x.id] = tot; save(); onDone && onDone(tot);
 }
 const pkSid = c => !c || c.game === 'ygo' || c.manual || !c.id || /^tcgpj-/.test(c.id) ? null : String(c.id).slice(0, String(c.id).lastIndexOf('-'));
 const symHTML = (sid, name) => sid && SYM[sid] ? `<img class="sicon" src="data/sym/${encodeURIComponent(sid)}.png" alt="${esc(name || '')}" title="${esc(name || '')}" loading="lazy" onerror="this.remove()">` : '';
@@ -1634,7 +1665,8 @@ function render(){
   if (view === 'card'){ if (!$('#cardBody')){ view = 'explore'; renderExplore(); } return; }   // page carte : gérée par renderConfigure
 
   if (view === 'collection'){
-    const n = Object.keys(owned()).length;
+    migrateOwned();
+    const n = new Set(Object.keys(owned()).map(cardOf)).size, nv = Object.keys(owned()).length;
     if (!n){ main.innerHTML = `<div class="wip"><h2 style="margin:0 0 6px">Ta collection est vide</h2>
       <p style="color:var(--muted);margin:0 0 16px">Ouvre une extension dans <b>Sets</b> et coche ✓ sur les cartes que tu possèdes : la progression de chaque extension se met à jour.</p>
       <button class="btn primary" id="toSets">Voir les extensions</button></div>`;
@@ -1643,7 +1675,7 @@ function render(){
     const mine = Object.entries(state.ownSets || {}).map(([k, v]) => [v.g, v.x, k]).filter(([g, x]) => ownCount(g, x))
       .sort((a, b) => ownCount(b[0], b[1]) / (b[1].n || 1) - ownCount(a[0], a[1]) / (a[1].n || 1));
     main.innerHTML = `<section class="hero"><div><div class="lbl">Ma collection</div><div class="val">${n} carte${n > 1 ? 's' : ''}</div>
-        <div class="meta"><span><b>${mine.length}</b> extension${mine.length > 1 ? 's' : ''} commencée${mine.length > 1 ? 's' : ''}</span></div></div></section>
+        <div class="meta"><span><b>${nv}</b> version${nv > 1 ? 's' : ''}</span><span><b>${mine.length}</b> extension${mine.length > 1 ? 's' : ''} commencée${mine.length > 1 ? 's' : ''}</span></div></div></section>
       <section style="padding:20px 0 80px"><div class="sets" id="colSets">${mine.map(([g, x, k]) => setTileHTML(g, x, k)).join('')}</div></section>`;
     $('#colSets').querySelectorAll('.settile').forEach(b => b.onclick = () => openSet(b.dataset.g, state.ownSets[b.dataset.k].x));
     return;
@@ -2166,19 +2198,28 @@ function pickVar(tile, c, k){
 }
 const varPre = (k, c) => { if (!k) return null; if (k === 'reverse') return { variant: 'reverse' }; if (k === '1st' || k === 'unl') return { edition: k };
   const s = c && (c.spec || []).find(x => x.k === k); return s ? { special: s } : null; };
+// État « Je l'ai » d'une tuile : coche de la version affichée, pastilles des versions possédées, carte grisée si aucune
+function markOwned(t, c, sset){
+  if (!t || !sset || !c) return;
+  const ck = ownKey(sset.g, sset.x.name, c.id), any = hasCard(ck), on = !!owned()[sset.g === 'pkm' ? ownFull(sset, c, t.dataset.var) : ck];
+  const ob = t.querySelector('.own'); if (ob){ ob.classList.toggle('on', on); ob.classList.toggle('part', !on && any); ob.setAttribute('aria-checked', on ? 'true' : 'false'); }
+  t.classList.toggle('owned', any); t.classList.toggle('missing', !any);
+  if (sset.g === 'pkm') t.querySelectorAll('.var').forEach(b => b.classList.toggle('got', !!owned()[ownFull(sset, c, b.dataset.var)]));
+}
 // Après affichage des tuiles : ajoute les pastilles des versions spéciales
 function fillSpecials(cards, gridSel){
   if (!TCGPV){ setTimeout(() => fillSpecials(cards, gridSel), 400); return; }
   cards.forEach((c, i) => { if (c.game !== 'pkm' || c.spec !== undefined) return;
     loadSpecials(c).then(sp => { if (!sp.length) return; const t = document.querySelector(`${gridSel} .tile[data-r="${i}"]`); if (!t) return;
       const cur = t.dataset.var, box = t.querySelector('.vars'); if (!box) return;
-      box.outerHTML = varsHTML(c); if (cur) pickVar(t, c, cur); }); });
+      box.outerHTML = varsHTML(c); if (cur) pickVar(t, c, cur); if (search.isSet && search.set) markOwned(t, c, search.set); }); });
 }
 
 function resultTiles(cards, mk, sset){
-  return `<div class="results" id="rgrid">${cards.map((c, i) => { const ok = sset ? ownKey(sset.g, sset.x.name, c.id) : null, has = ok && owned()[ok]; return `
-      <button class="tile${sset ? (has ? ' owned' : ' missing') : ''}" data-r="${i}"${c.game === 'pkm' && varFirst(c) ? ` data-var="${varFirst(c).k}"` : ''}>
-        ${sset ? `<span class="own ${has ? 'on' : ''}" data-own="${esc(ok)}" role="checkbox" aria-checked="${has ? 'true' : 'false'}" title="Je l'ai">✓</span>` : ''}
+  return `<div class="results" id="rgrid">${cards.map((c, i) => { const ck = sset ? ownKey(sset.g, sset.x.name, c.id) : null, any = ck && hasCard(ck);
+      const f = c.game === 'pkm' ? varFirst(c) : null, has = ck && owned()[sset.g === 'pkm' ? ownFull(sset, c, f && f.k) : ck]; return `
+      <button class="tile${sset ? (any ? ' owned' : ' missing') : ''}" data-r="${i}"${c.game === 'pkm' && varFirst(c) ? ` data-var="${varFirst(c).k}"` : ''}>
+        ${sset ? `<span class="own ${has ? 'on' : any ? 'part' : ''}" role="checkbox" aria-checked="${has ? 'true' : 'false'}" title="Je l'ai (version affichée)">✓</span>` : ''}
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
@@ -2223,6 +2264,7 @@ function setTileHTML(g, x, k){
       <div class="tname">${g === 'pkm' ? symHTML(x.id, x.name) : x.code ? `<span class="sabbr">${esc(x.code)}</span>` : ''}${esc(x.name)}</div>
       <div class="tsub">${[x.date ? new Date(x.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) : ''].filter(Boolean).join(' · ')}</div>
       ${progHTML(ownCount(g, x), x.n)}
+      ${masterHTML(g, x)}
     </button>`;
 }
 function setsHTML(){
@@ -2345,9 +2387,17 @@ function renderResults(msg){
     : ['intl','asia'].find(m => s.groups[m].shown < s.groups[m].briefs.length) || null;
   const busy = [s.pkmBusy && 'Pokémon', s.ygoLoading && 'Yu-Gi-Oh!', s.ocgLoading && 'éditions OCG', s.eaLoading && 'illustrations étendues'].filter(Boolean);
   const sset = s.isSet && s.set, stotal = sset ? Math.max(sset.x.n || 0, list.length) : 0;
+  const setProgHTML = () => progHTML(ownCount(sset.g, sset.x), stotal, sset.g === 'pkm' ? 'Cartes' : '') + (sset.g === 'pkm' ? (masterTot('pkm', sset.x)
+    ? progHTML(verCount('pkm', sset.x), masterTot('pkm', sset.x), 'Master set') : '<div class="progn"><span><i>Master set</i> calcul des versions…</span></div>') : '');
+  // Total master set : toutes les versions de toutes les cartes (calculé une fois par ouverture, en arrière-plan)
+  if (sset && sset.g === 'pkm' && s.masterFor !== sset.x.id && s.groups.intl.briefs.length){
+    s.masterFor = sset.x.id;
+    const tok = s.token;
+    computeMaster(sset.x, s.groups.intl.briefs, () => { if (tok === s.token && $('#setprog')) $('#setprog').innerHTML = setProgHTML(); });
+  }
   const head = `<div class="gridhead">${s.isSet ? '<button class="btn ghost sm" id="setBack">← Sets</button>' : ''}<h3 class="xh" style="margin:0">${esc(s.label)}</h3>
       <span class="count">${cards.length} carte${cards.length > 1 ? 's' : ''}</span>
-      ${sset ? `<div class="setprog" id="setprog" title="Cartes de l'extension que tu possèdes : coche ✓ sur chaque carte">${progHTML(ownCount(sset.g, sset.x), stotal)}</div>` : ''}
+      ${sset ? `<div class="setprog" id="setprog" title="Coche ✓ sur chaque carte : la version affichée (pastille choisie) est ajoutée à ta collection">${setProgHTML()}</div>` : ''}
       ${busy.length ? `<span class="hint">Recherche : ${busy.join(', ')}…</span>` : ''}</div>`;
   let body;
   if (!cards.length) body = `<div class="status">${busy.length ? 'Recherche…' : 'Aucune carte ne correspond. Modifie la recherche ou les filtres.'}</div>`;
@@ -2358,20 +2408,22 @@ function renderResults(msg){
   }
   box.innerHTML = head + body;
   if (cards.length) fillSpecials(cards, '#rgrid');
+  if (sset) document.querySelectorAll('#rgrid .tile').forEach(t => markOwned(t, cards[+t.dataset.r], sset));
   const openResult = c => {
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
       c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
   if ($('#rgrid')) $('#rgrid').onclick = e => {
     const ob = e.target.closest('.own');
-    if (ob){ e.stopPropagation(); const k = ob.dataset.own, on = !owned()[k];
+    if (ob){ e.stopPropagation(); const t = ob.closest('.tile'), c = cards[+t.dataset.r];
+      const k = ownFull(sset, c, t.dataset.var), on = !owned()[k];
       if (on) owned()[k] = 1; else delete owned()[k];
       { const x = sset.x; (state.ownSets ||= {})[ownPrefix(sset.g, x)] = { g: sset.g, x: { id: x.id, name: x.name, code: x.code, n: stotal, img: x.img || '', card: x.card, date: x.date || '' } }; }
-      save(); ob.classList.toggle('on', on); ob.closest('.tile').classList.toggle('owned', on); ob.closest('.tile').classList.toggle('missing', !on);
-      if ($('#setprog')) $('#setprog').innerHTML = progHTML(ownCount(sset.g, sset.x), stotal);
+      save(); markOwned(t, c, sset);
+      if ($('#setprog')) $('#setprog').innerHTML = setProgHTML();
       return; }
     const vb = e.target.closest('.var');
-    if (vb){ e.stopPropagation(); const t = vb.closest('.tile'); pickVar(t, cards[+t.dataset.r], vb.dataset.var); return; }
+    if (vb){ e.stopPropagation(); const t = vb.closest('.tile'); pickVar(t, cards[+t.dataset.r], vb.dataset.var); if (sset) markOwned(t, cards[+t.dataset.r], sset); return; }
     const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
     if (c.game === 'pkm' && t.dataset.var){ renderConfigure(c, varPre(t.dataset.var, c)); return; }
