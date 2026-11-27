@@ -2332,14 +2332,15 @@ function resultTiles(cards, mk, sset){
 }
 
 /* ---- Accueil d'Explore : dernières extensions ---- */
+const YGO_TOURNEY = /tournament|\bots\b|championship|prize card|winner'?s pack|thank you pack|duelist league|turbo pack|astral pack|participation|\bycs\b|world champ|regional|national|premiere|sneak peek|special edition prize|wcq/i;
 // Séries Pokémon hors blocs principaux : affichées à la fin
 const SIDE_SERIES = ['misc', 'pop', 'tk', 'mc'];
 async function getHomeSets(){
   const today = new Date().toISOString().slice(0, 10);
   const [ps, ys, series] = await Promise.all([
     cached('home2:psets', () => API.getJSON('https://api.tcgdex.net/v2/fr/sets')).catch(() => []),
-    cached('home3:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
-      ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 48)
+    cached('home4:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
+      ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 160)
           .map(x => ({ name: x.set_name, code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => []),
     cached('home3:pseries', async () => { const l = await API.getJSON('https://api.tcgdex.net/v2/fr/series');
       return (await Promise.all((l || []).filter(s => s.id !== 'tcgp').map(s => API.getJSON(`https://api.tcgdex.net/v2/fr/series/${encodeURIComponent(s.id)}`).catch(() => null)))).filter(Boolean)
@@ -2355,7 +2356,9 @@ async function getHomeSets(){
       .map(x => ({ ...x, date: dates[x.id] ? dates[x.id].date : '', img: x.img || (dates[x.id] && dates[x.id].img) || '', card: !x.img && !!(dates[x.id] && dates[x.id].img) })).reverse() }))
     .filter(s => s.sets.length)
     .sort((a, b) => (SIDE_SERIES.includes(a.id) - SIDE_SERIES.includes(b.id)) || b.date.localeCompare(a.date));
-  return { blocs, pkm: blocs.flatMap(s => s.sets), ygo: (ys || []).filter(x => x.date <= today).slice(0, 36) };
+  // Yu-Gi-Oh! : extensions classiques (boosters, decks, coffrets…) et extensions de tournoi (packs OTS, lots de tournoi, cartes de championnat…)
+  const yr = (ys || []).filter(x => x.date <= today).map(x => ({ ...x, tour: YGO_TOURNEY.test(x.name) || /^(OP|UP|TP|CH|WI|TYP|YCS|WCS|WCP)\d/i.test(x.code || '') }));
+  return { blocs, pkm: blocs.flatMap(s => s.sets), ygo: [...yr.filter(x => !x.tour).slice(0, 36), ...yr.filter(x => x.tour).slice(0, 18)] };
 }
 let homeSets = null, setsGame = 'all';
 function setTileHTML(g, x, k){
@@ -2377,8 +2380,10 @@ function setsHTML(){
   const pk = setsGame === 'ygo' ? '' : (homeSets.blocs || []).map((s, i) => { const own = s.sets.reduce((t, x) => t + ownCount('pkm', x), 0), tot = s.sets.reduce((t, x) => t + (x.n || 0), 0);
     return `<details class="bloc" ${i < 2 ? 'open' : ''}><summary><h3>${esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
       <div class="sets">${s.sets.map(x => setTileHTML('pkm', x, x.id)).join('')}</div></details>`; }).join('') || (setsGame === 'pkm' ? '<div class="status">Indisponible pour le moment.</div>' : '');
-  const yg = setsGame === 'pkm' ? '' : `<h3 class="xh">Dernières extensions Yu-Gi-Oh!</h3>
-    <div class="sets">${(homeSets.ygo || []).map((x, i) => setTileHTML('ygo', x, i)).join('') || '<div class="status">Indisponible pour le moment.</div>'}</div>`;
+  const ygBlock = (title, tour, open) => { const l = (homeSets.ygo || []).map((x, i) => [x, i]).filter(([x]) => !!x.tour === tour);
+    return l.length ? `<details class="bloc" ${open ? 'open' : ''}><summary><h3>${title}</h3><span class="hint">${l.length} extension${l.length > 1 ? 's' : ''}</span></summary>
+      <div class="sets">${l.map(([x, i]) => setTileHTML('ygo', x, i)).join('')}</div></details>` : ''; };
+  const yg = setsGame === 'pkm' ? '' : (ygBlock('Extensions classiques', false, true) + ygBlock('Extensions de tournoi', true, true)) || '<div class="status">Indisponible pour le moment.</div>';
   return (setsGame === 'all' && pk ? '<h2 class="xh" style="font-size:20px">Pokémon</h2>' : '') + pk + (setsGame === 'all' ? '<h2 class="xh" style="font-size:20px;margin-top:10px">Yu-Gi-Oh!</h2>' : '') + yg;
 }
 const setOf = (g, k) => g === 'pkm' ? (homeSets.pkm || []).find(x => x.id === k) : homeSets.ygo[+k];
