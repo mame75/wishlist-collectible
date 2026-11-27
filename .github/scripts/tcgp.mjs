@@ -61,7 +61,8 @@ console.log('extensions :', Object.keys(out).length, '— fichiers modifiés :',
 const cats = (await get('https://tcgcsv.com/tcgplayer/categories')).results || [];
 const jp = cats.find(c => /pok[eé]mon japan/i.test(c.name || c.displayName || ''));
 if (jp){
-  const cleanName = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+-\s+[A-Z]*\d+\/[A-Z]*\d+\s*$/i, '').trim();
+  // « Pikachu - 216/SV-P », « Dragonite V - 049/071 » : le numéro n'appartient pas au nom
+  const cleanName = s => String(s || '').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s*\[.*?\]\s*/g, ' ').trim().replace(/\s+-\s+[^-]*\d[^-]*$/, '').trim();
   const key = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
   const jgroups = (await get(`https://tcgcsv.com/tcgplayer/${jp.categoryId}/groups`)).results || [];
   const idx = {}, jg = {};   // jg : extension japonaise TCGplayer → cartes (pour le lien avec Cardmarket)
