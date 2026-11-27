@@ -203,7 +203,8 @@ select.field option{background:var(--surface)}
 .bloc{margin:0 0 26px}
 .bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
 .bloc>summary::-webkit-details-marker{display:none}
-.bloc>summary h3{margin:0;font-size:18px}
+.bloc>summary h3{margin:0;font-size:18px;display:flex;align-items:center;min-height:44px}
+.blogo{height:52px;max-width:240px;object-fit:contain;display:block}
 .bloc>summary .hint{margin-left:auto}
 .bloc>summary::after{content:'▾';color:var(--muted);transition:transform .2s}
 .bloc:not([open])>summary::after{transform:rotate(-90deg)}
@@ -2342,9 +2343,9 @@ async function getHomeSets(){
     cached('home5:ysets', () => API.getJSON('https://db.ygoprodeck.com/api/v7/cardsets.php').then(r => Array.isArray(r)
       ? r.filter(x => x.tcg_date && x.num_of_cards >= 10).sort((a, b) => b.tcg_date.localeCompare(a.tcg_date)).slice(0, 160)
           .map(x => ({ name: String(x.set_name).replace(/&apos;|&#0?39;/g, "'").replace(/&amp;/g, '&'), code: x.set_code, n: x.num_of_cards, date: x.tcg_date, img: x.set_image || null })) : [])).catch(() => []),
-    cached('home3:pseries', async () => { const l = await API.getJSON('https://api.tcgdex.net/v2/fr/series');
+    cached('home4:pseries', async () => { const l = await API.getJSON('https://api.tcgdex.net/v2/fr/series');
       return (await Promise.all((l || []).filter(s => s.id !== 'tcgp').map(s => API.getJSON(`https://api.tcgdex.net/v2/fr/series/${encodeURIComponent(s.id)}`).catch(() => null)))).filter(Boolean)
-        .map(s => ({ id: s.id, name: s.name, date: s.releaseDate || '', sets: (s.sets || []).map(x => ({ id: x.id, name: x.name, n: x.cardCount && (x.cardCount.total || x.cardCount.official), img: x.logo ? x.logo + '.png' : '' })) })); }).catch(() => [])
+        .map(s => ({ id: s.id, name: s.name, logo: s.logo ? s.logo + '.png' : '', date: s.releaseDate || '', sets: (s.sets || []).map(x => ({ id: x.id, name: x.name, n: x.cardCount && (x.cardCount.total || x.cardCount.official), img: x.logo ? x.logo + '.png' : '' })) })); }).catch(() => [])
   ]);
   // Dates de sortie des dernières extensions (pour écarter celles annoncées mais pas encore sorties)
   const recent = await Promise.all((ps || []).filter(x => !POCKET_SET.test(x.id)).slice(-30).map(x => cached(`pset1:${x.id}`, () => API.getJSON(`https://api.tcgdex.net/v2/fr/sets/${encodeURIComponent(x.id)}`)
@@ -2378,7 +2379,7 @@ function setsHTML(){
     return '<div class="status">Chargement des extensions…</div>';
   }
   const pk = setsGame === 'ygo' ? '' : (homeSets.blocs || []).map((s, i) => { const own = s.sets.reduce((t, x) => t + ownCount('pkm', x), 0), tot = s.sets.reduce((t, x) => t + (x.n || 0), 0);
-    return `<details class="bloc" ${i < 2 ? 'open' : ''}><summary><h3>${esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
+    return `<details class="bloc" ${i < 2 ? 'open' : ''}><summary><h3 title="${esc(s.name)}">${s.logo ? `<img class="blogo" src="${esc(s.logo)}" alt="${esc(s.name)}" loading="lazy" onerror="this.replaceWith(document.createTextNode(this.alt))">` : esc(s.name)}</h3><span class="hint">${s.sets.length} extension${s.sets.length > 1 ? 's' : ''}${own ? ` · ${own} / ${tot} cartes possédées` : ''}</span></summary>
       <div class="sets">${s.sets.map(x => setTileHTML('pkm', x, x.id)).join('')}</div></details>`; }).join('') || (setsGame === 'pkm' ? '<div class="status">Indisponible pour le moment.</div>' : '');
   const ygBlock = (title, tour, open) => { const l = (homeSets.ygo || []).map((x, i) => [x, i]).filter(([x]) => !!x.tour === tour);
     return l.length ? `<details class="bloc" ${open ? 'open' : ''}><summary><h3>${title}</h3><span class="hint">${l.length} extension${l.length > 1 ? 's' : ''}</span></summary>
