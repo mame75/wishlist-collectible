@@ -216,6 +216,11 @@ select.field option{background:var(--surface)}
 .var.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
 .var svg{width:20px;height:20px;display:block}
 .ysn{font-size:12px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;display:inline-block;vertical-align:middle}
+.vars.big{gap:8px}
+.vars.big .var{width:auto;height:auto;padding:6px 10px 6px 7px;gap:7px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.vars.big .var svg{width:22px;height:22px}
+.vars.big .var small{font-weight:600;color:var(--muted);font-size:11.5px}
+.vars.big .var.txt{padding:6px 10px}
 .var.txt{width:auto;min-width:30px;padding:0 7px;font-size:11px;font-weight:800;letter-spacing:.02em}
 .vinl svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px;color:var(--muted)}
 .vlab{font-size:11.5px;font-weight:700;color:var(--muted);margin-left:3px;white-space:nowrap}
@@ -2188,6 +2193,20 @@ function varsHTML(c){
   const vs = pkVars(c), f = varFirst(c); if (!vs.length) return '';
   return `<div class="vars">${vs.map(x => `<span class="var ${x === f ? 'on' : ''}" role="button" data-var="${x.k}" title="${esc(x.label || VLABEL[x.k])}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.kind || x.k]}</span>`).join('')}<span class="vlab">${esc(f.label || VLABEL[f.k])}</span></div>`;
 }
+// Pastilles de version dans la fiche d'une carte Pokémon (ajout ou wishlist) : o porte la version choisie
+// (o.variant normale / reverse, o.edition 1re / illimitée, o.special version spéciale) ; onPick reçoit la version cliquée
+const curVarKey = (c, o) => o.special ? 's' + o.special.pid : (c.editions || []).length ? (o.edition || c.editions[0]) : o.variant === 'reverse' ? 'reverse' : (pkVars(c)[0] || {}).k;
+async function bindVarChips(c, o, onPick){
+  const box = $('#cvars'); if (!box) return;
+  const draw = () => { if (!$('#cvars')) return; const cur = curVarKey(c, o);
+    $('#cvars').innerHTML = pkVars(c).map(x => `<button type="button" class="var ${x.k === cur ? 'on' : ''}" data-var="${x.k}" title="${esc(x.label || VLABEL[x.k])}">${VICON[x.kind || x.k]}${esc(x.label || VLABEL[x.k])}${x.price != null ? ` <small>${eur(x.price)}</small>` : ''}</button>`).join('') || '<span class="hint">Version unique</span>'; };
+  draw();
+  $('#cvars').onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = pkVars(c).find(y => y.k === b.dataset.var); if (!x) return;
+    o.special = x.pid ? { kind: x.kind, label: x.label, pid: x.pid, img: x.img, imgHi: x.imgHi, price: x.price } : null;
+    if (x.k === 'reverse') o.variant = 'reverse'; else { o.variant = 'normal'; if (x.k === '1st' || x.k === 'unl') o.edition = x.k; }
+    draw(); onPick && onPick(x); };
+  if (c.spec === undefined){ const base = c.base || c; await loadSpecials(base); c.spec = base.spec; draw(); }
+}
 // Clic sur une pastille : photo, prix et libellé de la tuile changent ; l'ouverture de la carte suivra cette version
 function pickVar(tile, c, k){
   const x = pkVars(c).find(y => y.k === k); if (!x) return;
@@ -2555,16 +2574,12 @@ function versionFields(o, card){
   const hasRev = card.prices ? card.prices.reverse != null : o.hasReverse;
   const prints = card.prints || [];
   return `
-    ${card.game === 'pkm' ? `<div><label class="l">Version</label>
-      <div class="seg" id="cvar"><button type="button" data-v="normal" class="${o.variant!=='reverse'?'on':''}">Normale / Holo</button>
-      <button type="button" data-v="reverse" class="${o.variant==='reverse'?'on':''}" ${hasRev?'':'disabled title="Pas de prix reverse disponible"'}>Reverse</button></div></div>` : ''}
-    ${card.game === 'pkm' && (card.editions || []).length ? `<div><label class="l">Édition</label>${card.editions.length > 1
-      ? `<div class="seg" id="ced">${card.editions.map(e => `<button type="button" data-e="${e}" class="${(o.edition || card.editions[0]) === e ? 'on' : ''}">${ED_LABEL[e]}</button>`).join('')}</div>`
-      : `<div class="hint">${ED_LABEL[card.editions[0]]} uniquement</div>`}</div>` : ''}
+    ${card.game === 'pkm' ? `<div><label class="l">Version</label><div class="vars big" id="cvars"></div></div>` : ''}
     ${prints.length ? `<div class="pp"><label class="l">Impression</label>
       <input type="hidden" id="cprint" value="${esc(o.printKey || (o.printCode ? printKey(findPrint(prints, o.printCode)) : ''))}">
       <div class="ppsum"><div class="t" id="ppsumT"></div>
         <button type="button" class="btn sm" id="ppOpen">Voir les éditions (${prints.length})</button></div>
+      <div class="vars big" id="ygvars" style="margin-top:8px"></div>
       <div class="row" id="eaRow" style="margin-top:8px"></div></div>` : ''}
     <div><label class="l">État</label>
       <div class="seg" id="cgr"><button type="button" data-g="0" class="${!o.graded?'on':''}">Raw</button><button type="button" data-g="1" class="${o.graded?'on':''}">Gradée</button></div></div>
@@ -2615,7 +2630,23 @@ function printSummary(prints, key){
 function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   if (!$('#ppOpen')) return;
   let list = prints.slice();
-  const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); drawEa(); };
+  const sum = () => { $('#ppsumT').innerHTML = printSummary(list, $('#cprint').value); drawEa(); drawRar(); };
+  // Raretés de l'extension de l'impression choisie (et ses illustrations étendues), en pastilles
+  let eaPool = [];
+  if (nameEn) tcgVariants(nameEn).then(v => { eaPool = v || []; drawRar(); }).catch(() => {});
+  const drawRar = () => {
+    const box = $('#ygvars'); if (!box) return;
+    const cur = findPrint(list, $('#cprint').value);
+    if (!cur || cur.link || !cur.set){ box.innerHTML = ''; return; }
+    const seen = new Set(), same = [...list, ...eaPool.map(v => ({ ...v, set: cur.set }))].filter(x => !x.link && !!x.ocg === !!cur.ocg
+      && (x.set === cur.set || (x.ea && list.some(y => y.code === x.code && y.set === cur.set))))
+      .filter(x => { const k = printKey(x); if (seen.has(k)) return false; seen.add(k); return true; })
+      .sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
+    if (same.length < 2){ box.innerHTML = ''; return; }
+    const ck = printKey(cur);
+    box.innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
+    box.onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = same.find(y => printKey(y) === b.dataset.k); if (x) select(x); };
+  };
   // Total des éditions comme dans la page « Choisir l'édition » : TCG + variantes étendues + OCG
   if (nameEn) Promise.all([tcgVariants(nameEn).catch(() => []), ocgPrints(nameEn).catch(() => [])]).then(([ea, jp]) => {
     const btn = $('#ppOpen'); if (!btn) return;
@@ -2687,7 +2718,8 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
   let all = prints.map(dec).sort((a, b) => !!a.ocg - !!b.ocg || (b.d || '').localeCompare(a.d || '') || a.set.localeCompare(b.set));
   const arts = {};   // code → illustration
   const selOcg = (all.find(p => p.key === selKey) || {}).ocg;
-  let mkt = selOcg ? 'ocg' : 'all', ocgState = nameEn ? 'loading' : 'none';
+  let mkt = selOcg ? 'ocg' : 'all', ocgState = nameEn ? 'loading' : 'none', groups = [];
+  const gsel = {};   // tuile → rareté affichée
   $('#edBody').innerHTML = `<div class="edhead">
       <div class="search">${ICON_SEARCH}<input class="field" id="edq" type="search" placeholder="Filtrer : extension, code, rareté, année…" autocomplete="off"></div>
       <div class="chips" id="edm"></div></div>
@@ -2704,19 +2736,27 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     chips();
     const q = ($('#edq').value || '').trim().toLowerCase();
     // TCG d'abord puis OCG ; dans chaque bloc du plus rare au moins rare ; à rareté égale : version normale puis étendue, et la plus récente d'abord
-    const rows = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)))
-      .map((p, i) => [p, i]).sort(([a, i], [b, j]) => !!a.ocg - !!b.ocg || rarityRank(b.rarity) - rarityRank(a.rarity) || i - j).map(([p]) => p);
+    const rows0 = all.filter(p => (mkt === 'all' || (mkt === 'ocg') === !!p.ocg) && (!q || `${p.set} ${p.code} ${p.rarity} ${p.yr}`.toLowerCase().includes(q)));
+    // Une tuile par extension (TCG puis OCG, de la plus récente à la plus ancienne), ses raretés en pastilles
+    const gmap = new Map();
+    rows0.forEach(p => { const k = (p.ocg ? 'J|' : 'T|') + (p.link ? 'link|' + p.key : p.set); if (!gmap.has(k)) gmap.set(k, []); gmap.get(k).push(p); });
+    groups = [...gmap.values()].map(g => g.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea)))
+      .sort((a, b) => !!a[0].ocg - !!b[0].ocg || (b[0].d || '').localeCompare(a[0].d || ''));
+    const rows = groups.map((g, gi) => { const s = gsel[gi] != null && g[gsel[gi]] ? g[gsel[gi]] : g.find(x => x.key === selKey) || g[g.length - 1]; s._g = gi; s._n = g.length; return s; });
     $('#edgrid').innerHTML = ''
-      + rows.map(p => `<button class="ed ${p.key === selKey ? 'on' : ''}" data-k="${esc(p.key)}" data-code="${esc(p.code)}">
+      + rows.map(p => `<button class="ed ${groups[p._g].some(x => x.key === selKey) ? 'on' : ''}" data-k="${esc(p.key)}" data-g="${p._g}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo, holoR: p.rarity }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
-          <div><div class="st">${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div></div>
+          <div><div class="st">${p.code ? ygoAbbr(p.code, p.set) : ''}${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div>
+            ${p._n > 1 ? `<div class="vars">${groups[p._g].map((x, j) => `<span class="var txt ${x === p ? 'on' : ''}" role="button" data-j="${j}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(x))}</span>`).join('')}</div>` : ''}</div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
   };
   draw();
   $('#edq').oninput = draw;
   $('#edm').onclick = e => { const c = e.target.closest('.chip'); if (c){ mkt = c.dataset.m; draw(); } };
-  $('#edgrid').onclick = e => { const b = e.target.closest('.ed'); if (!b) return;
+  $('#edgrid').onclick = e => {
+    const v = e.target.closest('.var'), b = e.target.closest('.ed'); if (!b) return;
+    if (v){ e.stopPropagation(); gsel[+b.dataset.g] = +v.dataset.j; draw(); return; }   // pastille : aperçu de cette rareté
     const p = all.find(x => x.key === b.dataset.k) || null; closeModal('#edScrim'); onPick(b.dataset.k, p); };
   openModal('#edScrim');
   if (nameEn) ocgPrints(nameEn).then(jp => {
@@ -3126,10 +3166,43 @@ async function bulbaImg(v){
   }).catch(() => '');
 }
 
+// Réimpressions de la même carte avec la même illustration : même texte (PV, attaques, dégâts, talents), même illustrateur,
+// et même « famille » d'illustration (une Full Art / Illustration rare n'est pas l'illustration de la carte normale).
+// Éditions japonaises : comparées sans le texte (PV, dégâts, talents, illustrateur), qui est traduit.
+const ART_SPECIAL = /ultra|illustration|secr|hyper|full|chromatique|shiny|magnifique|amazing|galerie|gallery|rainbow|gold|alternat|art rare|character|trainer rare|mega attack|méga attaque|méga hyper|mega hyper|black white|noir blanc|futuris|rgb|pikachu rare|classic|collection classique|^(ar|sar|sr|ur|hr|chr|csr|tr|ssr|mur|s|a)$/i;
+const artCls = r => ART_SPECIAL.test(String(r || '').trim()) ? 'special' : 'regular';
+const pkSigOf = (id, lang) => cached(`rsig1:${lang}:${id}`, async () => {
+  const c = await API.getJSON(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(id)}`).catch(() => null);
+  if (!c) return { none: 1 };
+  const ab = (c.abilities || []).map(x => sigTxt(x.name));
+  return { s: cardSig(c) + JSON.stringify(ab), l: JSON.stringify([c.hp || null, (c.attacks || []).map(a => parseInt(a.damage, 10) || null), (c.abilities || []).length, c.retreat ?? null]),
+    il: sigTxt(c.illustrator), c: artCls(c.rarity), cat: c.category || '' };
+}).catch(() => ({ none: 1 }));
+async function pkmReprints(card){
+  const vs = await pkmVersions(card);
+  const ref = card.vsOf || card;
+  if (!ref.id || /^tcgpj-/.test(ref.id)) return vs;
+  const rl = marketOf('pkm', ref.lang) === 'asia' ? 'ja' : ref.lang;
+  const me = await pkSigOf(ref.id, rl);
+  if (me.none) return vs;
+  const keep = await mapLimit(vs, 8, async v => {
+    if (v.id === ref.id) return true;
+    if (/^tcgpj-/.test(v.id)) return null;   // décidé plus bas (version miroir d'une édition retenue)
+    const vl = v.ocg ? 'ja' : v.lang, o = await pkSigOf(v.id, vl);
+    if (o.none || o.c !== me.c) return false;
+    if (vl === rl) return o.s === me.s;
+    // Autre langue : texte traduit, on compare le reste ; l'illustrateur seulement s'il est connu des deux côtés
+    return o.l === me.l && (!o.il || !me.il || o.il === me.il);
+  });
+  const ok = vs.filter((v, i) => keep[i] === true);
+  const okPid = new Set(ok.map(v => v.tcgpjId).filter(Boolean));
+  return vs.filter((v, i) => keep[i] === true || (keep[i] === null && v.mirror && okPid.has(v.basePid)));
+}
+
 async function openPkmVersions(card, onPick){
   $('#edBody').innerHTML = '<div class="status">Recherche des éditions…</div>';
   openModal('#edScrim');
-  const vs = await pkmVersions(card);
+  const vs = await pkmReprints(card);
   if (!$('#edScrim').classList.contains('open')) return;
   const tok = ++edToken;
   let mk = marketOf('pkm', card.lang) === 'asia' ? 'ocg' : 'all';
@@ -3187,6 +3260,7 @@ function openCardPage(){
 function renderConfigure(card, pre){
   pre = pre || {};
   openCardPage();
+  const orig = pre.orig || card;   // carte d'origine (avant version spéciale / édition) pour changer de version
   card = { ...card, baseImg: card.baseImg || card.img, baseImgHi: card.baseImgHi || card.imgHi };
   { const ua = getUserArt(card, pre.printKey || ''); if (ua) card = { ...card, img: ua, imgHi: ua, userImg: ua, printArt: true }; }
   $('#cardTitle').textContent = '';
@@ -3234,13 +3308,17 @@ function renderConfigure(card, pre){
       ${hintHTML(pre.ambiguous ? "Cette rareté existe aussi en illustration étendue et le lien Cardmarket ne dit pas laquelle. Si l'image ne correspond pas, choisis la bonne dans « Voir les éditions » : le site s'en souviendra pour ce lien." : cmHint(card, o.printKey || o.printCode, pre.cmLink))}
     </div></div>`;
   bindVersionFields();
-  if ($('#ced') && card.edPrices) $('#ced').addEventListener('click', () => { const b = $('#ced .on'); if (b && $('#cpx')) $('#cpx').textContent = eur(card.edPrices[b.dataset.e]); });
+  if (card.game === 'pkm'){ const vc = { ...orig, base: orig };
+    bindVarChips(vc, { variant: o.variant, edition: o.edition || (card.editions || [])[0] || null, special: pre.special || null }, x => {
+      const keep = readVersionFields({ ...o });
+      renderConfigure(orig, { ...pre, orig, variant: x.k === 'reverse' ? 'reverse' : 'normal', edition: x.k === '1st' || x.k === 'unl' ? x.k : pre.edition || null,
+        special: x.pid ? x : null, graded: keep.graded, grader: keep.grader, grade: keep.grade, priceGraded: keep.priceGraded, note: keep.note, cmLink: keep.cmLinkInput }); }); }
   // Pokémon : version de la carte (extension, numéro) et accès aux autres versions
   if (card.game === 'pkm' && $('#clang')){
     $('#clang').parentElement.insertAdjacentHTML('afterend', `<div class="pp"><label class="l">Version de la carte</label>
       <div class="ppsum"><div class="t"><b>${card.set ? setLabel(pkSid(card), card.set) : '—'}</b><span>n° ${esc(card.num || '?')}${card.rarity ? ' · ' + (card.game === 'pkm' ? rarFull(card) : esc(card.rarity)) : ''}</span></div>
         <button type="button" class="btn sm" id="pvOpen">Voir les éditions</button></div></div>`);
-    pkmVersions(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
+    pkmReprints(card).then(vs => { if ($('#pvOpen')) $('#pvOpen').textContent = `Voir les éditions (${vs.length})`; }).catch(() => {});
     $('#pvOpen').onclick = () => openPkmVersions(card, async v => {
       const opts = readVersionFields(o);
       // Édition japonaise connue seulement de TCGplayer : fiche créée à partir du catalogue (pas de prix Cardmarket)
@@ -3363,7 +3441,7 @@ function renderConfigure(card, pre){
 $('#addBtn').onclick = () => { goView('explore'); setTimeout(() => $('#sq') && $('#sq').focus(), 30); };
 
 /* ---- Détail / édition ---- */
-function openDetail(i){
+async function openDetail(i){
   const items = shared ? shared.items : state.items;
   const it = items[i]; if (!it) return;
   const ro = !!shared;
@@ -3410,6 +3488,11 @@ function openDetail(i){
     </div></div>`;
   if (!ro){
     bindVersionFields(); bindListPick();
+    if (it.game === 'pkm'){ const base = await API.pkmCard(it.id, it.lang).catch(() => null);
+      if (base && $('#cvars')){ const vc = { ...base, base };
+        o.special = it.special ? { kind: it.special.k, label: it.special.label, pid: it.special.pid } : null; o.edition = it.edition || null; o.vcReady = true;
+        bindVarChips(vc, o, x => { swapImg('#detScrim', { ...it, img: x.img || base.img, imgHi: x.imgHi || x.img || base.imgHi });
+          const bg = $('#detBody .big'); if (bg) bg.textContent = eur(x.price); }); } }
     let userImg;   // photo de la version : undefined = inchangée, null = retirée
     bindImgPaste(d => { userImg = d; swapImg('#detScrim', { ...it, img: d, imgHi: d }); },
       async () => { userImg = null; const a = it.game === 'ygo' ? await editionArt({ ...it }, findPrint(withExtra(it), $('#cprint') ? $('#cprint').value : itemKey(it)), $('#dlang').value).catch(() => null) : null;
@@ -3443,6 +3526,12 @@ function openDetail(i){
     $('#saveDet').onclick = async () => {
       readVersionFields(o);
       if ($('#lpick')) it.lists = readListPick();
+      if (it.game === 'pkm' && o.vcReady){   // version spéciale choisie (ou retirée)
+        const was = it.special;
+        it.special = o.special ? { k: o.special.kind, label: o.special.label, pid: o.special.pid } : null;
+        if (o.special && o.special.img){ it.img = o.special.img; it.imgHi = o.special.imgHi || o.special.img; it.printArt = true; }
+        else if (was && !o.special){ it.printArt = false; }
+      }
       const lang = $('#dlang').value;
       const chk = checkCmLink(o.cmLinkInput, lang);
       if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
