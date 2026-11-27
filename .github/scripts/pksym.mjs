@@ -1,6 +1,6 @@
 // Symboles d'extension Pokémon (Poképédia, « Symbole <Série> <Extension> JCC.png »), téléchargés dans data/sym/<id TCGdex>.png
 // et index data/sym.json { "<id TCGdex>": 1 }. Rapprochement par le nom français de l'extension (TCGdex).
-import { writeFile, mkdir } from 'node:fs/promises';
+import { copyFile, writeFile, mkdir } from 'node:fs/promises';
 const UA = { 'user-agent': 'wishlist-collectible (github.com/mame75/wishlist-collectible)' };
 const API = 'https://www.pokepedia.fr/api.php?format=json&';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -87,6 +87,13 @@ for (const s of sets){
   const r = await fetch(url, { headers: UA }).catch(() => null);
   if (r && r.ok){ await writeFile(`data/logo/${s.id}.png`, Buffer.from(await r.arrayBuffer())); logos[s.id] = 1; }
   await sleep(300);
+}
+// Sous-extensions sans logo (ex. 30th-c « Collection Classique ») : logo de l'extension qui a le même symbole
+const LOGO_SAME = { '30th-c': '30th' };
+for (const s of sets){
+  const twin = LOGO_SAME[s.id] || Object.keys(logos).find(id => id !== s.id && out[id] && out[id] === out[s.id]);
+  if (logos[s.id] || !twin || !logos[twin]) continue;
+  await copyFile(`data/logo/${twin}.png`, `data/logo/${s.id}.png`); logos[s.id] = 1;
 }
 await writeFile('data/logo.json', JSON.stringify(logos));
 console.log(`Logos Poképédia (extensions sans logo TCGdex) : ${Object.keys(logos).length}`);
