@@ -2245,7 +2245,10 @@ function expandYgo(cards, mk, onlySet){
     for (const g of gs){
       g.prints.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
       const p0 = (c.eaPick && g.prints.find(x => x === c.eaPick)) || g.prints[0];
-      out.push({ ...c, yg: g, ygSel: g.prints.indexOf(p0), img: p0.img || (c.eaPick === p0 ? c.eaPick.img : c.baseImg || c.img), imgHi: p0.img || c.baseImgHi || c.imgHi,
+      // Illustration étendue trouvée (TCGplayer / Yugipedia) : son image est rangée dans la carte (c.img), pas dans l'impression
+      const ea = c.eaPick && c.eaPick === p0;
+      out.push({ ...c, yg: g, ygSel: g.prints.indexOf(p0), eaImg: c.eaPick ? { img: c.img, imgHi: c.imgHi } : null,
+        img: p0.img || (ea ? c.img : c.baseImg || c.img), imgHi: p0.img || (ea ? c.imgHi : c.baseImgHi || c.imgHi),
         tp: undefined, prices: { normal: null, reverse: null } });
     }
   }
@@ -2261,7 +2264,7 @@ function ygVarsHTML(e){
 }
 // Photo et prix d'une impression : scan Yugipedia (OCG) / photo TCGplayer, prix TCGplayer du jour
 async function ygPrintInfo(e, pr){
-  const img = pr.img ? { img: pr.img, imgHi: hiRes(pr.img) } : pr.ocg ? await pcYgoImg(pr).catch(() => null) : await tcgpImg(pr).catch(() => null);
+  const img = pr.img ? { img: pr.img, imgHi: hiRes(pr.img) } : pr === e.eaPick && e.eaImg && e.eaImg.img ? e.eaImg : pr.ocg ? await pcYgoImg(pr).catch(() => null) : await tcgpImg(pr).catch(() => null);
   const t = pr.ocg ? null : await tpTrend(pr).catch(() => null);
   return { img, usd: t ? t.usd : null, change: t ? t.change : null };
 }
