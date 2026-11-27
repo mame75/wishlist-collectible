@@ -215,6 +215,8 @@ select.field option{background:var(--surface)}
 .var:hover{border-color:#4a4f5c;color:var(--ink)}
 .var.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
 .var svg{width:20px;height:20px;display:block}
+.ysn{font-size:12px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;display:inline-block;vertical-align:middle}
+.var.txt{width:auto;min-width:30px;padding:0 7px;font-size:11px;font-weight:800;letter-spacing:.02em}
 .vinl svg{width:18px;height:18px;vertical-align:-4px;margin-right:6px;color:var(--muted)}
 .vlab{font-size:11.5px;font-weight:700;color:var(--muted);margin-left:3px;white-space:nowrap}
 .img.rev::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:2;
@@ -1363,7 +1365,8 @@ const ownCount = (g, x) => { const p = ownPrefix(g, x), s = new Set(); for (cons
 const verCount = (g, x) => { const p = ownPrefix(g, x); let n = 0; for (const k in owned()) if (k.startsWith(p)) n++; return n; };
 const hasCard = key => { for (const k in owned()) if (k === key || k.startsWith(key + '#')) return true; return false; };
 const verKey = (c, k) => { const b = pkVars(c)[0]; return !k || (b && b.k === k) ? 'base' : k; };
-const ownFull = (sset, c, k) => ownKey(sset.g, sset.x.name, c.id) + (sset.g === 'pkm' ? '#' + verKey(c, k) : '');
+const ownFull = (sset, c, k) => ownKey(sset.g, sset.x.name, c.id) + (sset.g === 'pkm' ? '#' + verKey(c, k)
+  : c.yg && c.yg.prints[+k] ? '#' + yRarKey(c.yg.prints[+k]) : '');
 // Anciennes coches (avant les versions) : comptées comme la version de base
 function migrateOwned(){ const o = state.owned || {};
   if (Object.keys(o).some(k => k.startsWith('pkm:') && !k.includes('#')))
@@ -1374,7 +1377,7 @@ function progHTML(n, total, label){
     <div class="prog ${total && n >= total ? 'full' : ''}${label === 'Master set' ? ' master' : ''}"><i style="width:${pc}%"></i></div>`;
 }
 // Total « master set » (toutes les versions de toutes les cartes) : calculé en ouvrant l'extension, puis mémorisé
-const masterTot = (g, x) => g === 'pkm' && state.master && state.master[x.id] ? state.master[x.id] : null;
+const masterTot = (g, x) => state.master && state.master[g === 'pkm' ? x.id : 'ygo:' + x.name] || null;
 const masterHTML = (g, x) => { const t = masterTot(g, x); return t ? progHTML(verCount(g, x), t, 'Master set') : ''; };
 async function computeMaster(x, briefs, onDone){
   const spec = TCGPV && TCGPV[x.id] ? await tcgpvSet(x.id) : {};
@@ -2201,10 +2204,10 @@ const varPre = (k, c) => { if (!k) return null; if (k === 'reverse') return { va
 // État « Je l'ai » d'une tuile : coche de la version affichée, pastilles des versions possédées, carte grisée si aucune
 function markOwned(t, c, sset){
   if (!t || !sset || !c) return;
-  const ck = ownKey(sset.g, sset.x.name, c.id), any = hasCard(ck), on = !!owned()[sset.g === 'pkm' ? ownFull(sset, c, t.dataset.var) : ck];
+  const ck = ownKey(sset.g, sset.x.name, c.id), any = hasCard(ck), on = !!owned()[ownFull(sset, c, t.dataset.var)];
   const ob = t.querySelector('.own'); if (ob){ ob.classList.toggle('on', on); ob.classList.toggle('part', !on && any); ob.setAttribute('aria-checked', on ? 'true' : 'false'); }
   t.classList.toggle('owned', any); t.classList.toggle('missing', !any);
-  if (sset.g === 'pkm') t.querySelectorAll('.var').forEach(b => b.classList.toggle('got', !!owned()[ownFull(sset, c, b.dataset.var)]));
+  t.querySelectorAll('.var').forEach(b => b.classList.toggle('got', !!owned()[ownFull(sset, c, b.dataset.var)]));
 }
 // Après affichage des tuiles : ajoute les pastilles des versions spéciales
 function fillSpecials(cards, gridSel){
@@ -2215,15 +2218,80 @@ function fillSpecials(cards, gridSel){
       box.outerHTML = varsHTML(c); if (cur) pickVar(t, c, cur); if (search.isSet && search.set) markOwned(t, c, search.set); }); });
 }
 
+/* ---- Yu-Gi-Oh! : une tuile par carte ET par extension, les raretés de cette extension en pastilles ---- */
+const YRAR = { 'common': 'C', 'rare': 'R', 'superrare': 'SR', 'ultrarare': 'UR', 'secretrare': 'ScR', 'ultimaterare': 'UtR', 'ghostrare': 'GR', 'goldrare': 'GUR',
+  'premiumgoldrare': 'PGR', 'platinumrare': 'PlR', 'starlightrare': 'StR', 'quartercenturysecretrare': 'QCSR', 'collectorsrare': 'CR', 'prismaticsecretrare': 'PScR',
+  'platinumsecretrare': 'PlScR', 'starfoilrare': 'SFR', 'mosaicrare': 'MSR', 'shatterfoilrare': 'SHR', 'goldsecretrare': 'GScR', 'ghostgoldrare': 'GGR', '10000secretrare': '10000',
+  'shortprint': 'SP', 'supershortprint': 'SSP', 'extrasecretrare': 'ESR', 'normalparallelrare': 'NPR', 'holographicrare': 'HGR', 'parallelrare': 'PR', 'grandmasterrare': 'GMR',
+  'overrushrare': 'ORR', 'secretparallelrare': 'SPR', 'ultraparallelrare': 'UPR', 'duelterminalnormalparallelrare': 'DNPR', 'ultrararepharaohsrare': 'URPR', 'qcsr': 'QCSR' };
+const yRarKey = p => norm(p.rarity) + (p.ea ? 'ea' : '');
+const yRarAb = p => (YRAR[norm(p.rarity)] || String(p.rarity || '?').split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 5)) + (p.ea ? '·EA' : '');
+// Résultats Yu-Gi-Oh! dépliés : une entrée par extension (TCG, puis OCG à part avec le tampon OCG), dans l'ordre des sorties
+function expandYgo(cards, mk, onlySet){
+  const dates = YDATES || {}, out = [];
+  for (const c of cards){
+    if (c.game !== 'ygo'){ out.push(c); continue; }
+    const groups = new Map();
+    const add = (pr, ocg) => { if (!pr.set || (onlySet && pr.set !== onlySet)) return;
+      if (xf.set && pr.set !== xf.set) return;
+      const k = (ocg ? 'J|' : 'T|') + pr.set; if (!groups.has(k)) groups.set(k, { set: pr.set, ocg, prints: [] });
+      const g = groups.get(k); if (!g.prints.some(x => yRarKey(x) === yRarKey(pr) && x.code === pr.code)) g.prints.push(pr); };
+    if (mk !== 'asia') (c.prints || []).forEach(pr => add(pr, false));
+    if (c.eaPick && !c.eaPick.ocg && mk !== 'asia') add(c.eaPick, false);
+    if (mk !== 'intl') (c.ocgPrints || []).forEach(pr => add({ ...pr, ocg: true }, true));
+    let gs = [...groups.values()].filter(g => !xf.rarity || g.prints.some(x => sameRarity(x.rarity, xf.rarity)));
+    if (!gs.length){ if (!(c.prints || []).length && !(c.ocgPrints || []).length) out.push(c); continue; }
+    gs.sort((a, b) => (a.ocg - b.ocg) || (dates[b.set] || '').localeCompare(dates[a.set] || ''));
+    for (const g of gs){
+      g.prints.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
+      const p0 = (c.eaPick && g.prints.find(x => x === c.eaPick)) || g.prints[0];
+      out.push({ ...c, yg: g, ygSel: g.prints.indexOf(p0), img: p0.img || (c.eaPick === p0 ? c.eaPick.img : c.baseImg || c.img), imgHi: p0.img || c.baseImgHi || c.imgHi,
+        tp: undefined, prices: { normal: null, reverse: null } });
+    }
+  }
+  return out;
+}
+let YDATES = null; getYgoDates().then(d => { YDATES = d || {}; }).catch(() => { YDATES = {}; });
+function ygVarsHTML(e){
+  const g = e.yg; if (!g) return '';
+  return `<div class="vars">${g.prints.map((pr, j) => `<span class="var txt ${j === e.ygSel ? 'on' : ''}" role="button" data-var="${j}" title="${esc(pr.code || '')} · ${esc(pr.rarity || '')}${pr.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(pr))}</span>`).join('')}
+    <span class="vlab">${esc(g.prints[e.ygSel] ? g.prints[e.ygSel].code || '' : '')}</span></div>`;
+}
+// Photo et prix d'une impression : scan Yugipedia (OCG) / photo TCGplayer, prix TCGplayer du jour
+async function ygPrintInfo(e, pr){
+  const img = pr.img ? { img: pr.img, imgHi: hiRes(pr.img) } : pr.ocg ? await pcYgoImg(pr).catch(() => null) : await tcgpImg(pr).catch(() => null);
+  const t = pr.ocg ? null : await tpTrend(pr).catch(() => null);
+  return { img, usd: t ? t.usd : null, change: t ? t.change : null };
+}
+async function pickYg(tile, e, j){
+  const pr = e.yg && e.yg.prints[j]; if (!pr) return;
+  e.ygSel = j; tile.dataset.var = String(j);
+  tile.querySelectorAll('.var').forEach(b => b.classList.toggle('on', b.dataset.var === String(j)));
+  const lab = tile.querySelector('.vlab'); if (lab) lab.textContent = pr.code || '';
+  const info = await ygPrintInfo(e, pr); if (e.ygSel !== j) return;
+  const im = tile.querySelector('.img img'); if (im && info.img && im.getAttribute('src') !== info.img.img) im.src = info.img.img;
+  const pb = tile.querySelector('.tprice b'); if (pb) pb.textContent = info.usd != null ? usd(info.usd) : '—';
+  const tr = tile.querySelector('.tprice span'); if (tr) tr.outerHTML = info.change != null ? trendBadge(info.change, `TCGplayer : ${pr.code} · ${pr.rarity}, évolution sur 7 jours`) || '<span>TCGplayer</span>' : `<span>${pr.ocg ? 'OCG' : 'TCGplayer'}</span>`;
+}
+function fillYgo(cards){ cards.forEach((e, i) => { if (!e.yg) return; const t = document.querySelector(`#rgrid .tile[data-r="${i}"]`); if (t) pickYg(t, e, e.ygSel); }); }
+// Ouvrir une impression précise
+function openYgPrint(e){
+  const pr = e.yg.prints[e.ygSel] || e.yg.prints[0], { yg, ygSel, ...c } = e;
+  if (pr.ocg){ renderConfigure({ ...c, lang: 'ja', extraPrint: pr, img: pr.img || c.img, imgHi: pr.img || c.imgHi }, { printKey: printKey(pr), printCode: pr.code }); return; }
+  const base = (c.prints || []).find(x => x === pr);
+  renderConfigure(pr.ea || !base ? { ...c, extraPrint: pr } : c, { printKey: printKey(pr), printCode: pr.code });
+}
+
 function resultTiles(cards, mk, sset){
   return `<div class="results" id="rgrid">${cards.map((c, i) => { const ck = sset ? ownKey(sset.g, sset.x.name, c.id) : null, any = ck && hasCard(ck);
-      const f = c.game === 'pkm' ? varFirst(c) : null, has = ck && owned()[sset.g === 'pkm' ? ownFull(sset, c, f && f.k) : ck]; return `
-      <button class="tile${sset ? (any ? ' owned' : ' missing') : ''}" data-r="${i}"${c.game === 'pkm' && varFirst(c) ? ` data-var="${varFirst(c).k}"` : ''}>
+      const f = c.game === 'pkm' ? varFirst(c) : null, has = ck && owned()[ownFull(sset, c, c.yg ? c.ygSel : f && f.k)]; return `
+      <button class="tile${sset ? (any ? ' owned' : ' missing') : ''}" data-r="${i}"${c.game === 'pkm' && varFirst(c) ? ` data-var="${varFirst(c).k}"` : c.yg ? ` data-var="${c.ygSel}"` : ''}>
         ${sset ? `<span class="own ${has ? 'on' : any ? 'part' : ''}" role="checkbox" aria-checked="${has ? 'true' : 'false'}" title="Je l'ai (version affichée)">✓</span>` : ''}
-        ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
+        ${imgBox(!c.yg && mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
+          c.yg ? (c.yg.ocg ? '<span class="bdg">OCG</span>' : '') :
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
-        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div>${c.game === 'pkm' ? varsHTML(c) : ''}</div>
+        <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.yg ? ygoAbbr((c.yg.prints[0] || {}).code, c.yg.set) + `<span class="ysn">${esc(c.yg.set)}</span>` : c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div>${c.game === 'pkm' ? varsHTML(c) : c.yg ? ygVarsHTML(c) : ''}</div>
         <div class="tprice"><b>${eur(c.game === 'pkm' && varFirst(c) ? varFirst(c).price : c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`; }).join('')}
     </div>`;
@@ -2380,15 +2448,18 @@ function renderResults(msg){
       openTrending(c); };
     return;
   }
-  const list = allCards(s), cards = list.filter(c => xMatch(c));
+  const list = allCards(s), cards = expandYgo(list.filter(c => xMatch(c)), xf.market, s.isSet && s.set && s.set.g === 'ygo' ? s.set.x.name : null);
   side.innerHTML = xSideHTML(s, list); bindXSide();
   // Pokémon : « Voir plus » charge d'abord la suite TCG, puis la suite OCG
   const moreMk = xf.game === 'ygo' ? null : xf.market !== 'all' ? (s.groups[xf.market].shown < s.groups[xf.market].briefs.length ? xf.market : null)
     : ['intl','asia'].find(m => s.groups[m].shown < s.groups[m].briefs.length) || null;
   const busy = [s.pkmBusy && 'Pokémon', s.ygoLoading && 'Yu-Gi-Oh!', s.ocgLoading && 'éditions OCG', s.eaLoading && 'illustrations étendues'].filter(Boolean);
   const sset = s.isSet && s.set, stotal = sset ? Math.max(sset.x.n || 0, list.length) : 0;
-  const setProgHTML = () => progHTML(ownCount(sset.g, sset.x), stotal, sset.g === 'pkm' ? 'Cartes' : '') + (sset.g === 'pkm' ? (masterTot('pkm', sset.x)
-    ? progHTML(verCount('pkm', sset.x), masterTot('pkm', sset.x), 'Master set') : '<div class="progn"><span><i>Master set</i> calcul des versions…</span></div>') : '');
+  if (sset && sset.g === 'ygo' && !s.ygoLoading && list.length){   // Yu-Gi-Oh! : toutes les raretés de l'extension, connues tout de suite
+    const tot = list.reduce((t, c) => t + Math.max(1, new Set((c.prints || []).filter(pr => pr.set === sset.x.name).map(yRarKey)).size), 0);
+    if (tot && (state.master || {})['ygo:' + sset.x.name] !== tot){ (state.master ||= {})['ygo:' + sset.x.name] = tot; save(); } }
+  const setProgHTML = () => progHTML(ownCount(sset.g, sset.x), stotal, 'Cartes') + (masterTot(sset.g, sset.x)
+    ? progHTML(verCount(sset.g, sset.x), masterTot(sset.g, sset.x), 'Master set') : sset.g === 'pkm' ? '<div class="progn"><span><i>Master set</i> calcul des versions…</span></div>' : '');
   // Total master set : toutes les versions de toutes les cartes (calculé une fois par ouverture, en arrière-plan)
   if (sset && sset.g === 'pkm' && s.masterFor !== sset.x.id && s.groups.intl.briefs.length){
     s.masterFor = sset.x.id;
@@ -2407,9 +2478,9 @@ function renderResults(msg){
       + ((s.ygoAll || []).length >= 60 && s.q ? '<div class="hint" style="margin-top:10px">Yu-Gi-Oh! : 60 premiers résultats, précise ta recherche.</div>' : '');
   }
   box.innerHTML = head + body;
-  if (cards.length) fillSpecials(cards, '#rgrid');
+  if (cards.length){ fillSpecials(cards, '#rgrid'); fillYgo(cards); }
   if (sset) document.querySelectorAll('#rgrid .tile').forEach(t => markOwned(t, cards[+t.dataset.r], sset));
-  const openResult = c => {
+  const openResult = c => { if (c.yg){ openYgPrint(c); return; }
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
       c.eaPick ? { printKey: printKey(c.eaPick), printCode: c.eaPick.code } : null); };
@@ -2423,10 +2494,13 @@ function renderResults(msg){
       if ($('#setprog')) $('#setprog').innerHTML = setProgHTML();
       return; }
     const vb = e.target.closest('.var');
-    if (vb){ e.stopPropagation(); const t = vb.closest('.tile'); pickVar(t, cards[+t.dataset.r], vb.dataset.var); if (sset) markOwned(t, cards[+t.dataset.r], sset); return; }
+    if (vb){ e.stopPropagation(); const t = vb.closest('.tile'), cc = cards[+t.dataset.r];
+      if (cc.yg) pickYg(t, cc, +vb.dataset.var); else pickVar(t, cc, vb.dataset.var);
+      if (sset) markOwned(t, cc, sset); return; }
     const t = e.target.closest('.tile'); if (!t) return; const c = cards[+t.dataset.r];
     setNav(cards.length, +t.dataset.r, j => openResult(cards[j]));
     if (c.game === 'pkm' && t.dataset.var){ renderConfigure(c, varPre(t.dataset.var, c)); return; }
+    if (c.yg){ openYgPrint(c); return; }
     if (xf.market === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length){ renderConfigure(...ygoOcgOpen(c)); return; }
     // Carte montrée en illustration étendue : on ouvre directement cette édition
     renderConfigure(c.eaPick ? { ...c, ...(c.eaPick.ocg ? { lang:'ja' } : {}), extraPrint: c.eaPick, img: c.baseImg || c.img, imgHi: c.baseImgHi || c.imgHi } : c,
