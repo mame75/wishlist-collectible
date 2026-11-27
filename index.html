@@ -1216,10 +1216,10 @@ function imgBox(c, hi, badges){
     <div class="badges">${badges || ''}</div>
   </div>`;
 }
-fetch('data/sym.json').then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
-fetch('data/rar.json').then(r => r.ok ? r.json() : {}).then(j => { RAR = j || {}; if (Object.keys(RAR).length) try { render(); } catch (e){} }).catch(() => {});
+fetch('data/sym.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { SYM = j || {}; if (Object.keys(SYM).length) try { render(); } catch (e){} }).catch(() => {});
+fetch('data/rar.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { RAR = j || {}; if (Object.keys(RAR).length) try { render(); } catch (e){} }).catch(() => {});
 // Logos Poképédia des extensions sans logo chez TCGdex (onglet Sets)
-fetch('data/logo.json').then(r => r.ok ? r.json() : {}).then(j => { LOGO = j || {}; if (Object.keys(LOGO).length && view === 'sets') try { render(); } catch (e){} }).catch(() => {});
+fetch('data/logo.json?h=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : {}).then(j => { LOGO = j || {}; if (Object.keys(LOGO).length && view === 'sets') try { render(); } catch (e){} }).catch(() => {});
 // Accès de diagnostic (console du navigateur) : compter les cartes sans visuel d'une extension, etc.
 window.wlcDebug = { get API(){ return API; }, get pkmVersions(){ return pkmVersions; }, get rarFull(){ return rarFull; }, get rarName(){ return rarName; } };
 /* ========= Visuel par édition (1re / illimitée) =========
