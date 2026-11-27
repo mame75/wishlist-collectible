@@ -447,7 +447,7 @@ let state = { owner:'', items:[] };
 function load(){ try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && Array.isArray(s.items)) state = s; } catch(e){}
   state.items.forEach(it => { if (it.linkPrint && !it.extraPrint) it.extraPrint = it.linkPrint; delete it.linkPrint; });
   // Photos collées avant leur rattachement aux versions : rangées dans la bibliothèque de photos
-  state.arts = state.arts || {};
+  state.arts = state.arts || {}; migrateOwned();
   state.items.forEach(it => { if (it.userImg){ const k = `${it.game}:${it.id}:${it.printKey || ''}`; if (!state.arts[k]) state.arts[k] = it.userImg; } }); }
 /* ---- Listes : { id, name } ; chaque carte garde les identifiants de ses listes dans it.lists ---- */
 const lists = () => (state.lists ||= []);
