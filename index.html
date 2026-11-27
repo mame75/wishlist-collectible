@@ -2106,9 +2106,11 @@ function pkVars(c){
   if (v ? v.reverse : c.prices.reverse != null) out.push({ k: 'reverse', price: c.prices.reverse });   // version connue même sans prix relevé
   return out;
 }
+// Version montrée d'abord : la première qui a un prix (ex. Illimitée si la 1re édition n'a pas de prix relevé)
+const varFirst = c => { const vs = pkVars(c); return vs.find(x => x.price != null) || vs[0] || null; };
 function varsHTML(c){
-  const vs = pkVars(c); if (!vs.length) return '';
-  return `<div class="vars">${vs.map((x, j) => `<span class="var ${j ? '' : 'on'}" role="button" data-var="${x.k}" title="${VLABEL[x.k]}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.k]}</span>`).join('')}<span class="vlab">${VLABEL[vs[0].k]}</span></div>`;
+  const vs = pkVars(c), f = varFirst(c); if (!vs.length) return '';
+  return `<div class="vars">${vs.map(x => `<span class="var ${x === f ? 'on' : ''}" role="button" data-var="${x.k}" title="${VLABEL[x.k]}${x.price != null ? ' · ' + eur(x.price) : ''}">${VICON[x.k]}</span>`).join('')}<span class="vlab">${VLABEL[f.k]}</span></div>`;
 }
 // Clic sur une pastille : photo, prix et libellé de la tuile changent ; l'ouverture de la carte suivra cette version
 function pickVar(tile, c, k){
@@ -2125,13 +2127,13 @@ const varPre = k => !k ? null : k === 'reverse' ? { variant: 'reverse' } : k ===
 
 function resultTiles(cards, mk, sset){
   return `<div class="results" id="rgrid">${cards.map((c, i) => { const ok = sset ? ownKey(sset.g, sset.x.name, c.id) : null, has = ok && owned()[ok]; return `
-      <button class="tile${sset ? (has ? ' owned' : ' missing') : ''}" data-r="${i}">
+      <button class="tile${sset ? (has ? ' owned' : ' missing') : ''}" data-r="${i}"${c.game === 'pkm' && varFirst(c) ? ` data-var="${varFirst(c).k}"` : ''}>
         ${sset ? `<span class="own ${has ? 'on' : ''}" data-own="${esc(ok)}" role="checkbox" aria-checked="${has ? 'true' : 'false'}" title="Je l'ai">✓</span>` : ''}
         ${imgBox(mk === 'asia' && c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length ? ygoOcgOpen(c)[0] : c, false,
           (marketOf(c.game, c.lang) === 'asia' ? `<span class="bdg">${esc(langLabel(c.game, c.lang))}</span>` : '')
           + (c.game === 'ygo' && c.ocgPrints && c.ocgPrints.length && !(c.prints || []).length ? '<span class="bdg">OCG</span>' : ''))}
         <div><div class="tname">${esc(c.name)}</div><div class="tsub">${c.game === 'pkm' ? setLabel(pkSid(c), c.setAb && c.set && !c.set.startsWith(c.setAb) ? `${c.setAb}: ${c.set}` : (c.set || '')) + (c.rarity ? rarIcon(c.rarity, rarCtx(c)) : '') : (c.prints || []).length === 1 && c.prints[0].code ? ygoAbbr(c.prints[0].code, c.prints[0].set || c.set) : esc(c.set || (c.prints ? c.prints.length + ' impression(s)' : ''))}</div>${c.game === 'pkm' ? varsHTML(c) : ''}</div>
-        <div class="tprice"><b>${eur(c.game === 'pkm' && pkVars(c).length ? pkVars(c)[0].price : c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
+        <div class="tprice"><b>${eur(c.game === 'pkm' && varFirst(c) ? varFirst(c).price : c.prices.normal)}</b>${tileTrend(c) || `<span>${c.priceSrc === 'tcgp' ? 'TCGplayer' : c.game === 'pkm' ? 'moy. 7 j' : 'CM'}</span>`}</div>
       </button>`; }).join('')}
     </div>`;
 }
