@@ -87,6 +87,18 @@ select.field option{background:var(--surface)}
 .prices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .reset{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px;justify-self:start}
 .filtersToggle{display:none}
+/* Listes de la wishlist */
+.listbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.listbar .chip{max-width:240px}
+.listbar .chip b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listbar .chip.add{border-style:dashed}
+.listbar .lact{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;padding:0 6px;text-decoration:underline;text-underline-offset:3px}
+.listbar .lact:hover{color:var(--ink)}
+.listbar .lact.danger{color:#ff7a7a}
+.listbar input.field{height:34px;width:200px;border-radius:999px;padding:0 14px}
+.lpick{display:flex;flex-wrap:wrap;gap:6px}
+.lpick .chip{height:30px;font-size:12.5px}
+.lpick .chip.on::before{content:'✓';font-weight:900}
 .gridhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .gridhead .count{font-size:13px;color:var(--muted);font-weight:700;white-space:nowrap}
 
@@ -309,7 +321,7 @@ label.l{font-size:12px;font-weight:800;color:var(--muted);display:block;margin-b
     </nav>
     <div class="sp"></div>
     <button class="btn ghost" id="shareBtn">Partager</button>
-    <button class="btn primary" id="addBtn">+ Ajouter une carte</button>
+    <button class="btn primary" id="addBtn" hidden>+ Ajouter une carte</button>
   </div>
 </header>
 
@@ -390,6 +402,17 @@ function load(){ try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if
   // Photos collées avant leur rattachement aux versions : rangées dans la bibliothèque de photos
   state.arts = state.arts || {};
   state.items.forEach(it => { if (it.userImg){ const k = `${it.game}:${it.id}:${it.printKey || ''}`; if (!state.arts[k]) state.arts[k] = it.userImg; } }); }
+/* ---- Listes : { id, name } ; chaque carte garde les identifiants de ses listes dans it.lists ---- */
+const lists = () => (state.lists ||= []);
+const inList = (it, id) => (it.lists || []).includes(id);
+const curList = () => !shared && filters.list !== 'all' ? lists().find(l => l.id === filters.list) || null : null;
+function listPickHTML(sel){
+  if (!lists().length) return '';
+  return `<div><label class="l">Listes</label><div class="lpick" id="lpick">${lists().map(l =>
+    `<button type="button" class="chip ${sel.includes(l.id) ? 'on' : ''}" data-l="${esc(l.id)}">${esc(l.name)}</button>`).join('')}</div></div>`;
+}
+function bindListPick(){ const b = $('#lpick'); if (b) b.onclick = e => { const c = e.target.closest('.chip'); if (c) c.classList.toggle('on'); }; }
+const readListPick = () => [...document.querySelectorAll('#lpick .chip.on')].map(c => c.dataset.l);
 function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){ toast('Sauvegarde impossible dans ce navigateur'); } }
 
 /* ========= Cache local (24 h) =========
@@ -1407,7 +1430,9 @@ const rarFull = c => c && c.game !== 'ygo' && c.rarity ? `${rarIcon(c.rarity, ra
 
 /* ========= Vues ========= */
 let view = 'wishlist';
-let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'' };
+let filters = { q:'', game:'all', market:'all', cond:'all', sort:'added', min:'', max:'', list:'all' };
+let listEdit = null;   // null, 'new' ou l'identifiant de la liste renommée
+let listDelArmed = false;
 let sideOpen = false;
 let shared = null;   // { owner, items } quand on ouvre un lien partagé
 const ICON_SEARCH = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
@@ -1490,22 +1515,62 @@ function heroHTML(items){
       ${byGame('ygo').length ? `<span><i class="dot" style="background:var(--ygo)"></i>Yu-Gi-Oh! <b>${eur(yg)}</b></span>` : ''}
     </div>`;
   if (shared) return `<section class="hero shared">
-      <div><div class="lbl">Wishlist de ${esc(shared.owner || 'un ami')}</div>
+      <div><div class="lbl">Wishlist de ${esc(shared.owner || 'un ami')}${shared.list ? ` · ${esc(shared.list)}` : ''}</div>
         <div class="val">${shared.loading ? '…' : eur(total)}</div>${meta}${split}
         <div class="hint" style="margin-top:10px">${shared.loading ? 'Chargement des cartes et des prix…' : 'Lecture seule · prix Cardmarket mis à jour à l\'ouverture'}</div></div>
       <div class="acts"><button class="btn" id="leaveShared">Ouvrir ma wishlist</button></div>
     </section>`;
   return `<section class="hero">
-      <div><div class="lbl">Valeur de ma wishlist</div><div class="val">${eur(total)}</div>${meta}${split}</div>
+      <div><div class="lbl">${curList() ? `Valeur de la liste « ${esc(curList().name)} »` : 'Valeur de ma wishlist'}</div><div class="val">${eur(total)}</div>${meta}${split}</div>
       <div class="acts">${items.length ? '<button class="btn" id="refreshBtn">Actualiser les prix</button>' : ''}</div>
     </section>`;
+}
+
+function listBarHTML(all){
+  const edit = (id, val) => `<input class="field" id="lname" data-id="${esc(id)}" maxlength="40" placeholder="Nom de la liste" value="${esc(val)}">`;
+  const cl = curList();
+  return `<div class="listbar" id="listbar">
+    <button class="chip ${filters.list === 'all' ? 'on' : ''}" data-l="all">Toutes<span>${all.length}</span></button>
+    ${lists().map(l => listEdit === l.id ? edit(l.id, l.name)
+      : `<button class="chip ${filters.list === l.id ? 'on' : ''}" data-l="${esc(l.id)}" title="${esc(l.name)}"><b>${esc(l.name)}</b><span>${all.filter(it => inList(it, l.id)).length}</span></button>`).join('')}
+    ${listEdit === 'new' ? edit('new', '') : '<button class="chip add" data-l="new">+ Nouvelle liste</button>'}
+    ${cl && !listEdit ? `<button class="lact" data-a="rename">Renommer</button><button class="lact danger" data-a="del">${listDelArmed ? 'Confirmer la suppression' : 'Supprimer la liste'}</button>` : ''}
+  </div>`;
+}
+function bindListBar(){
+  const bar = $('#listbar'); if (!bar) return;
+  bar.onclick = e => {
+    const c = e.target.closest('.chip'), a = e.target.closest('.lact');
+    if (c){ listDelArmed = false;
+      if (c.dataset.l === 'new'){ listEdit = 'new'; render(); return; }
+      filters.list = c.dataset.l; listEdit = null; render(); return; }
+    if (a && a.dataset.a === 'rename'){ listEdit = filters.list; listDelArmed = false; render(); return; }
+    if (a && a.dataset.a === 'del'){
+      if (!listDelArmed){ listDelArmed = true; render(); return; }
+      const l = curList(); state.lists = lists().filter(x => x !== l);
+      state.items.forEach(it => { if (it.lists) it.lists = it.lists.filter(id => id !== l.id); });
+      filters.list = 'all'; listDelArmed = false; save(); render(); toast(`Liste « ${l.name} » supprimée (les cartes restent dans ta wishlist)`);
+    }
+  };
+  const inp = $('#lname'); if (!inp) return;
+  inp.focus(); inp.select();
+  let done = false;
+  const commit = ok => { if (done) return; done = true;
+    const name = inp.value.trim().replace(/\s+/g, ' '), id = inp.dataset.id;
+    if (ok && name){
+      if (id === 'new'){ const l = { id: uid(), name }; lists().push(l); filters.list = l.id; toast(`Liste « ${name} » créée`); }
+      else { const l = lists().find(x => x.id === id); if (l) l.name = name; }
+      save();
+    }
+    listEdit = null; render(); };
+  inp.onkeydown = e => { if (e.key === 'Enter'){ e.preventDefault(); commit(true); } else if (e.key === 'Escape') commit(false); };
+  inp.onblur = () => commit(true);
 }
 
 function render(){
   // Garde le focus et le curseur dans le champ en cours de saisie
   const ae = document.activeElement, focusId = ae && ae.id, caret = ae && ae.selectionStart;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === view || (view === 'card' && b.dataset.view === 'explore')));
-  $('#addBtn').style.display = shared || view !== 'wishlist' ? 'none' : '';
   $('#shareBtn').style.display = shared || view !== 'wishlist' ? 'none' : '';
   const main = $('#main');
   if (view === 'explore'){ renderExplore(); return; }
@@ -1518,13 +1583,16 @@ function render(){
     return;
   }
 
-  const items = shared ? shared.items : state.items;
-  const rows = applyFilters(items);
+  if (!shared && filters.list !== 'all' && !curList()) filters.list = 'all';
+  const all = shared ? shared.items : state.items;
+  const items = curList() ? all.filter(it => inList(it, filters.list)) : all;
+  const rows = applyFilters(items).map(r => ({ it: r.it, i: all.indexOf(r.it) }));
   const emptyAll = !items.length;
   main.innerHTML = heroHTML(items) + `
     <div class="layout">
       ${sideHTML(items)}
       <section>
+        ${shared ? '' : listBarHTML(all)}
         <div class="gridhead">
           <div class="search">${ICON_SEARCH}<input class="field" id="fq" type="search" placeholder="Rechercher dans la wishlist…" value="${esc(filters.q)}"></div>
           <button class="btn filtersToggle" id="filtersToggle">Filtres</button>
@@ -1535,7 +1603,8 @@ function render(){
           <span class="count">${rows.length} / ${items.length}</span>
         </div>
         <div class="grid" id="grid">${rows.length ? rows.map(({it,i}) => tileHTML(it, i)).join('') :
-          (emptyAll ? (shared ? `<div class="empty"><h3>${shared.loading ? 'Chargement…' : 'Cette wishlist est vide'}</h3></div>`
+          (emptyAll && curList() && state.items.length ? `<div class="empty"><h3>La liste « ${esc(curList().name)} » est vide</h3>Ouvre une carte de ta wishlist et coche cette liste, ou ajoute une carte depuis Explore pendant que la liste est ouverte.</div>` :
+           emptyAll ? (shared ? `<div class="empty"><h3>${shared.loading ? 'Chargement…' : 'Cette wishlist est vide'}</h3></div>`
             : `<div class="empty"><h3>Ta wishlist est vide</h3>Cherche une carte Pokémon ou Yu-Gi-Oh!, ou colle un lien Cardmarket.<br><button class="btn primary" id="emptyAdd">+ Ajouter une carte</button></div>`)
           : `<div class="empty"><h3>Aucune carte ne correspond</h3>Modifie la recherche ou les filtres.</div>`)}</div>
       </section>
@@ -1556,6 +1625,7 @@ function render(){
     const pos = rows.findIndex(r => r.i === +t.dataset.i);
     setNav(rows.length, pos, j => openDetail(rows[j].i)); openDetail(+t.dataset.i); };
   if ($('#emptyAdd')) $('#emptyAdd').onclick = () => $('#addBtn').click();
+  bindListBar();
   if ($('#refreshBtn')) $('#refreshBtn').onclick = refreshPrices;
   if ($('#leaveShared')) $('#leaveShared').onclick = () => { shared = null; history.replaceState(null, '', location.pathname); render(); };
   if (focusId && $('#' + focusId) && /^(fq|fmin|fmax)$/.test(focusId)){
@@ -2833,6 +2903,7 @@ function renderConfigure(card, pre){
         <div><label class="l" for="clang">Langue de la carte</label>
           <select class="field" id="clang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===card.lang?'selected':''}>${esc(langLabel(card.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...card, prints: withExtra(card) })}
+        ${listPickHTML(curList() ? [curList().id] : [])}
       </div>
       <div class="actions">
         <button class="btn primary" id="confirmAdd">Ajouter à ma wishlist</button>
@@ -2954,11 +3025,13 @@ function renderConfigure(card, pre){
   bindImgPaste(d => { card.userImg = d; card.img = card.imgHi = d; card.printArt = true; swapImg('#cardPage', card); setUserArt(card, curKey(), d); render(); },
     async () => { await setUserArt(card, curKey(), null); card.userImg = null; card.img = card.baseImg; card.imgHi = card.baseImgHi; card.printArt = false;
                   swapImg('#cardPage', card); if (card.game === 'ygo' && curKey()) applyArt(curKey()); render(); });
+  bindListPick();
   $('#confirmAdd').onclick = () => {
     const opts = readVersionFields(o);
     const chk = checkCmLink(opts.cmLinkInput, card.lang);
     if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
-    state.items.push(makeItem(card, { ...opts, cmLink: chk.url })); save();
+    const nit = makeItem(card, { ...opts, cmLink: chk.url }); const ls = readListPick(); if (ls.length) nit.lists = ls;
+    state.items.push(nit); save();
     filters = { ...filters, q:'' };
     closeModal('#cardScrim');
     if (view === 'wishlist') render();
@@ -3006,6 +3079,7 @@ function openDetail(i){
         <div><label class="l" for="dlang">Langue de la carte</label>
           <select class="field" id="dlang" ${langs.length < 2 ? 'disabled' : ''}>${langs.map(l => `<option value="${l}" ${l===it.lang?'selected':''}>${esc(langLabel(it.game, l))}</option>`).join('')}</select></div>
         ${versionFields(o, { ...it, prints: withExtra(it) })}
+        ${listPickHTML(it.lists || [])}
       </div>
       <div class="actions">
         <button class="btn primary" id="saveDet">Enregistrer</button>
@@ -3013,7 +3087,7 @@ function openDetail(i){
       </div>`}
     </div></div>`;
   if (!ro){
-    bindVersionFields();
+    bindVersionFields(); bindListPick();
     let userImg;   // photo de la version : undefined = inchangée, null = retirée
     bindImgPaste(d => { userImg = d; swapImg('#detScrim', { ...it, img: d, imgHi: d }); },
       async () => { userImg = null; const a = it.game === 'ygo' ? await editionArt({ ...it }, findPrint(withExtra(it), $('#cprint') ? $('#cprint').value : itemKey(it)), $('#dlang').value).catch(() => null) : null;
@@ -3046,6 +3120,7 @@ function openDetail(i){
     };
     $('#saveDet').onclick = async () => {
       readVersionFields(o);
+      if ($('#lpick')) it.lists = readListPick();
       const lang = $('#dlang').value;
       const chk = checkCmLink(o.cmLinkInput, lang);
       if (!chk.ok){ toast('Ce lien ne ressemble pas à une fiche de carte Cardmarket'); $('#ccm').focus(); return; }
@@ -3117,7 +3192,8 @@ async function refreshPrices(){
 /* ========= Partage par lien ========= */
 // Le lien contient seulement les références des cartes ; les prix sont rechargés à l'ouverture.
 function buildShareLink(){
-  const payload = { o: state.owner || '', c: state.items.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printKey || it.printCode || '',
+  const cl = curList(), src = cl ? state.items.filter(it => inList(it, cl.id)) : state.items;
+  const payload = { o: state.owner || '', ...(cl ? { l: cl.name } : {}), c: src.map(it => [it.game, it.id, it.lang, it.variant === 'reverse' ? 1 : 0, it.printKey || it.printCode || '',
     it.graded ? [it.grader, it.grade, it.priceGraded] : 0, it.note || '', it.cmLink || 0,
     (it.cmImg || it.cmPrice || it.manual) ? { i: it.cmImg || 0, p: it.cmPrice ? it.priceRaw : 0,
       m: it.manual ? { n: it.name, s: it.set, r: it.rarity, u: it.num } : 0 } : 0]) };
@@ -3128,7 +3204,8 @@ function renderShare(){
   $('#shareBody').innerHTML = `
     <label class="l" for="owner">Ton prénom (affiché à tes amis)</label>
     <input class="field" id="owner" style="width:100%;margin-bottom:14px" value="${esc(state.owner)}" placeholder="ex. Ivan">
-    <label class="l" for="link">Lien de ta wishlist (${state.items.length} carte${state.items.length>1?'s':''})</label>
+    ${(() => { const cl = curList(), n = cl ? state.items.filter(it => inList(it, cl.id)).length : state.items.length;
+      return `<label class="l" for="link">${cl ? `Lien de la liste « ${esc(cl.name)} »` : 'Lien de ta wishlist'} (${n} carte${n>1?'s':''})</label>`; })()}
     <div class="row"><input class="field grow sharebox" id="link" readonly value="${esc(buildShareLink())}"><button class="btn primary" id="copyLink">Copier</button></div>
     <p class="hint" style="margin-top:12px">${isFile
       ? '⚠ Le site tourne en local sur ton ordinateur (fichier ouvert directement) : ce lien ne marchera pas chez tes amis tant que le site n\'est pas en ligne. Prochaine étape : le publier (GitHub Pages ou Netlify, gratuit).'
@@ -3145,7 +3222,7 @@ async function openShared(hash){
   let payload;
   try { payload = JSON.parse(b64d(hash)); } catch(e){ toast('Lien de partage invalide'); return; }
   const refs = (payload.c || []);
-  shared = { owner: payload.o, items: [], loading: true };
+  shared = { owner: payload.o, list: payload.l || '', items: [], loading: true };
   render();
   const items = await mapLimit(refs, 4, async ([game, id, lang, rev, printCode, gr, note, cmLink, x]) => {
     if (!GAMES[game]) return null;
@@ -3314,6 +3391,7 @@ async function importFromCm(d){
   }
   const added = makeItem(card, { printKey: key, printCode: (res && res.printCode) || '', cmLink: url });
   if (cmPidHint){ added.cmPid = cmPidHint; await applyCmGuide(added).catch(() => {}); }
+  if (curList()) added.lists = [curList().id];
   state.items.push(added); save();
   filters = { ...filters, q: '' }; goView('wishlist');
   toast(`${card.name} ajoutée à ta wishlist${res && res.ambiguous ? ' · vérifie l\'édition sur sa fiche' : ''}`);
