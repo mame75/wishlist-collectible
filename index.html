@@ -205,10 +205,10 @@ select.field option{background:var(--surface)}
 .gametile:hover{transform:translateY(-3px);border-color:var(--line2)}
 .gametile.pkm{background:linear-gradient(160deg,rgba(255,207,58,.12),transparent 60%),var(--surface)}
 .gametile.ygo{background:linear-gradient(160deg,rgba(167,139,250,.14),transparent 60%),var(--surface)}
-.gametile .gl{flex:1;display:flex;align-items:center;gap:12px;min-height:90px}
-.gametile .gl img{max-height:64px;max-width:31%;object-fit:contain;border-radius:6px}
-.gametile.ygo .gl img{background:#fff;padding:3px}
-.gametile .gn{font-size:26px;font-weight:800;letter-spacing:-.01em}
+.gametile .gl{flex:1;display:flex;align-items:center;justify-content:center;min-height:130px}
+.gametile .gl img{max-height:110px;max-width:80%;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45))}
+.gametile .gl b{font-size:28px}
+.gametile .gs{text-align:center}
 .gametile .gs{font-size:13px;color:var(--muted);font-weight:600}
 .bloc{margin:0 0 26px}
 .bloc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:10px 0 14px;border-bottom:1px solid var(--line);margin-bottom:18px}
@@ -2401,13 +2401,10 @@ const setOf = (g, k) => g === 'pkm' ? (homeSets.pkm || []).find(x => x.id === k)
 // Choix du jeu (comme Collectr) : une grande tuile par jeu, avec ses dernières extensions
 function gamePickHTML(){
   const pk = homeSets ? homeSets.pkm || [] : [], yg = homeSets ? homeSets.ygo || [] : [];
-  const logos = (g, l) => l.slice(0, 3).map(x => { const src = g === 'pkm' ? ((x.card || !x.img) && LOGO[x.id] ? `data/logo/${x.id}.png` : x.img) : ygoSetImg(x) || x.img;
-    return src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''; }).join('');
-  const tile = (g, name, l, sub) => `<button class="gametile ${g}" data-g="${g}">
-      <div class="gl">${homeSets ? logos(g, l) : ''}</div>
-      <div class="gn">${name}</div>
+  const tile = (g, name, sub) => `<button class="gametile ${g}" data-g="${g}" aria-label="${name}">
+      <div class="gl"><img src="data/game/${g}.png" alt="${name}" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:this.alt}))"></div>
       <div class="gs">${homeSets ? sub : 'Chargement…'}</div></button>`;
-  return `<div class="gamepick">${tile('pkm', 'Pokémon', pk, `${pk.length} extensions · ${(homeSets && homeSets.blocs || []).length} blocs`)}${tile('ygo', 'Yu-Gi-Oh!', yg, `${yg.length} dernières extensions · classiques et tournoi`)}</div>`;
+  return `<div class="gamepick">${tile('pkm', 'Pokémon', `${pk.length} extensions · ${(homeSets && homeSets.blocs || []).length} blocs`)}${tile('ygo', 'Yu-Gi-Oh!', `${yg.length} extensions`)}</div>`;
 }
 function renderSets(){
   if (!homeSets) getHomeSets().then(d => { homeSets = d; if (view === 'sets') renderSets(); });
