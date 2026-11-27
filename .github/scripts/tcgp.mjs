@@ -14,6 +14,7 @@ async function get(url){
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const groups = (await get(`${BASE}/groups`)).results;
 const out = {};
+const grpPre = {};   // extension TCGplayer → { sigle : nombre de cartes } (pour les visuels d'extension)
 let done = 0;
 const queue = groups.slice();
 await Promise.all(Array.from({ length: 4 }, async () => {
@@ -24,6 +25,7 @@ await Promise.all(Array.from({ length: 4 }, async () => {
     for (const p of res){
       const ex = Object.fromEntries((p.extendedData || []).map(e => [e.name, e.value]));
       const code = String(ex.Number || '').trim().toUpperCase();
+      { const pre = (code.match(/^([A-Z0-9]{2,6})-/) || [])[1]; if (pre){ const m = (grpPre[g.groupId] ||= {}); m[pre] = (m[pre] || 0) + 1; } }
       if (!/^[A-Z0-9]+-[A-Z]{0,2}\d+[A-Z]?$/.test(code) || !ex.Rarity || !p.imageCount) continue;
       const key = `${code}|${norm(ex.Rarity)}${/extended art/i.test(p.name) ? '|EA' : ''}`;
       const pre = code.split('-')[0];
@@ -43,6 +45,15 @@ for (const [pre, map] of Object.entries(out)){
   if (old !== txt){ await writeFile(f, txt); changed++; }
 }
 console.log('extensions :', Object.keys(out).length, '— fichiers modifiés :', changed);
+// Visuels d'extension Yu-Gi-Oh! : numéro d'extension TCGplayer par sigle (« MAMS ») et par nom ; l'image publique de Collectr est rangée sous ce numéro
+{ const c = {}, best = {}, n = {};
+  for (const g of groups){
+    n[norm(g.name)] = g.groupId;
+    const m = grpPre[g.groupId] || {}, top = Object.entries(m).sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] >= 3 && (!best[top[0]] || top[1] > best[top[0]])){ best[top[0]] = top[1]; c[top[0]] = g.groupId; }
+  }
+  await writeFile('data/ygogrp.json', JSON.stringify({ c, n }));
+  console.log('visuels d\'extension Yu-Gi-Oh! : sigles', Object.keys(c).length, '· noms', Object.keys(n).length); }
 
 // ---- Pokémon japonais (catégorie TCGplayer « Pokemon Japan ») : index par nom anglais de la carte
 // data/tcgpj/<1re lettre>.json : nom normalisé → [[n° produit, extension, numéro, rareté, photo ?], …]
