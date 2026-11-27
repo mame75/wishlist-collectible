@@ -3084,7 +3084,8 @@ async function pkmVersions(card){
       // Mirror Holo : même produit Cardmarket que la version normale (le prix holo de Cardmarket est celui du Mirror)
       tj.forEach(v => { if (v.mirror){ const b = tj.find(x => !x.mirror && x.set === v.set && x.localId === v.localId && x.rarity === v.rarity); if (b) v.basePid = b.id; } });
       // Rapprochement avec les cartes japonaises de TCGdex : même numéro, et même sigle d'extension (« SV6: … ») ou même nombre de cartes
-      const code = s => { const c = (String(s).match(/^([A-Za-z0-9+-]+):/) || [])[1]; return c && c.replace(/\+$/, 'p'); };   // « SM3+ » = « SM3p » chez TCGdex
+      // « SM3+ » = « SM3p » chez TCGdex ; promos : « SV-P Promotional Cards » → SV-P
+      const code = s => { const c = (String(s).match(/^([A-Za-z0-9+-]+)(?::|\s+Promotional)/i) || [])[1]; return c && c.replace(/\+$/, 'p'); };
       const nb = s => parseInt(String(s).split('/')[0], 10), tot = s => parseInt(String(s).split('/')[1], 10);
       const used = new Set();
       for (const o of ocg){
