@@ -1,6 +1,6 @@
 // Construit data/tcgp/<PREFIXE>.json : « CODE|rareté[|EA] » → n° de produit TCGplayer (photo de la carte)
 // Source : tcgcsv.com, copie publique quotidienne du catalogue TCGplayer (catégorie 2 = Yu-Gi-Oh!)
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 const BASE = 'https://tcgcsv.com/tcgplayer/2';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function get(url){
@@ -115,4 +115,66 @@ if (jp){
   await mkdir('data/cmjp', { recursive: true });
   for (const [b, m] of Object.entries(out)) await writeFile(`data/cmjp/${b}.json`, JSON.stringify(m));
   console.log('cartes japonaises reliées à Cardmarket :', linked);
+}
+
+// ---- Versions spéciales des cartes Pokémon (catalogue anglais, catégorie 3) : data/tcgpv/<id TCGdex de l'extension>.json
+// { numéro : [[type, libellé, n° produit TCGplayer, photo ?], …] } — Holo Cosmos, tampons (Pokémon Day, avant-première, Staff, ligue…),
+// motifs Poké Ball / Master Ball / Énergie, Cracked Ice… Les versions vendues dans un autre produit (« Pikachu - 051/162 (Cosmos Holo) »)
+// sont rattachées à la carte de l'extension qui a le même nom et le même numéro.
+{
+  const P3 = 'https://tcgcsv.com/tcgplayer/3';
+  const KINDS = [
+    [/cosmos/i, 'cosmos', 'Holo Cosmos'], [/cracked ice/i, 'cracked', 'Holo Cracked Ice'],
+    [/master ?ball/i, 'masterball', 'Reverse Master Ball'], [/^pok[eé] ?ball( pattern)?$/i, 'pokeball', 'Reverse Poké Ball'],
+    [/energy symbol/i, 'energy', 'Reverse Énergie'],
+    [/^(dusk|love|friend|quick|great|ultra|premier|heal|timer|nest|repeat|luxury|net|level|moon|fast|lure|heavy|dream|beast|safari|sport|park|dive|cherish) ball/i, 'ball', null],
+    [/pok[eé]mon day/i, 'pday', 'Tampon Pokémon Day'], [/pre-?release/i, 'prerelease', 'Tampon avant-première'], [/\bstaff\b/i, 'staff', 'Tampon Staff'],
+    [/pok[eé]mon center/i, 'pcenter', 'Pokémon Center'], [/holiday calendar/i, 'event', 'Calendrier de l\'Avent'],
+    [/\d+(st|nd|rd|th) (celebration|anniversary)/i, 'event', null],
+    [/league|championship|regional|worlds|\bgym\b|stamp/i, 'event', null]
+  ];
+  const kindOf = s => { for (const [re, k, l] of KINDS) if (re.test(s)) return [k, l || s.replace(/^#\d+\s*/, '')]; return null; };
+  const nkey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const numKey = s => String(s || '').split('/')[0].trim().toLowerCase().replace(/^([a-z]*)0+(\d)/, '$1$2');
+  const baseName = s => nkey(String(s).replace(/\s*\([^)]*\)/g, '').replace(/\s+-\s+.*$/, ''));
+  // Extensions TCGdex (anglais) : sigle officiel et nom
+  const tsets = await (await fetch('https://api.tcgdex.net/v2/en/sets')).json();
+  const byAbbr = {}, byName = {};
+  const tq = tsets.filter(s => !/^(A\d|B\d|P-A)/.test(s.id));
+  await Promise.all(Array.from({ length: 6 }, async () => { while (tq.length){ const s = tq.shift();
+    const d = await fetch(`https://api.tcgdex.net/v2/en/sets/${encodeURIComponent(s.id)}`).then(r => r.json()).catch(() => null);
+    const ab = d && d.abbreviation && d.abbreviation.official;
+    if (ab && !byAbbr[ab.toUpperCase()]) byAbbr[ab.toUpperCase()] = s.id;
+    byName[nkey(s.name)] ||= s.id; } }));
+  const g3 = (await get(`${P3}/groups`)).results;
+  const setOfGroup = g => byAbbr[String(g.abbreviation || '').toUpperCase()] || byName[nkey(String(g.name).replace(/^[A-Za-z0-9&.' ]+:\s*/, ''))] || byName[nkey(g.name)] || null;
+  const base = {};   // « nom|numéro complet » → id TCGdex (cartes normales des extensions)
+  const specials = [];
+  const q3 = g3.slice();
+  await Promise.all(Array.from({ length: 4 }, async () => { while (q3.length){ const g = q3.shift();
+    if (/world championship|trainer kit/i.test(g.name)) continue;
+    let res; try { res = (await get(`${P3}/${g.groupId}/products`)).results || []; } catch { continue; }
+    const sid = setOfGroup(g);
+    for (const p of res){
+      const ex = Object.fromEntries((p.extendedData || []).map(e => [e.name, e.value]));
+      if (!ex.Number) continue;
+      const suf = [...p.name.matchAll(/\(([^)]+)\)/g)].map(m => m[1]).filter(s => !/^#?\d+$/.test(s));
+      const kinds = suf.map(kindOf).filter(Boolean);
+      if (!kinds.length){ if (sid && !suf.length) base[`${baseName(p.name)}|${String(ex.Number).toLowerCase()}`] ||= sid; continue; }
+      specials.push({ sid, name: baseName(p.name), num: String(ex.Number).toLowerCase(), nameNum: (p.name.match(/ - ([A-Z]*\d+\/[A-Z]*\d+)/i) || [])[1], kind: kinds[0], pid: p.productId, photo: p.imageCount > 0 ? 1 : 0 });
+    }
+  } }));
+  const outv = {}; let linked = 0, lost = 0;
+  for (const s of specials){
+    const full = String(s.nameNum || s.num).toLowerCase();
+    const sid = base[`${s.name}|${full}`] || (s.sid && base[`${s.name}|${s.num}`] === s.sid ? s.sid : null) || (!s.nameNum ? s.sid : null);
+    if (!sid){ lost++; continue; }
+    const k = numKey(full), list = ((outv[sid] ||= {})[k] ||= []);
+    if (!list.some(x => x[2] === s.pid)){ list.push([s.kind[0], s.kind[1], s.pid, s.photo]); linked++; }
+  }
+  await rm('data/tcgpv', { recursive: true, force: true });
+  await mkdir('data/tcgpv', { recursive: true });
+  for (const [sid, m] of Object.entries(outv)) await writeFile(`data/tcgpv/${sid}.json`, JSON.stringify(m));
+  await writeFile('data/tcgpv.json', JSON.stringify(Object.fromEntries(Object.keys(outv).map(k => [k, 1]))));
+  console.log(`versions spéciales Pokémon : ${linked} rattachées, ${lost} sans carte d'origine, ${Object.keys(outv).length} extensions`);
 }
