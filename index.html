@@ -2244,6 +2244,8 @@ const YRAR = { 'common': 'C', 'rare': 'R', 'superrare': 'SR', 'ultrarare': 'UR',
   'shortprint': 'SP', 'supershortprint': 'SSP', 'extrasecretrare': 'ESR', 'normalparallelrare': 'NPR', 'holographicrare': 'HGR', 'parallelrare': 'PR', 'grandmasterrare': 'GMR',
   'overrushrare': 'ORR', 'secretparallelrare': 'SPR', 'ultraparallelrare': 'UPR', 'duelterminalnormalparallelrare': 'DNPR', 'ultrararepharaohsrare': 'URPR', 'qcsr': 'QCSR' };
 const yRarKey = p => norm(p.rarity) + (p.ea ? 'ea' : '');
+// Libellé de pastille : abréviation, plus le numéro si la même rareté existe sous plusieurs numéros dans la liste
+const yChip = (list, x) => { const ab = yRarAb(x), n = (String(x.code || '').match(/(\d+)$/) || [])[1]; return ab + (n && list.filter(y => yRarAb(y) === ab).length > 1 ? ' ' + n : ''); };
 const yRarAb = p => (YRAR[norm(p.rarity)] || String(p.rarity || '?').split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 5)) + (p.ea ? '·EA' : '');
 // Résultats Yu-Gi-Oh! dépliés : une entrée par extension (TCG, puis OCG à part avec le tampon OCG), dans l'ordre des sorties
 function expandYgo(cards, mk, onlySet){
@@ -2644,7 +2646,7 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
       .sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
     if (same.length < 2){ box.innerHTML = ''; return; }
     const ck = printKey(cur);
-    box.innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
+    box.innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(same, x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
     box.onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = same.find(y => printKey(y) === b.dataset.k); if (x) select(x); };
   };
   // Total des éditions comme dans la page « Choisir l'édition » : TCG + variantes étendues + OCG
@@ -2747,7 +2749,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
       + rows.map(p => `<button class="ed ${groups[p._g].some(x => x.key === selKey) ? 'on' : ''}" data-k="${esc(p.key)}" data-g="${p._g}" data-code="${esc(p.code)}">
           ${imgBox({ name: p.set, set: p.code, img: p.img || (arts[p.code] && arts[p.code].img), holo: p.holo, holoR: p.rarity }, false, (p.ocg ? '<span class="bdg">OCG</span>' : '') + (p.user ? '<span class="bdg grade">Ta photo</span>' : ''))}
           <div><div class="st">${p.code ? ygoAbbr(p.code, p.set) : ''}${esc(p.set)}</div><div class="mt">${esc(p.link ? 'Lien Cardmarket' : p.code)}${p.yr ? ' · ' + p.yr : ''}</div><div class="rr">${esc(rarityLabel(p))}</div>
-            ${p._n > 1 ? `<div class="vars">${groups[p._g].map((x, j) => `<span class="var txt ${x === p ? 'on' : ''}" role="button" data-j="${j}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yRarAb(x))}</span>`).join('')}</div>` : ''}</div>
+            ${p._n > 1 ? `<div class="vars">${groups[p._g].map((x, j) => `<span class="var txt ${x === p ? 'on' : ''}" role="button" data-j="${j}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(groups[p._g], x))}</span>`).join('')}</div>` : ''}</div>
         </button>`).join('')
       + (rows.length ? '' : '<div class="status" style="grid-column:1/-1">Aucune édition ne correspond.</div>');
   };
