@@ -2682,18 +2682,35 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
   // Raretés de l'extension de l'impression choisie (et ses illustrations étendues), en pastilles
   let eaPool = [];
   if (nameEn) tcgVariants(nameEn).then(v => { eaPool = v || []; drawRar(); }).catch(() => {});
-  const drawRar = () => {
+  // Chaque rareté est une version à part : une Ultra Rare en illustration normale et en illustration étendue font deux pastilles
+  let rarTok = 0;
+  const drawRar = async () => {
     const box = $('#ygvars'); if (!box) return;
-    const cur = findPrint(list, $('#cprint').value);
+    const cur = findPrint(list, $('#cprint').value), tok = ++rarTok;
     if (!cur || cur.link || !cur.set){ box.innerHTML = ''; return; }
-    const seen = new Set(), same = [...list, ...eaPool.map(v => ({ ...v, set: cur.set }))].filter(x => !x.link && !!x.ocg === !!cur.ocg
+    const seen = new Set();
+    let same = [...list, ...eaPool.map(v => ({ ...v, set: cur.set }))].filter(x => !x.link && !!x.ocg === !!cur.ocg
       && (x.set === cur.set || (x.ea && list.some(y => y.code === x.code && y.set === cur.set))))
-      .filter(x => { const k = printKey(x); if (seen.has(k)) return false; seen.add(k); return true; })
-      .sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
-    if (same.length < 2){ box.innerHTML = ''; return; }
-    const ck = printKey(cur);
-    box.innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(same, x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
-    box.onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = same.find(y => printKey(y) === b.dataset.k); if (x) select(x); };
+      .filter(x => { const k = printKey(x); if (seen.has(k)) return false; seen.add(k); return true; });
+    const paint = () => {
+      if (tok !== rarTok || !$('#ygvars')) return;
+      same.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
+      const ck = printKey(findPrint(list, $('#cprint').value) || cur);
+      $('#ygvars').innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(same, x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
+      $('#ygvars').onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = same.find(y => printKey(y) === b.dataset.k); if (x) select(x); };
+    };
+    paint();
+    // Liste officielle de l'extension : rareté qui existe aussi en étendue (pastille ajoutée) ou seulement en étendue (pastille remplacée)
+    if (!nameEn) return;
+    const base = same.filter(x => !x.ea);
+    const kinds = await Promise.all(base.map(x => artVariants(x).catch(() => null)));
+    if (tok !== rarTok) return;
+    base.forEach((x, i) => {
+      const twin = same.find(y => y.ea && y.code === x.code && sameRarity(y.rarity, x.rarity));
+      if (kinds[i] === 'both' && !twin) same.push({ code: x.code, set: x.set, rarity: x.rarity, ...(x.ocg ? { ocg: true } : {}), ea: true });
+      if (kinds[i] === 'ea'){ same = same.filter(y => y !== x); if (!twin) same.push({ code: x.code, set: x.set, rarity: x.rarity, ...(x.ocg ? { ocg: true } : {}), ea: true }); }
+    });
+    paint();
   };
   // Total des éditions comme dans la page « Choisir l'édition » : TCG + variantes étendues + OCG
   if (nameEn) Promise.all([tcgVariants(nameEn).catch(() => []), ocgPrints(nameEn).catch(() => [])]).then(([ea, jp]) => {
@@ -2718,7 +2735,7 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
       const base = { code: p.code, set: p.set, rarity: p.rarity, ...(p.ocg ? { ocg:true } : {}) };
       select(list.find(x => !x.ea && !x.link && x.code === p.code && sameRarity(x.rarity, p.rarity)) || base); return;
     }
-    if (kind === 'ea'){ box.innerHTML = '<span class="hint">Illustration étendue : seule version de cette rareté dans cette extension.</span>'; return; }
+    return;   // le choix normale / étendue se fait maintenant avec les pastilles de rareté
     if (!show) return;
     box.innerHTML = `<span class="hint">Illustration</span><div class="seg" id="eaSeg">
       <button type="button" data-ea="0" class="${p.ea ? '' : 'on'}">Normale</button><button type="button" data-ea="1" class="${p.ea ? 'on' : ''}">Étendue</button></div>`;
