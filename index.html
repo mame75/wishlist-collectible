@@ -2291,7 +2291,7 @@ function expandYgo(cards, mk, onlySet){
     if (!gs.length){ if (!(c.prints || []).length && !(c.ocgPrints || []).length) out.push(c); continue; }
     gs.sort((a, b) => (a.ocg - b.ocg) || (dates[b.set] || '').localeCompare(dates[a.set] || ''));
     for (const g of gs){
-      g.prints.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
+      g.prints.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (!!a.ea - !!b.ea));
       const p0 = (c.eaPick && g.prints.find(x => x === c.eaPick)) || g.prints[0];
       // Illustration étendue trouvée (TCGplayer / Yugipedia) : son image est rangée dans la carte (c.img), pas dans l'impression
       const ea = c.eaPick && c.eaPick === p0;
@@ -2694,7 +2694,7 @@ function bindPrintPicker(prints, onPick, nameEn, getLang, owner){
       .filter(x => { const k = printKey(x); if (seen.has(k)) return false; seen.add(k); return true; });
     const paint = () => {
       if (tok !== rarTok || !$('#ygvars')) return;
-      same.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea));
+      same.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (!!a.ea - !!b.ea));
       const ck = printKey(findPrint(list, $('#cprint').value) || cur);
       $('#ygvars').innerHTML = same.map(x => `<button type="button" class="var txt ${printKey(x) === ck ? 'on' : ''}" data-k="${esc(printKey(x))}" title="${esc(x.code)} · ${esc(x.rarity)}${x.ea ? ' (illustration étendue)' : ''}">${esc(yChip(same, x))} <small>${esc(x.rarity)}${x.ea ? ' · étendue' : ''}</small></button>`).join('');
       $('#ygvars').onclick = e => { const b = e.target.closest('.var'); if (!b) return; const x = same.find(y => printKey(y) === b.dataset.k); if (x) select(x); };
@@ -2805,7 +2805,7 @@ async function openEditions(prints, selKey, onPick, nameEn, lang, owner){
     // Une tuile par extension (TCG puis OCG, de la plus récente à la plus ancienne), ses raretés en pastilles
     const gmap = new Map();
     rows0.forEach(p => { const k = (p.ocg ? 'J|' : 'T|') + (p.link ? 'link|' + p.key : p.set); if (!gmap.has(k)) gmap.set(k, []); gmap.get(k).push(p); });
-    groups = [...gmap.values()].map(g => g.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (a.ea - b.ea)))
+    groups = [...gmap.values()].map(g => g.sort((a, b) => rarityRank(a.rarity) - rarityRank(b.rarity) || (!!a.ea - !!b.ea)))
       .sort((a, b) => !!a[0].ocg - !!b[0].ocg || (b[0].d || '').localeCompare(a[0].d || ''));
     const rows = groups.map((g, gi) => { const s = gsel[gi] != null && g[gsel[gi]] ? g[gsel[gi]] : g.find(x => x.key === selKey) || g[g.length - 1]; s._g = gi; s._n = g.length; return s; });
     $('#edgrid').innerHTML = ''
